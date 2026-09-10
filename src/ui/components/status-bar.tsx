@@ -32,22 +32,12 @@ function formatTokens(n: number): string {
  * - Left: "? for shortcuts" in muted text (or "▸ Press Ctrl+C again to exit" if quit hint)
  * - Right: Active model name in dim text (with optional token counters)
  */
-export const StatusBar: React.FC<StatusBarProps> = ({ model, usage, isBusy, exitPending }) => {
+export const StatusBar: React.FC<StatusBarProps> = ({ model, usage, exitPending }) => {
   const theme = getTheme();
-  const [spinnerIndex, setSpinnerIndex] = useState(0);
-
-  // Animate spinner during generation
-  useEffect(() => {
-    if (!isBusy) return;
-    const interval = setInterval(() => {
-      setSpinnerIndex((prev) => (prev + 1) % figures.spinnerFrames.length);
-    }, 80);
-    return () => clearInterval(interval);
-  }, [isBusy]);
 
   return (
     <Box flexDirection="row" justifyContent="space-between" width="100%" paddingX={1} marginTop={0}>
-      {/* Left side: Shortcuts hint or exit hint or streaming status */}
+      {/* Left side: Shortcuts hint or exit hint */}
       <Box>
         {exitPending ? (
           <Box flexDirection="row">
@@ -56,10 +46,6 @@ export const StatusBar: React.FC<StatusBarProps> = ({ model, usage, isBusy, exit
             <Text color={theme.error}>Ctrl+C</Text>
             <Text dimColor> again to exit</Text>
           </Box>
-        ) : isBusy ? (
-          <Text color={theme.permission}>
-            {figures.spinnerFrames[spinnerIndex]} processing… <Text dimColor>(Esc to stop)</Text>
-          </Text>
         ) : (
           <Text color={theme.textMuted}>? for shortcuts</Text>
         )}
