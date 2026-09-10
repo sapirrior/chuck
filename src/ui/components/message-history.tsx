@@ -100,12 +100,28 @@ export const MessageHistory: React.FC<MessageHistoryProps> = ({
             );
 
           case 'assistant':
-          default:
+          default: {
+            const lines = item.content.split('\n');
+            const firstLine = lines[0] ?? '';
+            const restLines = lines.slice(1);
             return (
-              <Box key={item.id} marginY={0} paddingLeft={2} flexDirection="column">
-                <Text color={theme.text}>{item.content}</Text>
+              <Box key={item.id} marginY={0} flexDirection="column">
+                <Box flexDirection="row">
+                  <Text color={theme.text}>{figures.blackCircle} </Text>
+                  <Text color={theme.text}>{firstLine}</Text>
+                </Box>
+                {restLines.length > 0 ? (
+                  <Box paddingLeft={2} flexDirection="column">
+                    {restLines.map((line, lIdx) => (
+                      <Text key={lIdx} color={theme.text}>
+                        {line}
+                      </Text>
+                    ))}
+                  </Box>
+                ) : null}
               </Box>
             );
+          }
         }
       })}
 
@@ -118,10 +134,31 @@ export const MessageHistory: React.FC<MessageHistoryProps> = ({
         </Box>
       ) : null}
 
-      {/* Real-time streaming assistant text */}
+      {/* Real-time streaming assistant text with bullet */}
       {streamingText ? (
-        <Box marginY={0} paddingLeft={2}>
-          <Text color={theme.text}>{streamingText}</Text>
+        <Box marginY={0} flexDirection="column">
+          {(() => {
+            const lines = streamingText.split('\n');
+            const firstLine = lines[0] ?? '';
+            const restLines = lines.slice(1);
+            return (
+              <>
+                <Box flexDirection="row">
+                  <Text color={theme.text}>{figures.blackCircle} </Text>
+                  <Text color={theme.text}>{firstLine}</Text>
+                </Box>
+                {restLines.length > 0 ? (
+                  <Box paddingLeft={2} flexDirection="column">
+                    {restLines.map((line, lIdx) => (
+                      <Text key={lIdx} color={theme.text}>
+                        {line}
+                      </Text>
+                    ))}
+                  </Box>
+                ) : null}
+              </>
+            );
+          })()}
         </Box>
       ) : null}
     </Box>
