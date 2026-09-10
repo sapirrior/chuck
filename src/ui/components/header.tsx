@@ -37,9 +37,9 @@ export const Header: React.FC<HeaderProps> = ({ version = '0.1.0' }) => {
         <Text dimColor> for commands</Text>
       </Box>
 
-      {/* Line 3: Bottom of logo */}
+      {/* Line 3: Bottom of logo with octopus-like tentacles */}
       <Box flexDirection="row">
-        <Text color={theme.brand}> ▘   ▝</Text>
+        <Text color={theme.brand}> ▘▘▖▗▝▝</Text>
       </Box>
     </Box>
   );
