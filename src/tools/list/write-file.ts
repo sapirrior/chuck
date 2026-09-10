@@ -54,7 +54,9 @@ export const writeFileTool: ToolDefinition<typeof writeFileInputSchema, WriteFil
     return {
       toolName: 'write_file',
       displayName: 'Write File',
-      promptTitle: exists ? `Overwrite existing file ${args.path}?` : `Create new file ${args.path}?`,
+      promptTitle: exists
+        ? `Overwrite existing file ${args.path}?`
+        : `Create new file ${args.path}?`,
       args: {
         path: args.path,
         content: args.content,

@@ -5,7 +5,10 @@ import type { ToolDefinition } from '../types.js';
 
 export const searchTextInputSchema = z.object({
   query: z.string().describe('The regex or text pattern to search for across files.'),
-  path: z.string().optional().describe('Target directory to search. Defaults to current directory.'),
+  path: z
+    .string()
+    .optional()
+    .describe('Target directory to search. Defaults to current directory.'),
   case_insensitive: z.boolean().optional().describe('Whether search is case insensitive.'),
   limit: z
     .number()
@@ -32,7 +35,15 @@ export interface SearchTextOutput {
   isTruncated: boolean;
 }
 
-const IGNORED_DIRS = new Set(['node_modules', '.git', 'dist', 'build', '.cache', '.next', '.turbo']);
+const IGNORED_DIRS = new Set([
+  'node_modules',
+  '.git',
+  'dist',
+  'build',
+  '.cache',
+  '.next',
+  '.turbo',
+]);
 
 function searchInDir(
   dir: string,

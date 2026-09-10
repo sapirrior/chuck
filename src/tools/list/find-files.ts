@@ -4,13 +4,8 @@ import { z } from 'zod';
 import type { ToolDefinition } from '../types.js';
 
 export const findFilesInputSchema = z.object({
-  pattern: z
-    .string()
-    .describe('Substring or wildcard glob pattern to search for in file names.'),
-  path: z
-    .string()
-    .optional()
-    .describe('Starting directory path. Defaults to workspace root.'),
+  pattern: z.string().describe('Substring or wildcard glob pattern to search for in file names.'),
+  path: z.string().optional().describe('Starting directory path. Defaults to workspace root.'),
   limit: z
     .number()
     .int()
@@ -33,7 +28,15 @@ export interface FindFilesOutput {
 function walkDir(dir: string, baseDir: string, pattern: string, results: string[], limit: number) {
   if (results.length >= limit) return;
 
-  const IGNORED_DIRS = new Set(['node_modules', '.git', 'dist', 'build', '.cache', '.next', '.turbo']);
+  const IGNORED_DIRS = new Set([
+    'node_modules',
+    '.git',
+    'dist',
+    'build',
+    '.cache',
+    '.next',
+    '.turbo',
+  ]);
 
   try {
     const entries = readdirSync(dir, { withFileTypes: true });
@@ -48,7 +51,10 @@ function walkDir(dir: string, baseDir: string, pattern: string, results: string[
         }
       } else if (entry.isFile()) {
         const rel = relative(baseDir, join(dir, entry.name));
-        if (entry.name.toLowerCase().includes(lowerPattern) || rel.toLowerCase().includes(lowerPattern)) {
+        if (
+          entry.name.toLowerCase().includes(lowerPattern) ||
+          rel.toLowerCase().includes(lowerPattern)
+        ) {
           results.push(rel);
         }
       }

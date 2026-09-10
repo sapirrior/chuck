@@ -19,7 +19,10 @@ export interface UseAgentRunnerOptions {
   cwd?: string;
 }
 
-export function useAgentRunner({ initialSession, cwd = process.cwd() }: UseAgentRunnerOptions = {}) {
+export function useAgentRunner({
+  initialSession,
+  cwd = process.cwd(),
+}: UseAgentRunnerOptions = {}) {
   const [session, setSession] = useState<AgentSession>(() => initialSession ?? new AgentSession());
   const [historyItems, setHistoryItems] = useState<UIHistoryItem[]>([]);
   const [streamingReasoning, setStreamingReasoning] = useState('');
@@ -291,7 +294,10 @@ export function useAgentRunner({ initialSession, cwd = process.cwd() }: UseAgent
                         } else if (anyRes.url && anyRes.status) {
                           outputSummary = `Fetched ${anyRes.contentType} (${anyRes.status} OK, ${anyRes.content?.length ?? 0} chars)`;
                         } else if (anyRes.content) {
-                          outputSummary = typeof anyRes.content === 'string' ? anyRes.content.split('\n')[0] : JSON.stringify(anyRes.content);
+                          outputSummary =
+                            typeof anyRes.content === 'string'
+                              ? anyRes.content.split('\n')[0]
+                              : JSON.stringify(anyRes.content);
                         }
                       } else if (typeof res === 'string' && res.trim()) {
                         outputSummary = res.trim().split('\n')[0];
@@ -302,7 +308,9 @@ export function useAgentRunner({ initialSession, cwd = process.cwd() }: UseAgent
                         toolData: {
                           ...item.toolData,
                           status: event.toolResult.isError ? 'failed' : 'completed',
-                          error: event.toolResult.isError ? String(event.toolResult.result) : undefined,
+                          error: event.toolResult.isError
+                            ? String(event.toolResult.result)
+                            : undefined,
                           toolOutput: outputSummary,
                         },
                       };

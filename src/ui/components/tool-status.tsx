@@ -79,7 +79,17 @@ export const ToolStatus: React.FC<ToolStatusProps> = ({
   if (argsSummary) {
     try {
       const parsed = JSON.parse(argsSummary);
-      const primaryKeys = ['path', 'file_path', 'target_file', 'command', 'url', 'query', 'pattern', 'name', 'prompt'];
+      const primaryKeys = [
+        'path',
+        'file_path',
+        'target_file',
+        'command',
+        'url',
+        'query',
+        'pattern',
+        'name',
+        'prompt',
+      ];
       for (const k of primaryKeys) {
         if (parsed[k]) {
           rawArg = String(parsed[k]);
