@@ -12,8 +12,7 @@ Universal operational guidelines for AI coding agents working in the `xd` reposi
 
 ## 2. Source of Truth for APIs & Libraries
 - **Vercel AI SDK & Ink APIs:** Always consult reference skills in `.agents/skills/` before writing code. Do not hallucinate or rely on outdated pre-training memory for API signatures.
-- **TUI Theme & Colors:** Consult `references/delta.wit.xml` strictly for color palette codes and UI theme tokens.
-- **Strict Separation:** `references/delta.wit.xml` defines visual styling only—never derive application logic, control flow, or architecture from it. See [IMPORTANT.md](file:///data/data/com.termux/files/home/works/xd/IMPORTANT.md).
+- **Reference Code & Examples:** Consult `references/` for design patterns, conceptual examples, and UI references (see [IMPORTANT.md](file:///data/data/com.termux/files/home/works/xd/IMPORTANT.md)). Do not blindly copy reference code.
 
 ## 3. Architecture & Directory Boundaries (Future Guidance)
 All application source code will reside in `src/`. Future code must maintain strict separation of concerns:

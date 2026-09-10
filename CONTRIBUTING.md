@@ -64,7 +64,7 @@ All application logic will reside under `src/`. To maintain maintainability, fut
 
 ### Ink Components
 - Keep Ink components modular: one component per file with colocated custom hooks when applicable.
-- Adhere strictly to the styling tokens outlined in `references/delta.wit.xml`.
+- Adhere to design tokens and UI references provided in `references/`.
 
 ---
 

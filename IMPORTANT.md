@@ -17,14 +17,23 @@ This document tracks directories and assets in `xd` that are supplied manually b
 ---
 
 ## 2. `references/` Directory (Human-Managed)
-- **Expected Asset:** `references/delta.wit.xml` (source artifact is named `delta_wit.xml`; human maintainer to confirm final placement and filename naming convention).
-- **Role:** Pure styling and theming reference data containing terminal UI color codes, theme tokens, and palette structures.
-- **Strict Logic/Styling Separation Rule:**
-  - `delta.wit.xml` informs **how things look**, never **how things work**.
-  - No logic, application behavior, control flow, tool execution, or architectural structure may ever be derived from `delta.wit.xml`.
-- **Rules for Agents:**
-  - Read-only reference for theme/color definitions in Ink components.
-  - Never generate or modify files inside `references/`.
+The `references/` directory contains external reference archives and codebases provided to guide design, architecture, and examples. It is human-managed and read-only.
+
+- **Inspection Protocol (`wit` CLI):**
+  - References stored as `.wit.xml` snapshot archives must **never** be dumped raw into the agent context.
+  - Inspect snapshot contents specifically via the `wit` CLI tool (e.g., `wit list references/<file>.wit.xml`, `wit glance references/<file>.wit.xml <path|identity>`, `wit meta <file>.wit.xml`).
+
+- **Reference Assets:**
+  - **`references/delta.wit.xml`:**
+    - Provides architectural and conceptual context on what constitutes a *General-Purpose Agent* (note: this codebase is incomplete and contains known bugs/rough edges; learn from its concepts, do not copy broken patterns).
+    - Also serves as reference data for theme colors and palette structure.
+  - **`references/claude-code.wit.xml`:**
+    - Reference for code logic examples and full terminal UI/UX implementation patterns.
+    - `xd` aims to be a comparable terminal agent equivalent to Claude Code, but engineered cleanly with TypeScript, Vercel AI SDK, and Ink—use it for inspiration and logic patterns, never blindly clone it.
+
+- **Strict Rules for Agents:**
+  - `references/` is strictly for reading examples and inspiration.
+  - Never generate, overwrite, or edit files in `references/`.
 
 ---
 
