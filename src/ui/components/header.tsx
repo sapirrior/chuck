@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Text } from 'ink';
+import { Box, Text, useWindowSize } from 'ink';
 import { figures, getTheme } from '../theme/index.js';
 
 export interface HeaderProps {
@@ -13,7 +13,9 @@ export interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ version = '0.1.0', cwd, model }) => {
   const theme = getTheme();
+  const { columns } = useWindowSize();
   const dirName = cwd.split('/').filter(Boolean).pop() ?? cwd;
+  const dividerWidth = Math.max(10, columns - 4);
 
   return (
     <Box flexDirection="column" marginBottom={0} width="100%">
@@ -35,8 +37,9 @@ export const Header: React.FC<HeaderProps> = ({ version = '0.1.0', cwd, model })
         </Box>
       </Box>
       <Box width="100%">
-        <Text dimColor>{figures.horizontalLine.repeat(60)}</Text>
+        <Text dimColor>{figures.horizontalLine.repeat(dividerWidth)}</Text>
       </Box>
     </Box>
   );
 };
+
