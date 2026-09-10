@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { useDoublePress } from '../hooks/use-double-press.js';
 import { useInputCompletions } from '../hooks/use-input-completions.js';
@@ -14,6 +14,30 @@ export interface PromptInputProps {
   exitPending?: boolean;
   cwd?: string;
   onToggleHelp?: () => void;
+  initialHistory?: string[];
+}
+
+function getCursorLineCol(text: string, cursorPos: number) {
+  const beforeCursor = text.slice(0, cursorPos);
+  const beforeLines = beforeCursor.split('\n');
+  const lineIdx = beforeLines.length - 1;
+  const colIdx = beforeLines[lineIdx]?.length ?? 0;
+  const allLines = text.split('\n');
+  return {
+    lineIdx,
+    colIdx,
+    totalLines: allLines.length,
+    lines: allLines,
+  };
+}
+
+function getOffsetFromLineCol(lines: string[], lineIdx: number, colIdx: number): number {
+  let offset = 0;
+  for (let i = 0; i < lineIdx; i++) {
+    offset += (lines[i]?.length ?? 0) + 1; // + 1 for '\n'
+  }
+  const targetLineLen = lines[lineIdx]?.length ?? 0;
+  return offset + Math.min(colIdx, targetLineLen);
 }
 
 const STATUS_WORDS = [
@@ -32,14 +56,22 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   exitPending = false,
   cwd = process.cwd(),
   onToggleHelp,
+  initialHistory,
 }) => {
   const theme = getTheme();
   const [value, setValue] = useState('');
   const [cursorPos, setCursorPos] = useState(0);
-  const [history, setHistory] = useState<string[]>([]);
+  const [history, setHistory] = useState<string[]>(() => initialHistory ?? []);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
+  const draftRef = useRef<string>('');
   const [escPending, setEscPending] = useState(false);
   const [spinnerFrame, setSpinnerFrame] = useState(0);
+
+  useEffect(() => {
+    if (initialHistory && initialHistory.length > 0) {
+      setHistory(initialHistory);
+    }
+  }, [initialHistory]);
 
   // Spinner & sweeping wave animation when disabled / busy
   useEffect(() => {
@@ -124,8 +156,11 @@ export const PromptInput: React.FC<PromptInputProps> = ({
           const chosen = matchingCommands[paletteIdx] ?? matchingCommands[0];
           if (chosen) {
             const cmdText = `/${chosen.name}`;
-            setHistory((prev) => [...prev, cmdText]);
+            setHistory((prev) =>
+              prev.length > 0 && prev[prev.length - 1] === cmdText ? prev : [...prev, cmdText],
+            );
             setHistoryIndex(-1);
+            draftRef.current = '';
             setValue('');
             setCursorPos(0);
             onSubmit(cmdText);
@@ -145,8 +180,11 @@ export const PromptInput: React.FC<PromptInputProps> = ({
 
         const trimmed = value.trim();
         if (trimmed) {
-          setHistory((prev) => [...prev, trimmed]);
+          setHistory((prev) =>
+            prev.length > 0 && prev[prev.length - 1] === trimmed ? prev : [...prev, trimmed],
+          );
           setHistoryIndex(-1);
+          draftRef.current = '';
           setValue('');
           setCursorPos(0);
           setFileMatches([]);
@@ -195,7 +233,21 @@ export const PromptInput: React.FC<PromptInputProps> = ({
           setPaletteIdx((prev) => (prev > 0 ? prev - 1 : matchingCommands.length - 1));
           return;
         }
+
+        const { lineIdx, colIdx, lines } = getCursorLineCol(value, cursorPos);
+
+        // If not on top line, move cursor up one line at the same column
+        if (lineIdx > 0) {
+          const newPos = getOffsetFromLineCol(lines, lineIdx - 1, colIdx);
+          setCursorPos(newPos);
+          return;
+        }
+
+        // Cursor is on the top line (or single-line input): travel to older history
         if (history.length > 0) {
+          if (historyIndex === -1) {
+            draftRef.current = value;
+          }
           const nextIndex =
             historyIndex === -1 ? history.length - 1 : Math.max(0, historyIndex - 1);
           setHistoryIndex(nextIndex);
@@ -216,12 +268,24 @@ export const PromptInput: React.FC<PromptInputProps> = ({
           setPaletteIdx((prev) => (prev < matchingCommands.length - 1 ? prev + 1 : 0));
           return;
         }
+
+        const { lineIdx, colIdx, lines, totalLines } = getCursorLineCol(value, cursorPos);
+
+        // If not on bottom line, move cursor down one line at the same column
+        if (lineIdx < totalLines - 1) {
+          const newPos = getOffsetFromLineCol(lines, lineIdx + 1, colIdx);
+          setCursorPos(newPos);
+          return;
+        }
+
+        // Cursor is on the bottom line (or single-line input): travel to newer history
         if (historyIndex !== -1) {
           const nextIndex = historyIndex + 1;
           if (nextIndex >= history.length) {
             setHistoryIndex(-1);
-            setValue('');
-            setCursorPos(0);
+            setValue(draftRef.current);
+            setCursorPos(draftRef.current.length);
+            draftRef.current = '';
           } else {
             setHistoryIndex(nextIndex);
             const historical = history[nextIndex] ?? '';

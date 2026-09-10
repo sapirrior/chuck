@@ -104,6 +104,9 @@ export const App: React.FC<AppProps> = ({ session: initialSession, cwd = process
           exitPending={exitPending}
           cwd={cwd}
           onToggleHelp={() => setShowHelp((prev) => !prev)}
+          initialHistory={session.session.turns
+            .map((t) => t.userPrompt)
+            .filter((p): p is string => Boolean(p && p.trim()))}
         />
       )}
 
