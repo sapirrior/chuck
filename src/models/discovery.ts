@@ -31,9 +31,9 @@ const OPENAI_MODEL_REGEX = /^(gpt-4|gpt-3\.5|o1|o3)/i;
 
 // Google models: include only gemini- and gemma- models
 const GOOGLE_MODEL_INCLUDE_REGEX = /^(gemini|gemma)-/i;
-// Exclude non-text/specialized models: omni, antigravity, robotics, embedding, audio, tts, transcribe, live
+// Exclude non-text/specialized models: omni, antigravity, robotics, embedding, audio, tts, transcribe, live, computer, image
 const GOOGLE_MODEL_EXCLUDE_REGEX =
-  /(omni|antigravity|robotics|embedding|audio|tts|transcribe|live)/i;
+  /(omni|antigravity|robotics|embedding|audio|tts|transcribe|live|computer|image)/i;
 
 const DEFAULT_FETCH_TIMEOUT_MS = 10_000;
 
