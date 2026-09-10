@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Text } from 'ink';
 import type { TokenUsage } from '../../agent/types.js';
 import { figures, getTheme } from '../theme/index.js';
@@ -10,6 +10,7 @@ export interface StatusBarProps {
   };
   usage: TokenUsage;
   isBusy: boolean;
+  exitPending?: boolean;
 }
 
 function formatTokens(n: number): string {
@@ -22,21 +23,34 @@ function formatTokens(n: number): string {
   return `${n}`;
 }
 
-export const StatusBar: React.FC<StatusBarProps> = ({ model, usage, isBusy }) => {
+export const StatusBar: React.FC<StatusBarProps> = ({ model, usage, isBusy, exitPending }) => {
   const theme = getTheme();
+  const [spinnerIndex, setSpinnerIndex] = useState(0);
+
+  // Animate spinner when generating
+  useEffect(() => {
+    if (!isBusy) return;
+    const interval = setInterval(() => {
+      setSpinnerIndex((prev) => (prev + 1) % figures.spinnerFrames.length);
+    }, 80);
+    return () => clearInterval(interval);
+  }, [isBusy]);
 
   return (
     <Box flexDirection="row" justifyContent="space-between" width="100%" marginTop={1}>
       <Box>
-        <Text dimColor>
-          {isBusy ? (
-            <Text color={theme.permission}>{figures.spinnerFrames[0]} processing...</Text>
-          ) : (
-            <>
-              /model {figures.bullet} /clear {figures.bullet} Ctrl+C to exit
-            </>
-          )}
-        </Text>
+        {exitPending ? (
+          <Text color={theme.error}>Press Ctrl+C again to exit</Text>
+        ) : isBusy ? (
+          <Text color={theme.permission}>
+            {figures.spinnerFrames[spinnerIndex]} processing... <Text dimColor>(Esc to stop)</Text>
+          </Text>
+        ) : (
+          <Text dimColor>
+            /model {figures.bullet} /clear {figures.bullet} Esc to clear {figures.bullet} 2x Ctrl+C
+            to exit
+          </Text>
+        )}
       </Box>
 
       <Box>

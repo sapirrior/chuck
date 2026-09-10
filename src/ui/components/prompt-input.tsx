@@ -1,19 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { defaultCommandRegistry } from '../../commands/registry.js';
+import { useDoublePress } from '../hooks/use-double-press.js';
 import { figures, getTheme } from '../theme/index.js';
 
 export interface PromptInputProps {
   onSubmit: (text: string) => void;
   disabled?: boolean;
+  onAbort?: () => void;
+  onExit?: () => void;
+  exitPending?: boolean;
 }
 
-export const PromptInput: React.FC<PromptInputProps> = ({ onSubmit, disabled = false }) => {
+export const PromptInput: React.FC<PromptInputProps> = ({
+  onSubmit,
+  disabled = false,
+  onAbort,
+  onExit,
+  exitPending = false,
+}) => {
   const theme = getTheme();
   const [value, setValue] = useState('');
   const [cursorPos, setCursorPos] = useState(0);
   const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
+  const [escPending, setEscPending] = useState(false);
 
   // Match slash commands for autocomplete hints
   const slashCommands = defaultCommandRegistry.getAll();
@@ -22,11 +33,35 @@ export const PromptInput: React.FC<PromptInputProps> = ({ onSubmit, disabled = f
       ? slashCommands.find((c) => `/${c.name}`.startsWith(value))
       : undefined;
 
+  // Double-press Escape to clear input bar
+  const handleEscapeDoublePress = useDoublePress(
+    (pending) => setEscPending(pending),
+    () => {
+      setValue('');
+      setCursorPos(0);
+      setHistoryIndex(-1);
+    },
+  );
+
   useInput(
     (input, key) => {
-      if (disabled) return;
+      // 1. If currently generating (disabled), Escape stops generation immediately
+      if (disabled) {
+        if (key.escape) {
+          onAbort?.();
+        }
+        return;
+      }
 
-      // 1. Submit on Return
+      // 2. Escape when not generating: Double press clears input
+      if (key.escape) {
+        if (value.length > 0) {
+          handleEscapeDoublePress();
+        }
+        return;
+      }
+
+      // 3. Submit on Return
       if (key.return) {
         const trimmed = value.trim();
         if (trimmed) {
@@ -39,7 +74,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({ onSubmit, disabled = f
         return;
       }
 
-      // 2. Tab completion for slash command
+      // 4. Tab completion for slash command
       if (key.tab && matchingCommand) {
         const completed = `/${matchingCommand.name} `;
         setValue(completed);
@@ -47,7 +82,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({ onSubmit, disabled = f
         return;
       }
 
-      // 3. Arrow Up (History previous)
+      // 5. Arrow Up (History recall)
       if (key.upArrow) {
         if (history.length > 0) {
           const nextIndex =
@@ -60,7 +95,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({ onSubmit, disabled = f
         return;
       }
 
-      // 4. Arrow Down (History next)
+      // 6. Arrow Down (History recall forward)
       if (key.downArrow) {
         if (historyIndex !== -1) {
           const nextIndex = historyIndex + 1;
@@ -78,7 +113,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({ onSubmit, disabled = f
         return;
       }
 
-      // 5. Backspace / Delete
+      // 7. Backspace / Delete
       if (key.backspace || key.delete) {
         if (cursorPos > 0) {
           const before = value.slice(0, cursorPos - 1);
@@ -89,7 +124,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({ onSubmit, disabled = f
         return;
       }
 
-      // 6. Left / Right navigation
+      // 8. Left / Right navigation
       if (key.leftArrow) {
         setCursorPos(Math.max(0, cursorPos - 1));
         return;
@@ -99,7 +134,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({ onSubmit, disabled = f
         return;
       }
 
-      // 7. Regular character input
+      // 9. Regular text input
       if (input && !key.ctrl && !key.meta) {
         const before = value.slice(0, cursorPos);
         const after = value.slice(cursorPos);
@@ -107,13 +142,17 @@ export const PromptInput: React.FC<PromptInputProps> = ({ onSubmit, disabled = f
         setCursorPos(cursorPos + input.length);
       }
     },
-    { isActive: !disabled },
+    { isActive: true },
   );
 
   return (
     <Box flexDirection="column" marginTop={1}>
-      {/* Autocomplete suggestion banner */}
-      {matchingCommand && value !== `/${matchingCommand.name} ` ? (
+      {/* Dynamic hint banner: double-esc or autocomplete */}
+      {escPending ? (
+        <Box paddingLeft={2}>
+          <Text color={theme.permission}>Press Esc again to clear</Text>
+        </Box>
+      ) : matchingCommand && value !== `/${matchingCommand.name} ` ? (
         <Box paddingLeft={2}>
           <Text dimColor>
             Tab to complete: <Text color={theme.permission}>/{matchingCommand.name}</Text> -{' '}
@@ -122,7 +161,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({ onSubmit, disabled = f
         </Box>
       ) : null}
 
-      {/* Input box */}
+      {/* Input Box with Claude Code 1:1 round border and brand caret */}
       <Box
         borderStyle="round"
         borderColor={disabled ? theme.subtle : theme.promptBorder}

@@ -5,6 +5,7 @@ import type { AgentEvent } from '../agent/events.js';
 import { defaultCommandRegistry } from '../commands/registry.js';
 import { defaultToolCatalog } from '../tools/index.js';
 import type { ConfirmationDecision, ConfirmationRequest, ToolContext } from '../tools/types.js';
+import { useDoublePress } from './hooks/use-double-press.js';
 import { Header } from './components/header.js';
 import { MessageHistory, type UIHistoryItem } from './components/message-history.js';
 import { PromptInput } from './components/prompt-input.js';
@@ -23,6 +24,7 @@ export const App: React.FC<AppProps> = ({ session: initialSession, cwd = process
   const [streamingReasoning, setStreamingReasoning] = useState('');
   const [streamingText, setStreamingText] = useState('');
   const [isBusy, setIsBusy] = useState(false);
+  const [exitPending, setExitPending] = useState(false);
   const [activeConfirmation, setActiveConfirmation] = useState<{
     request: ConfirmationRequest;
     resolver: (decision: ConfirmationDecision) => void;
@@ -30,16 +32,30 @@ export const App: React.FC<AppProps> = ({ session: initialSession, cwd = process
 
   const sessionAllowlistRef = useRef<Set<string>>(new Set());
 
-  // Handle Ctrl+C to abort current operation or exit
+  // Double-press Ctrl+C to exit Claude Code 1:1 behavior
+  const handleCtrlCDoublePress = useDoublePress(
+    (pending) => setExitPending(pending),
+    () => {
+      exit();
+    },
+  );
+
+  // Global Keybindings: Ctrl+C and Escape
   useInput((input, key) => {
     if (key.ctrl && input === 'c') {
       if (isBusy) {
         session.abort();
       } else {
-        exit();
+        handleCtrlCDoublePress();
       }
     }
   });
+
+  const handleAbort = useCallback(() => {
+    if (isBusy) {
+      session.abort();
+    }
+  }, [isBusy, session]);
 
   const handleConfirmationDecision = useCallback(
     (decision: ConfirmationDecision) => {
@@ -146,7 +162,6 @@ export const App: React.FC<AppProps> = ({ session: initialSession, cwd = process
               break;
 
             case 'turn-complete':
-              // Commit stream into history item
               setHistoryItems((prev) => {
                 const updated = [...prev];
                 if (event.summary.reasoning) {
@@ -217,10 +232,15 @@ export const App: React.FC<AppProps> = ({ session: initialSession, cwd = process
           onDecision={handleConfirmationDecision}
         />
       ) : (
-        <PromptInput onSubmit={handleSubmit} disabled={isBusy} />
+        <PromptInput
+          onSubmit={handleSubmit}
+          disabled={isBusy}
+          onAbort={handleAbort}
+          exitPending={exitPending}
+        />
       )}
 
-      <StatusBar model={currentModel} usage={usage} isBusy={isBusy} />
+      <StatusBar model={currentModel} usage={usage} isBusy={isBusy} exitPending={exitPending} />
     </Box>
   );
 };
