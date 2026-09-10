@@ -74,7 +74,10 @@ export class ToolCatalog {
               const decision = await context.requestConfirmation(request);
 
               if (decision === 'deny') {
-                throw new Error(`Execution of ${def.displayName} was cancelled by the user.`);
+                const err = new Error(`Interrupted by user`);
+                (err as any).isInterrupted = true;
+                (err as any).toolName = name;
+                throw err;
               }
 
               if (decision === 'allow_session' && context.sessionAllowlist) {

@@ -128,8 +128,21 @@ export const ToolStatus: React.FC<ToolStatusProps> = ({
       {error ? (
         <Box paddingLeft={2} flexDirection="row">
           <Text color={theme.textMuted}>└ </Text>
-          <Text color={theme.error} wrap="truncate-middle">
-            {error}
+          <Text
+            color={
+              error.toLowerCase().includes('interrupted') ||
+              error.toLowerCase().includes('declined') ||
+              error.toLowerCase().includes('cancelled')
+                ? theme.textMuted
+                : theme.error
+            }
+            wrap="truncate-middle"
+          >
+            {error.toLowerCase().includes('interrupted') ||
+            error.toLowerCase().includes('declined') ||
+            error.toLowerCase().includes('cancelled')
+              ? 'Interrupted · What should xd do instead?'
+              : error}
           </Text>
         </Box>
       ) : toolOutput ? (

@@ -312,28 +312,41 @@ export function useAgentRunner({
                 break;
               }
 
-              case 'error':
-                setHistoryItems((prev) => [
-                  ...prev,
-                  {
-                    id: `err-${Date.now()}`,
-                    type: 'system',
-                    content: `Error: ${event.error.message}`,
-                  },
-                ]);
+              case 'error': {
+                const msg = event.error.message;
+                if (
+                  !msg.toLowerCase().includes('interrupted') &&
+                  !msg.toLowerCase().includes('cancelled')
+                ) {
+                  setHistoryItems((prev) => [
+                    ...prev,
+                    {
+                      id: `err-${Date.now()}`,
+                      type: 'system',
+                      content: `Error: ${event.error.message}`,
+                    },
+                  ]);
+                }
                 break;
+              }
             }
           },
         });
       } catch (err) {
-        setHistoryItems((prev) => [
-          ...prev,
-          {
-            id: `err-${Date.now()}`,
-            type: 'system',
-            content: `Execution error: ${err instanceof Error ? err.message : String(err)}`,
-          },
-        ]);
+        const msg = err instanceof Error ? err.message : String(err);
+        if (
+          !msg.toLowerCase().includes('interrupted') &&
+          !msg.toLowerCase().includes('cancelled')
+        ) {
+          setHistoryItems((prev) => [
+            ...prev,
+            {
+              id: `err-${Date.now()}`,
+              type: 'system',
+              content: `Execution error: ${msg}`,
+            },
+          ]);
+        }
       } finally {
         setIsBusy(false);
         setStreamingReasoning('');
