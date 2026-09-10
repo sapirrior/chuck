@@ -46,7 +46,7 @@ export const MessageHistory: React.FC<MessageHistoryProps> = ({
                 flexDirection="row"
               >
                 <Text color={theme.userChevron}>{figures.pointer} </Text>
-                <Text bold color={theme.text}>
+                <Text color={theme.text}>
                   {item.content}
                 </Text>
               </Box>
@@ -62,7 +62,7 @@ export const MessageHistory: React.FC<MessageHistoryProps> = ({
                 backgroundColor={theme.userCardBg}
                 flexDirection="row"
               >
-                <Text bold color={theme.bashPink}>
+                <Text color={theme.bashPink}>
                   ! {item.content}
                 </Text>
               </Box>

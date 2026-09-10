@@ -37,7 +37,7 @@ export const HelpMenu: React.FC<HelpMenuProps> = ({ onClose }) => {
     <Box flexDirection="column" width="100%" marginTop={1}>
       <Text color={theme.lavenderHeader}>{figures.horizontalLine.repeat(dividerWidth)}</Text>
       <Box marginY={0}>
-        <Text bold color={theme.lavenderLight}>
+        <Text color={theme.lavenderLight}>
           Shortcuts
         </Text>
       </Box>

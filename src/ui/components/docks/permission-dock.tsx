@@ -110,7 +110,7 @@ export const PermissionDock: React.FC<PermissionDockProps> = ({ request, onDecis
       <Text color={theme.lavenderHeader}>{figures.horizontalLine.repeat(dividerWidth)}</Text>
 
       <Box marginY={0}>
-        <Text bold color={theme.lavenderLight}>
+        <Text color={theme.lavenderLight}>
           Permission Required: {request.displayName}
         </Text>
       </Box>
@@ -155,7 +155,7 @@ export const PermissionDock: React.FC<PermissionDockProps> = ({ request, onDecis
       ) : null}
 
       <Box marginY={0}>
-        <Text bold color={theme.text}>
+        <Text color={theme.text}>
           Do you want to proceed?
         </Text>
       </Box>
@@ -171,7 +171,7 @@ export const PermissionDock: React.FC<PermissionDockProps> = ({ request, onDecis
               ) : (
                 <Text> </Text>
               )}
-              <Text bold={isSelected} color={isSelected ? theme.text : theme.inactive}>
+              <Text color={isSelected ? theme.text : theme.inactive}>
                 {opt.key}. {opt.label}
               </Text>
             </Box>

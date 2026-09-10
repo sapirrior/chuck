@@ -304,7 +304,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
         width="100%"
         paddingX={1}
       >
-        <Text bold color={promptChevronColor}>
+        <Text color={promptChevronColor}>
           {figures.pointer}{' '}
         </Text>
         <Box flexGrow={1}>

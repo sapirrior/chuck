@@ -79,7 +79,7 @@ export const SessionMenu: React.FC<SessionMenuProps> = ({ sessions, onSelect, on
       <Text color={theme.lavenderHeader}>{figures.horizontalLine.repeat(dividerWidth)}</Text>
 
       <Box marginY={0} justifyContent="space-between" width="100%">
-        <Text bold color={theme.lavenderLight}>
+        <Text color={theme.lavenderLight}>
           Resume Session
         </Text>
         <Text dimColor>
@@ -125,7 +125,7 @@ export const SessionMenu: React.FC<SessionMenuProps> = ({ sessions, onSelect, on
                   ) : (
                     <Text> </Text>
                   )}
-                  <Text bold={isSelected} color={isSelected ? theme.text : theme.inactive}>
+                  <Text color={isSelected ? theme.text : theme.inactive}>
                     {displayTitle}
                   </Text>
                   <Text dimColor> ({shortId})</Text>

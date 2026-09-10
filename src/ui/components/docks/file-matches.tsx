@@ -24,7 +24,7 @@ export const FileMatches: React.FC<FileMatchesProps> = ({ files, selectedIndex }
             ) : (
               <Text> </Text>
             )}
-            <Text bold={isSelected} color={isSelected ? theme.text : theme.inactive}>
+            <Text color={isSelected ? theme.text : theme.inactive}>
               {file}
             </Text>
           </Box>
