@@ -27,8 +27,13 @@ export interface ModelDiscoveryResult {
 
 // Regex patterns to filter only core textual and multimodal foundation models
 const ANTHROPIC_MODEL_REGEX = /^claude-/i;
-const GEMINI_MODEL_REGEX = /^gemini-/i;
 const OPENAI_MODEL_REGEX = /^(gpt-4|gpt-3\.5|o1|o3)/i;
+
+// Google models: include only gemini- and gemma- models
+const GOOGLE_MODEL_INCLUDE_REGEX = /^(gemini|gemma)-/i;
+// Exclude non-text/specialized models: omni, antigravity, robotics, embedding, audio, tts, transcribe, live
+const GOOGLE_MODEL_EXCLUDE_REGEX =
+  /(omni|antigravity|robotics|embedding|audio|tts|transcribe|live)/i;
 
 const DEFAULT_FETCH_TIMEOUT_MS = 10_000;
 
@@ -90,10 +95,13 @@ export async function fetchGeminiModels(
   }
 
   return payload.data
-    .filter((item) => typeof item.id === 'string' && GEMINI_MODEL_REGEX.test(item.id))
-    .map((item) => ({
+    .map((item) => (typeof item.id === 'string' ? item.id.replace(/^models\//, '') : ''))
+    .filter(
+      (id) => id && GOOGLE_MODEL_INCLUDE_REGEX.test(id) && !GOOGLE_MODEL_EXCLUDE_REGEX.test(id),
+    )
+    .map((id) => ({
       provider: 'gemini' as const,
-      model_id: item.id,
+      model_id: id,
     }))
     .sort((a, b) => a.model_id.localeCompare(b.model_id));
 }
