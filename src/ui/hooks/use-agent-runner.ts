@@ -204,6 +204,9 @@ export function useAgentRunner({
         cwd,
         sessionAllowlist: sessionAllowlistRef.current,
         requestConfirmation,
+        onDeny: () => {
+          session.abort();
+        },
       };
 
       const tools = defaultToolCatalog.toAISDKTools(toolContext);

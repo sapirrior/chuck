@@ -74,6 +74,9 @@ export class ToolCatalog {
               const decision = await context.requestConfirmation(request);
 
               if (decision === 'deny') {
+                if (context.onDeny) {
+                  context.onDeny();
+                }
                 const err = new Error(`Interrupted by user`);
                 (err as any).isInterrupted = true;
                 (err as any).toolName = name;

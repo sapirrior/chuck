@@ -38,6 +38,10 @@ export interface ToolContext {
    * Session-scoped allowlist of pre-approved tool names.
    */
   sessionAllowlist?: Set<string>;
+  /**
+   * Callback invoked when a user declines/denies a tool permission request.
+   */
+  onDeny?: () => void;
 }
 
 /**
