@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { useDoublePress } from '../hooks/use-double-press.js';
 import { useInputCompletions } from '../hooks/use-input-completions.js';
@@ -16,6 +16,15 @@ export interface PromptInputProps {
   onToggleHelp?: () => void;
 }
 
+const STATUS_WORDS = [
+  'thinking…',
+  'analyzing…',
+  'exploring…',
+  'computing…',
+  'crafting…',
+  'generating…',
+];
+
 export const PromptInput: React.FC<PromptInputProps> = ({
   onSubmit,
   disabled = false,
@@ -30,6 +39,16 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
   const [escPending, setEscPending] = useState(false);
+  const [spinnerFrame, setSpinnerFrame] = useState(0);
+
+  // Spinner & sweeping wave animation when disabled / busy
+  useEffect(() => {
+    if (!disabled) return;
+    const interval = setInterval(() => {
+      setSpinnerFrame((f) => f + 1);
+    }, 80);
+    return () => clearInterval(interval);
+  }, [disabled]);
 
   const {
     atData,
@@ -238,12 +257,51 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   const promptChevronColor = isBashMode ? theme.bashPink : theme.text;
   const borderColor = disabled ? theme.subtle : isBashMode ? theme.bashPink : theme.promptBorder;
 
+  // Sweeping traveling wave calculation matching Delta & Claude Code
+  const currentWordIdx = Math.floor(spinnerFrame / 24) % STATUS_WORDS.length;
+  const currentWord = STATUS_WORDS[currentWordIdx] ?? 'thinking…';
+  const wavePos = Math.floor(spinnerFrame / 2) % (currentWord.length + 5);
+
+  const spinnerGlyphs = figures.spinnerFrames;
+  const currentGlyph = spinnerGlyphs[spinnerFrame % spinnerGlyphs.length] ?? '⠋';
+
   return (
     <Box flexDirection="column" marginTop={1} width="100%">
       {/* Double-Esc Notice */}
       {escPending ? (
         <Box paddingLeft={2} marginBottom={0}>
           <Text color={theme.permission}>Press Esc again to clear</Text>
+        </Box>
+      ) : null}
+
+      {/* Above Border Animated Thinking Status (Claude Code 1:1) */}
+      {disabled ? (
+        <Box flexDirection="row" paddingLeft={1} marginBottom={0}>
+          <Text color={theme.brand}>{currentGlyph} </Text>
+          <Text italic>
+            {currentWord.split('').map((char, idx) => {
+              const dist = idx - (wavePos - 2);
+              if (dist === 1) {
+                return (
+                  <Text key={idx} color={theme.brandShimmer}>
+                    {char}
+                  </Text>
+                );
+              }
+              if (dist === 0 || dist === 2) {
+                return (
+                  <Text key={idx} color={theme.brand}>
+                    {char}
+                  </Text>
+                );
+              }
+              return (
+                <Text key={idx} dimColor>
+                  {char}
+                </Text>
+              );
+            })}
+          </Text>
         </Box>
       ) : null}
 
@@ -261,7 +319,9 @@ export const PromptInput: React.FC<PromptInputProps> = ({
       >
         <Text color={promptChevronColor}>{figures.pointer} </Text>
         <Box flexGrow={1}>
-          {value.length === 0 ? (
+          {disabled ? (
+            <Text dimColor>Generating response… (Esc to stop)</Text>
+          ) : value.length === 0 ? (
             <Text dimColor>Type a prompt, ! for bash, or / for commands...</Text>
           ) : (
             <Text color={theme.text}>
