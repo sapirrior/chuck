@@ -63,9 +63,27 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   const [cursorPos, setCursorPos] = useState(0);
   const [history, setHistory] = useState<string[]>(() => initialHistory ?? []);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
+  const [scrollOffset, setScrollOffset] = useState<number>(0);
   const draftRef = useRef<string>('');
   const [escPending, setEscPending] = useState(false);
   const [spinnerFrame, setSpinnerFrame] = useState(0);
+
+  const MAX_INPUT_LINES = 6;
+
+  // Auto-scroll the 6-line window to follow cursor
+  useEffect(() => {
+    const { lineIdx, totalLines } = getCursorLineCol(value, cursorPos);
+    setScrollOffset((prev) => {
+      let next = prev;
+      if (lineIdx < next) {
+        next = lineIdx;
+      } else if (lineIdx >= next + MAX_INPUT_LINES) {
+        next = lineIdx - MAX_INPUT_LINES + 1;
+      }
+      const maxOffset = Math.max(0, totalLines - MAX_INPUT_LINES);
+      return Math.max(0, Math.min(next, maxOffset));
+    });
+  }, [value, cursorPos]);
 
   useEffect(() => {
     if (initialHistory && initialHistory.length > 0) {
@@ -197,7 +215,16 @@ export const PromptInput: React.FC<PromptInputProps> = ({
         return;
       }
 
-      // 5. Tab completion
+      // 5. Explicit newline insertion via Alt+Enter or Ctrl+J
+      if ((key.meta && key.return) || (key.ctrl && input === 'j')) {
+        const before = value.slice(0, cursorPos);
+        const after = value.slice(cursorPos);
+        setValue(`${before}\n${after}`);
+        setCursorPos(cursorPos + 1);
+        return;
+      }
+
+      // 6. Tab completion
       if (key.tab) {
         if (fileMatches.length > 0 && atData) {
           const chosen = fileMatches[fileSelectIdx];
@@ -223,7 +250,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
         }
       }
 
-      // 6. Arrow Up
+      // 7. Arrow Up
       if (key.upArrow) {
         if (fileMatches.length > 0) {
           setFileSelectIdx((prev) => (prev > 0 ? prev - 1 : fileMatches.length - 1));
@@ -258,7 +285,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
         return;
       }
 
-      // 7. Arrow Down
+      // 8. Arrow Down
       if (key.downArrow) {
         if (fileMatches.length > 0) {
           setFileSelectIdx((prev) => (prev < fileMatches.length - 1 ? prev + 1 : 0));
@@ -296,7 +323,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
         return;
       }
 
-      // 8. Backspace / Delete
+      // 9. Backspace / Delete
       if (key.backspace || key.delete) {
         if (cursorPos > 0) {
           const before = value.slice(0, cursorPos - 1);
@@ -307,7 +334,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
         return;
       }
 
-      // 9. Left / Right navigation
+      // 10. Left / Right navigation
       if (key.leftArrow) {
         setCursorPos(Math.max(0, cursorPos - 1));
         return;
@@ -317,12 +344,13 @@ export const PromptInput: React.FC<PromptInputProps> = ({
         return;
       }
 
-      // 10. Regular text input
+      // 11. Regular text input & multiline paste
       if (input && !key.ctrl && !key.meta) {
+        const cleanInput = input.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
         const before = value.slice(0, cursorPos);
         const after = value.slice(cursorPos);
-        setValue(before + input + after);
-        setCursorPos(cursorPos + input.length);
+        setValue(before + cleanInput + after);
+        setCursorPos(cursorPos + cleanInput.length);
       }
     },
     { isActive: true },
@@ -339,29 +367,17 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   const spinnerGlyphs = figures.spinnerFrames;
   const currentGlyph = spinnerGlyphs[spinnerFrame % spinnerGlyphs.length] ?? '⠋';
 
-  // Multiline & sliding window scroll calculation when input exceeds 6 lines
-  const MAX_INPUT_LINES = 6;
+  // Multiline text splitting with embedded cursor marker
   const textWithCursor =
     cursorPos >= value.length
       ? `${value}\x00`
       : `${value.slice(0, cursorPos)}\x00${value.slice(cursorPos)}`;
   const logicalLines = textWithCursor.split('\n');
 
-  // Find cursor line index
-  let cursorLineIdx = logicalLines.findIndex((line) => line.includes('\x00'));
-  if (cursorLineIdx === -1) cursorLineIdx = 0;
-
-  // Sliding window across lines
-  let startLine = 0;
-  if (logicalLines.length > MAX_INPUT_LINES) {
-    if (cursorLineIdx >= MAX_INPUT_LINES) {
-      startLine = cursorLineIdx - MAX_INPUT_LINES + 1;
-    }
-    if (startLine + MAX_INPUT_LINES > logicalLines.length) {
-      startLine = Math.max(0, logicalLines.length - MAX_INPUT_LINES);
-    }
-  }
-  const visibleInputLines = logicalLines.slice(startLine, startLine + MAX_INPUT_LINES);
+  // Calculate sliding 6-line window and overflow indicators
+  const visibleInputLines = logicalLines.slice(scrollOffset, scrollOffset + MAX_INPUT_LINES);
+  const linesAbove = scrollOffset;
+  const linesBelow = Math.max(0, logicalLines.length - (scrollOffset + MAX_INPUT_LINES));
 
   return (
     <Box flexDirection="column" marginTop={1} width="100%">
@@ -422,28 +438,43 @@ export const PromptInput: React.FC<PromptInputProps> = ({
           ) : value.length === 0 ? (
             <Text dimColor>Type a prompt, ! for bash, or / for commands...</Text>
           ) : (
-            visibleInputLines.map((line, idx) => {
-              if (line.includes('\x00')) {
-                const parts = line.split('\x00');
-                const before = parts[0] ?? '';
-                const after = parts[1] ?? '';
-                const atChar = after.length > 0 ? after[0] : ' ';
-                const rest = after.length > 0 ? after.slice(1) : '';
+            <>
+              {linesAbove > 0 ? (
+                <Text dimColor>
+                  ▲ +{linesAbove} line{linesAbove > 1 ? 's' : ''} above
+                </Text>
+              ) : null}
 
+              {visibleInputLines.map((line, idx) => {
+                const actualLineIdx = scrollOffset + idx;
+                if (line.includes('\x00')) {
+                  const parts = line.split('\x00');
+                  const before = parts[0] ?? '';
+                  const after = parts[1] ?? '';
+                  const atChar = after.length > 0 ? after[0] : ' ';
+                  const rest = after.length > 0 ? after.slice(1) : '';
+
+                  return (
+                    <Text key={actualLineIdx} color={theme.text}>
+                      {before}
+                      <Text inverse>{atChar}</Text>
+                      {rest}
+                    </Text>
+                  );
+                }
                 return (
-                  <Text key={idx} color={theme.text}>
-                    {before}
-                    <Text inverse>{atChar}</Text>
-                    {rest}
+                  <Text key={actualLineIdx} color={theme.text}>
+                    {line}
                   </Text>
                 );
-              }
-              return (
-                <Text key={idx} color={theme.text}>
-                  {line}
+              })}
+
+              {linesBelow > 0 ? (
+                <Text dimColor>
+                  ▼ +{linesBelow} line{linesBelow > 1 ? 's' : ''} below
                 </Text>
-              );
-            })
+              ) : null}
+            </>
           )}
         </Box>
       </Box>
