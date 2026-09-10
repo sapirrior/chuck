@@ -12,7 +12,7 @@ Universal operational guidelines for AI coding agents working in the `xd` reposi
 
 ## 2. Source of Truth for APIs & Libraries
 - **Vercel AI SDK & Ink APIs:** Always consult reference skills in `.agents/skills/` before writing code. Do not hallucinate or rely on outdated pre-training memory for API signatures.
-- **Reference Code & Examples:** Consult `references/` for design patterns, conceptual examples, and UI references (see [IMPORTANT.md](file:///data/data/com.termux/files/home/works/xd/IMPORTANT.md)). Do not blindly copy reference code.
+- **Reference Code & Examples:** Consult `references/` for design patterns, conceptual examples, and UI references (see [IMPORTANT.md](IMPORTANT.md)). Do not blindly copy reference code.
 
 ## 3. Architecture & Directory Boundaries (Future Guidance)
 All application source code will reside in `src/`. Future code must maintain strict separation of concerns:
@@ -30,8 +30,8 @@ Execute the following standard npm scripts defined in `package.json`:
 - **Test:** `npm test`
 
 ## 5. Rules & Boundaries
-- **Strict Boundaries:** Never edit, delete, or generate files in `.agents/` or `references/`. These are strictly human-managed (see [IMPORTANT.md](file:///data/data/com.termux/files/home/works/xd/IMPORTANT.md)).
+- **Strict Boundaries:** Never edit, delete, or generate files in `.agents/` or `references/`. These are strictly human-managed (see [IMPORTANT.md](IMPORTANT.md)).
 - **No Side-Effect Code:** Do not write feature or runtime code into `src/` during docs or infrastructure passes.
 - **Secrets Policy:** Never commit secrets, API keys, credentials, or `.env*` files.
-- **Workflow & Style:** Follow Conventional Commits and code formatting guidelines defined in [CONTRIBUTING.md](file:///data/data/com.termux/files/home/works/xd/CONTRIBUTING.md).
+- **Workflow & Style:** Follow Conventional Commits and code formatting guidelines defined in [CONTRIBUTING.md](CONTRIBUTING.md).
 - **Ambiguity:** Ask the maintainer for clarification instead of guessing or making unverified architectural assumptions.

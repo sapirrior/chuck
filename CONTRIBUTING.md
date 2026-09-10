@@ -9,7 +9,7 @@ This guide defines the code quality, engineering standards, Git commit conventio
 ## 1. Getting Started
 
 ### Prerequisites
-- **Node.js:** Ensure you are using the Node.js version pinned in [.nvmrc](file:///data/data/com.termux/files/home/works/xd/.nvmrc) (`>= 20`).
+- **Node.js:** Ensure you are using the Node.js version pinned in [.nvmrc](.nvmrc) (`>= 20`).
 - **Package Manager:** `npm` is the standard package manager for this repository. Please do not commit lockfiles from other package managers (e.g., `pnpm-lock.yaml`, `yarn.lock`).
 
 ### Setup & Workflow Commands
@@ -68,7 +68,7 @@ All application logic will reside under `src/`. To maintain maintainability, fut
 
 - The `.agents/` and `references/` directories are **human-managed**.
 - Do not create, overwrite, or edit files in these folders.
-- See [IMPORTANT.md](file:///data/data/com.termux/files/home/works/xd/IMPORTANT.md) for full details regarding manual assets and the strict separation between visual styling references and application logic.
+- See [IMPORTANT.md](IMPORTANT.md) for full details regarding manual assets and the strict separation between visual styling references and application logic.
 
 ---
 
