@@ -20,7 +20,17 @@ export const SessionMenu: React.FC<SessionMenuProps> = ({ sessions, onSelect, on
   const filtered = sessions.filter((s) => {
     if (!query) return true;
     const q = query.toLowerCase();
-    return s.id.toLowerCase().includes(q) || s.date.toLowerCase().includes(q);
+    const firstPrompt = s.turns?.[0]?.userPrompt?.toLowerCase() ?? '';
+    const name = s.name?.toLowerCase() ?? '';
+    const id = s.id?.toLowerCase() ?? '';
+    const date = s.date?.toLowerCase() ?? '';
+
+    return (
+      id.includes(q) ||
+      date.includes(q) ||
+      name.includes(q) ||
+      firstPrompt.includes(q)
+    );
   });
 
   useInput((input, key) => {
@@ -71,31 +81,35 @@ export const SessionMenu: React.FC<SessionMenuProps> = ({ sessions, onSelect, on
       {/* Search Input bar */}
       <Box marginY={0} paddingLeft={1}>
         <Text dimColor>⌕ </Text>
-        <Text color={theme.text}>{query || 'Search sessions…'}</Text>
+        <Text color={theme.text}>{query || 'Search sessions by title, prompt or ID…'}</Text>
       </Box>
 
       <Text color={theme.dashedRule}>{figures.horizontalLine.repeat(dividerWidth)}</Text>
 
       {filtered.length === 0 ? (
         <Box marginY={1} paddingLeft={2}>
-          <Text dimColor>No saved sessions found.</Text>
+          <Text dimColor>No saved sessions matching "{query}".</Text>
         </Box>
       ) : (
         <Box flexDirection="column" marginY={1}>
           {filtered.slice(0, 6).map((s, i) => {
             const isSelected = i === selectedIdx;
             const shortId = s.id.slice(0, 8);
+            const firstMessage = s.turns?.[0]?.userPrompt || s.name || 'Untitled Session';
+            const displayTitle = firstMessage.length > 50 ? `${firstMessage.slice(0, 49)}…` : firstMessage;
+
             return (
               <Box key={s.id} flexDirection="column" marginBottom={0}>
                 <Box flexDirection="row">
                   {isSelected ? (
                     <Text color={theme.lavenderLight}>{figures.pointer} </Text>
                   ) : (
-                    <Text> </Text>
+                    <Text>   </Text>
                   )}
                   <Text bold={isSelected} color={isSelected ? theme.text : theme.inactive}>
-                    session {shortId}
+                    "{displayTitle}"
                   </Text>
+                  <Text dimColor> ({shortId})</Text>
                 </Box>
                 <Box paddingLeft={3}>
                   <Text dimColor>
