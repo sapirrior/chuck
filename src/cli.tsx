@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import React from 'react';
 import { render } from 'ink';
-import { App } from './ui/app.js';
-import { AgentSession } from './agent/index.js';
+import { App } from './components/app.js';
+import { AgentSession } from './engine/index.js';
 
 async function main() {
   try {

@@ -1,7 +1,7 @@
-import { clearCommand } from './clear.js';
-import { exitCommand, quitCommand } from './exit.js';
-import { modelCommand } from './model.js';
-import { resumeCommand } from './resume.js';
+import { clearCommand } from './clear/index.js';
+import { exitCommand, quitCommand } from './exit/index.js';
+import { modelCommand } from './model/index.js';
+import { resumeCommand } from './resume/index.js';
 import type { CommandContext, CommandResult, SlashCommand } from './types.js';
 
 export class CommandRegistry {
@@ -59,12 +59,18 @@ export class CommandRegistry {
   }
 }
 
+export const builtInCommands: SlashCommand[] = [
+  modelCommand,
+  clearCommand,
+  exitCommand,
+  quitCommand,
+  resumeCommand,
+];
+
 /**
  * Default command registry populated with standard slash commands.
  */
 export const defaultCommandRegistry = new CommandRegistry();
-defaultCommandRegistry.register(modelCommand);
-defaultCommandRegistry.register(clearCommand);
-defaultCommandRegistry.register(exitCommand);
-defaultCommandRegistry.register(quitCommand);
-defaultCommandRegistry.register(resumeCommand);
+for (const cmd of builtInCommands) {
+  defaultCommandRegistry.register(cmd);
+}

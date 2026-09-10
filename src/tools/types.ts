@@ -50,6 +50,7 @@ export interface ToolContext {
 export interface ToolDefinition<TParams extends z.ZodTypeAny = z.ZodTypeAny, TResult = unknown> {
   name: string;
   displayName: string;
+  icon?: string;
   description: string;
   parameters: TParams;
 

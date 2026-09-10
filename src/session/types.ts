@@ -1,4 +1,4 @@
-import type { ModelSelection, TokenUsage, ToolResultInfo } from '../agent/types.js';
+import type { ModelSelection, TokenUsage, ToolResultInfo } from '../engine/types.js';
 
 /**
  * A single conversation turn preserved in durable session storage.

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import type { ModelSelection } from '../agent/types.js';
+import type { ModelSelection } from '../engine/types.js';
 import type { SessionData, SessionSummary, SessionTurn } from './types.js';
 
 /**
