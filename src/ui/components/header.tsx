@@ -29,9 +29,9 @@ export const Header: React.FC<HeaderProps> = ({ version = '0.1.0' }) => {
         <Text color={theme.permission}> v{version}</Text>
       </Box>
 
-      {/* Line 2: Middle of logo + Command hint */}
+      {/* Line 2: Middle of logo with straight horizontal short hands */}
       <Box flexDirection="row">
-        <Text color={theme.brand}>▛█████▜  </Text>
+        <Text color={theme.brand}>▀█████▀  </Text>
         <Text dimColor>Type </Text>
         <Text color={theme.brand}>/</Text>
         <Text dimColor> for commands</Text>
