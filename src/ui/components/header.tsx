@@ -19,27 +19,27 @@ export const Header: React.FC<HeaderProps> = ({ version = '0.1.0' }) => {
   const theme = getTheme();
 
   return (
-    <Box flexDirection="row" marginBottom={1} width="100%">
-      {/* Left side: ANSI Unicode Logo */}
-      <Box flexDirection="column" marginRight={2}>
-        <Text color={theme.brand}> ▛███▜</Text>
-        <Text color={theme.brand}>▛█████▜</Text>
-        <Text color={theme.brand}> ▘▘ ▝▝</Text>
+    <Box flexDirection="column" marginBottom={1} width="100%">
+      {/* Line 1: Top of logo + Title & Version */}
+      <Box flexDirection="row">
+        <Text color={theme.brand}> ▛███▜   </Text>
+        <Text bold color={theme.brand}>
+          xd
+        </Text>
+        <Text color={theme.permission}> v{version}</Text>
       </Box>
 
-      {/* Right side: Title, Version, and Command hint */}
-      <Box flexDirection="column" justifyContent="center">
-        <Box flexDirection="row">
-          <Text bold color={theme.brand}>
-            xd
-          </Text>
-          <Text color={theme.permission}> v{version}</Text>
-        </Box>
-        <Box flexDirection="row">
-          <Text dimColor>Type </Text>
-          <Text color={theme.brand}>/</Text>
-          <Text dimColor> for commands</Text>
-        </Box>
+      {/* Line 2: Middle of logo + Command hint */}
+      <Box flexDirection="row">
+        <Text color={theme.brand}>▛█████▜  </Text>
+        <Text dimColor>Type </Text>
+        <Text color={theme.brand}>/</Text>
+        <Text dimColor> for commands</Text>
+      </Box>
+
+      {/* Line 3: Bottom of logo */}
+      <Box flexDirection="row">
+        <Text color={theme.brand}> ▘   ▝</Text>
       </Box>
     </Box>
   );
