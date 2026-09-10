@@ -9,6 +9,7 @@ async function main() {
     const session = new AgentSession();
     render(<App session={session} cwd={process.cwd()} />, {
       exitOnCtrlC: false,
+      incrementalRendering: true,
     });
   } catch (err) {
     console.error('Failed to initialize xd:', err instanceof Error ? err.message : String(err));
