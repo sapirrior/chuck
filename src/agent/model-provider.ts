@@ -6,6 +6,7 @@ import type { LanguageModel } from 'ai';
 import {
   getAvailableProviders,
   getEnvConfig,
+  getSavedModel,
   hasProviderConfig,
   type EnvConfig,
   type ProviderName,
@@ -37,8 +38,8 @@ export const PROVIDER_SELECTION_PRIORITY: readonly ProviderName[] = [
 ] as const;
 
 /**
- * Resolves the active model selection based on explicit user choices
- * and configured environment credentials.
+ * Resolves the active model selection based on explicit user choices,
+ * saved user preferences (~/.xd/settings.json), and configured environment credentials.
  */
 export function resolveActiveModelSelection(
   requested?: Partial<ModelSelection>,
@@ -86,7 +87,16 @@ export function resolveActiveModelSelection(
     }
   }
 
-  // 4. Fallback to priority hierarchy among available configured providers
+  // 4. Saved user preference in ~/.xd/settings.json
+  const savedModel = getSavedModel();
+  if (savedModel && hasProviderConfig(savedModel.provider, config)) {
+    return {
+      provider: savedModel.provider,
+      modelId: savedModel.modelId,
+    };
+  }
+
+  // 5. Fallback to priority hierarchy among available configured providers
   const available = getAvailableProviders(config);
   if (available.length === 0) {
     throw new Error(
