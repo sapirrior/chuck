@@ -11,6 +11,7 @@ import type { SessionData } from '../../session/types.js';
 import { listSessions, loadSession } from '../../session/index.js';
 import { saveSettings } from '../../config/index.js';
 import type { UIHistoryItem } from '../components/message-history.js';
+import { formatToolOutputSummary, rehydrateSessionHistory } from '../utils/history-helpers.js';
 
 const execAsync = promisify(exec);
 
@@ -79,55 +80,7 @@ export function useAgentRunner({
     setSession(resumed);
     setSessionVersion((v) => v + 1);
     setShowResume(false);
-
-    // Rehydrate full conversational transcript and tool calls from restored session
-    const restoredItems: UIHistoryItem[] = [];
-    for (const turn of selected.turns) {
-      if (turn.userPrompt) {
-        restoredItems.push({
-          id: `u-${turn.id}`,
-          type: 'user',
-          content: turn.userPrompt,
-        });
-      }
-      if (turn.toolCalls && turn.toolCalls.length > 0) {
-        for (const tc of turn.toolCalls) {
-          restoredItems.push({
-            id: `tool-${tc.id}`,
-            type: 'tool',
-            content: '',
-            toolData: {
-              toolName: tc.name,
-              argsSummary: JSON.stringify(tc.args),
-              status: tc.isError ? 'failed' : 'completed',
-              error: tc.isError ? String(tc.result) : undefined,
-            },
-          });
-        }
-      }
-      if (turn.reasoning) {
-        restoredItems.push({
-          id: `res-reasoning-${turn.id}`,
-          type: 'reasoning',
-          content: turn.reasoning,
-        });
-      }
-      if (turn.assistantText) {
-        restoredItems.push({
-          id: `res-text-${turn.id}`,
-          type: 'assistant',
-          content: turn.assistantText,
-        });
-      }
-    }
-
-    restoredItems.push({
-      id: `sys-resume-${Date.now()}`,
-      type: 'system',
-      content: `Resumed session ${selected.id.slice(0, 8)} (${selected.turns.length} turns, ${selected.totalUsage?.totalTokens ?? 0} tokens)`,
-    });
-
-    setHistoryItems(restoredItems);
+    setHistoryItems(rehydrateSessionHistory(selected));
   }, []);
 
   const handleSelectModel = useCallback(
@@ -311,29 +264,6 @@ export function useAgentRunner({
                 setHistoryItems((prev) =>
                   prev.map((item) => {
                     if (item.id === `tool-${event.toolResult.id}` && item.toolData) {
-                      let outputSummary: string | undefined = undefined;
-                      const res = event.toolResult.result;
-
-                      if (event.toolResult.isError) {
-                        outputSummary = undefined;
-                      } else if (typeof res === 'object' && res !== null) {
-                        const anyRes = res as any;
-                        if (anyRes.message) {
-                          outputSummary = anyRes.message;
-                        } else if (anyRes.totalLines !== undefined) {
-                          outputSummary = `Read ${anyRes.endLine - anyRes.startLine + 1} of ${anyRes.totalLines} lines`;
-                        } else if (anyRes.url && anyRes.status) {
-                          outputSummary = `Fetched ${anyRes.contentType} (${anyRes.status} OK, ${anyRes.content?.length ?? 0} chars)`;
-                        } else if (anyRes.content) {
-                          outputSummary =
-                            typeof anyRes.content === 'string'
-                              ? anyRes.content.split('\n')[0]
-                              : JSON.stringify(anyRes.content);
-                        }
-                      } else if (typeof res === 'string' && res.trim()) {
-                        outputSummary = res.trim().split('\n')[0];
-                      }
-
                       return {
                         ...item,
                         toolData: {
@@ -342,7 +272,10 @@ export function useAgentRunner({
                           error: event.toolResult.isError
                             ? String(event.toolResult.result)
                             : undefined,
-                          toolOutput: outputSummary,
+                          toolOutput: formatToolOutputSummary(
+                            event.toolResult.result,
+                            event.toolResult.isError,
+                          ),
                         },
                       };
                     }

@@ -1,10 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
-import { defaultCommandRegistry } from '../../commands/registry.js';
-import type { SlashCommand } from '../../commands/types.js';
 import { useDoublePress } from '../hooks/use-double-press.js';
+import { useInputCompletions } from '../hooks/use-input-completions.js';
 import { figures, getTheme } from '../theme/index.js';
-import { searchWorkspaceFiles } from '../utils/file-search.js';
 import { CommandPalette } from './docks/command-palette.js';
 import { FileMatches } from './docks/file-matches.js';
 
@@ -33,52 +31,19 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
   const [escPending, setEscPending] = useState(false);
 
-  // File matching state (@)
-  const [fileMatches, setFileMatches] = useState<string[]>([]);
-  const [fileSelectIdx, setFileSelectIdx] = useState(0);
-
-  // Command palette state (/)
-  const [paletteIdx, setPaletteIdx] = useState(0);
+  const {
+    atData,
+    fileMatches,
+    setFileMatches,
+    fileSelectIdx,
+    setFileSelectIdx,
+    isSlashMode,
+    matchingCommands,
+    paletteIdx,
+    setPaletteIdx,
+  } = useInputCompletions({ value, cursorPos, cwd });
 
   const isBashMode = value.startsWith('!');
-
-  // Check @ query at cursor
-  const getAtQuery = (): { query: string; atIndex: number } | null => {
-    const prefix = value.slice(0, cursorPos);
-    const lastAt = prefix.lastIndexOf('@');
-    if (lastAt === -1) return null;
-    if (lastAt > 0 && prefix[lastAt - 1] !== ' ' && prefix[lastAt - 1] !== '\t') return null;
-    const query = prefix.slice(lastAt + 1);
-    if (query.includes(' ') || query.includes('\t')) return null;
-    return { query, atIndex: lastAt };
-  };
-
-  const atData = getAtQuery();
-
-  // Trigger file search on @
-  useEffect(() => {
-    if (atData) {
-      let active = true;
-      searchWorkspaceFiles(cwd, atData.query).then((matches) => {
-        if (active) {
-          setFileMatches(matches);
-          setFileSelectIdx(0);
-        }
-      });
-      return () => {
-        active = false;
-      };
-    } else {
-      setFileMatches([]);
-    }
-  }, [atData?.query, cwd]);
-
-  // Slash commands filtering
-  const allCommands = defaultCommandRegistry.getAll();
-  const isSlashMode = value.startsWith('/') && !value.includes(' ');
-  const matchingCommands: SlashCommand[] = isSlashMode
-    ? allCommands.filter((c) => `/${c.name}`.toLowerCase().startsWith(value.toLowerCase()))
-    : [];
 
   // Double-press Escape to clear input bar
   const handleEscapeDoublePress = useDoublePress(
