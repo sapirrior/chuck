@@ -62,7 +62,12 @@ export async function fetchOpenAIModels(
   }
 
   return payload.data
-    .filter((item) => typeof item.id === 'string' && OPENAI_MODEL_REGEX.test(item.id))
+    .filter(
+      (item) =>
+        typeof item.id === 'string' &&
+        OPENAI_MODEL_REGEX.test(item.id) &&
+        !/(audio|tts|transcribe)/i.test(item.id),
+    )
     .map((item) => ({
       provider: 'openai' as const,
       model_id: item.id,
