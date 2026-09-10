@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
+import { randomUUID } from 'node:crypto';
 import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
 import { AgentSession } from '../../agent/agent-session.js';
@@ -63,17 +64,14 @@ export function useAgentRunner({
     [activeConfirmation],
   );
 
-  const requestConfirmation = useCallback(
-    (request: ConfirmationRequest): Promise<ConfirmationDecision> => {
-      return new Promise<ConfirmationDecision>((resolve) => {
-        setActiveConfirmation({
-          request,
-          resolver: resolve,
-        });
+  const requestConfirmation = useCallback((request: ConfirmationRequest) => {
+    return new Promise<ConfirmationDecision>((resolve) => {
+      setActiveConfirmation({
+        request,
+        resolver: resolve,
       });
-    },
-    [],
-  );
+    });
+  }, []);
 
   const handleSelectResumeSession = useCallback((selected: SessionData) => {
     const resumed = AgentSession.resume(selected);
@@ -100,7 +98,7 @@ export function useAgentRunner({
       setHistoryItems((prev) => [
         ...prev,
         {
-          id: `sys-model-${Date.now()}`,
+          id: `sys-model-${randomUUID()}`,
           type: 'system',
           content: `Active model switched to ${selected.provider}/${selected.model_id}`,
         },
@@ -115,7 +113,7 @@ export function useAgentRunner({
       if (isBash) {
         setHistoryItems((prev) => [
           ...prev,
-          { id: `bash-${Date.now()}`, type: 'bash', content: text },
+          { id: `bash-${randomUUID()}`, type: 'bash', content: text },
         ]);
         setIsBusy(true);
 
@@ -125,13 +123,13 @@ export function useAgentRunner({
           const output = raw.trim() || '(no content)';
           setHistoryItems((prev) => [
             ...prev,
-            { id: `bash-out-${Date.now()}`, type: 'assistant', content: output },
+            { id: `bash-out-${randomUUID()}`, type: 'assistant', content: output },
           ]);
         } catch (err) {
           setHistoryItems((prev) => [
             ...prev,
             {
-              id: `bash-err-${Date.now()}`,
+              id: `bash-err-${randomUUID()}`,
               type: 'system',
               content: `Command error: ${err instanceof Error ? err.message : String(err)}`,
             },
@@ -165,7 +163,7 @@ export function useAgentRunner({
 
         setHistoryItems((prev) => [
           ...prev,
-          { id: `cmd-in-${Date.now()}`, type: 'user', content: text },
+          { id: `cmd-in-${randomUUID()}`, type: 'user', content: text },
         ]);
 
         if (cmdResult.data?.showModelPicker) {
@@ -187,14 +185,17 @@ export function useAgentRunner({
         if (cmdResult.message) {
           setHistoryItems((prev) => [
             ...prev,
-            { id: `cmd-out-${Date.now()}`, type: 'system', content: cmdResult.message! },
+            { id: `cmd-out-${randomUUID()}`, type: 'system', content: cmdResult.message! },
           ]);
         }
         return;
       }
 
       // 3. Submit user prompt to AgentSession
-      setHistoryItems((prev) => [...prev, { id: `u-${Date.now()}`, type: 'user', content: text }]);
+      setHistoryItems((prev) => [
+        ...prev,
+        { id: `u-${randomUUID()}`, type: 'user', content: text },
+      ]);
 
       setIsBusy(true);
       setStreamingReasoning('');
@@ -213,6 +214,7 @@ export function useAgentRunner({
 
       let currentStreamText = '';
       let currentStreamReasoning = '';
+      let errorHandled = false;
 
       try {
         await session.submitPrompt(text, {
@@ -233,7 +235,7 @@ export function useAgentRunner({
                 const itemsToFlush: UIHistoryItem[] = [];
                 if (currentStreamReasoning) {
                   itemsToFlush.push({
-                    id: `res-reasoning-${Date.now()}-${Math.random()}`,
+                    id: `res-reasoning-${randomUUID()}`,
                     type: 'reasoning',
                     content: currentStreamReasoning,
                   });
@@ -242,7 +244,7 @@ export function useAgentRunner({
                 }
                 if (currentStreamText) {
                   itemsToFlush.push({
-                    id: `res-text-${Date.now()}-${Math.random()}`,
+                    id: `res-text-${randomUUID()}`,
                     type: 'assistant',
                     content: currentStreamText,
                   });
@@ -292,7 +294,7 @@ export function useAgentRunner({
                 const finalItems: UIHistoryItem[] = [];
                 if (currentStreamReasoning) {
                   finalItems.push({
-                    id: `res-reasoning-${Date.now()}-${Math.random()}`,
+                    id: `res-reasoning-${randomUUID()}`,
                     type: 'reasoning',
                     content: currentStreamReasoning,
                   });
@@ -300,7 +302,7 @@ export function useAgentRunner({
                 }
                 if (currentStreamText) {
                   finalItems.push({
-                    id: `res-text-${Date.now()}-${Math.random()}`,
+                    id: `res-text-${randomUUID()}`,
                     type: 'assistant',
                     content: currentStreamText,
                   });
@@ -316,6 +318,7 @@ export function useAgentRunner({
               }
 
               case 'error': {
+                errorHandled = true;
                 const msg = event.error.message;
                 if (
                   !msg.toLowerCase().includes('interrupted') &&
@@ -324,7 +327,7 @@ export function useAgentRunner({
                   setHistoryItems((prev) => [
                     ...prev,
                     {
-                      id: `err-${Date.now()}`,
+                      id: `err-${randomUUID()}`,
                       type: 'system',
                       content: `Error: ${event.error.message}`,
                     },
@@ -336,19 +339,21 @@ export function useAgentRunner({
           },
         });
       } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (
-          !msg.toLowerCase().includes('interrupted') &&
-          !msg.toLowerCase().includes('cancelled')
-        ) {
-          setHistoryItems((prev) => [
-            ...prev,
-            {
-              id: `err-${Date.now()}`,
-              type: 'system',
-              content: `Execution error: ${msg}`,
-            },
-          ]);
+        if (!errorHandled) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (
+            !msg.toLowerCase().includes('interrupted') &&
+            !msg.toLowerCase().includes('cancelled')
+          ) {
+            setHistoryItems((prev) => [
+              ...prev,
+              {
+                id: `err-${randomUUID()}`,
+                type: 'system',
+                content: `Execution error: ${msg}`,
+              },
+            ]);
+          }
         }
       } finally {
         setIsBusy(false);

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { UIHistoryItem } from '../components/message-history.js';
 import type { SessionData } from '../../session/types.js';
 
@@ -91,7 +92,7 @@ export function rehydrateSessionHistory(sessionData: SessionData): UIHistoryItem
   }
 
   restoredItems.push({
-    id: `sys-resume-${Date.now()}`,
+    id: `sys-resume-${randomUUID()}`,
     type: 'system',
     content: `Resumed session ${sessionData.id.slice(0, 8)} (${sessionData.turns.length} turns, ${sessionData.totalUsage?.totalTokens ?? 0} tokens)`,
   });
