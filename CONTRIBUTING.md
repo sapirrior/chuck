@@ -20,9 +20,6 @@ npm install
 # Type check
 npm run typecheck
 
-# Lint checks
-npm run lint
-
 # Format check / auto-formatting
 npm run format
 
@@ -52,10 +49,9 @@ All application logic will reside under `src/`. To maintain maintainability, fut
 - Strict mode is enabled and enforced via `tsconfig.json`.
 - Do not use `any` unless strictly necessary and accompanied by an explanatory comment.
 
-### Formatting & Linting
+### Formatting
 - **Prettier** handles all code formatting (`.prettierrc`).
-- **ESLint** enforces style and static analysis rules (`eslint.config.js`).
-- Run `npm run lint` and `npm run format` prior to committing.
+- Run `npm run format` prior to committing.
 
 ### Naming Conventions
 - **Files & Directories:** `kebab-case` (e.g., `agent-runner.ts`, `status-badge.tsx`).
@@ -107,7 +103,7 @@ We follow the [Conventional Commits](https://www.conventionalcommits.org/) speci
    - Submit PRs targeting `main`.
    - Provide a clear description of what changed and why.
    - Include verification details (manual testing steps, test command output).
-   - Ensure `npm run typecheck`, `npm run lint`, and `npm test` pass before requesting review.
+   - Ensure `npm run typecheck` and `npm test` pass before requesting review.
 
 ---
 

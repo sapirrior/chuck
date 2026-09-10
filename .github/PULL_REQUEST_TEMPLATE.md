@@ -10,7 +10,6 @@
 ## Checklist
 - [ ] Code builds cleanly (`npm run build`)
 - [ ] Typecheck passes without errors (`npm run typecheck`)
-- [ ] Linting checks pass (`npm run lint`)
 - [ ] Formatted using Prettier (`npm run format`)
 - [ ] Tests pass (if applicable) (`npm test`)
 - [ ] Commits follow Conventional Commits standard

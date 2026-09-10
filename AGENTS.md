@@ -26,7 +26,6 @@ All application source code will reside in `src/`. Future code must maintain str
 Execute the following standard npm scripts defined in `package.json`:
 - **Build:** `npm run build`
 - **Typecheck:** `npm run typecheck`
-- **Lint:** `npm run lint`
 - **Format:** `npm run format`
 - **Test:** `npm test`
 
