@@ -1,77 +1,40 @@
-import React, { useState, useEffect } from 'react';
-import { Box, Text, useWindowSize } from 'ink';
-import { exec } from 'node:child_process';
-import { promisify } from 'node:util';
-import { figures, getTheme } from '../theme/index.js';
-
-const execAsync = promisify(exec);
+import React from 'react';
+import { Box, Text } from 'ink';
+import { getTheme } from '../theme/index.js';
 
 export interface HeaderProps {
   version?: string;
-  cwd: string;
-  model: {
+  cwd?: string;
+  model?: {
     provider: string;
     modelId: string;
   };
 }
 
-export const Header: React.FC<HeaderProps> = ({ version = '0.1.0', cwd, model }) => {
+/**
+ * Clean, minimal welcome banner matching Delta's exact RenderBanner:
+ * Line 1: xd v0.1.0
+ * Line 2: Type / for commands
+ * (No horizontal divider rule)
+ */
+export const Header: React.FC<HeaderProps> = ({ version = '0.1.0' }) => {
   const theme = getTheme();
-  const { columns } = useWindowSize();
-  const [gitBranch, setGitBranch] = useState<string>('');
-
-  const dirName = cwd.split('/').filter(Boolean).pop() ?? cwd;
-  const dividerWidth = Math.max(10, columns - 4);
-
-  // Fetch current git branch
-  useEffect(() => {
-    let active = true;
-    execAsync('git rev-parse --abbrev-ref HEAD', { cwd })
-      .then(({ stdout }) => {
-        if (active) {
-          setGitBranch(stdout.trim());
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setGitBranch('');
-        }
-      });
-    return () => {
-      active = false;
-    };
-  }, [cwd]);
 
   return (
     <Box flexDirection="column" marginBottom={1} width="100%">
-      {/* Top Banner Row */}
-      <Box justifyContent="space-between" width="100%">
-        <Box flexDirection="row" alignItems="center">
-          <Text bold color={theme.brand}>
-            xd
-          </Text>
-          <Text dimColor> v{version}</Text>
-          <Text dimColor> {figures.bullet} </Text>
-          <Text color={theme.text}>{dirName}</Text>
-          {gitBranch ? (
-            <>
-              <Text dimColor> {figures.bullet} </Text>
-              <Text color={theme.textMuted}>({gitBranch})</Text>
-            </>
-          ) : null}
-        </Box>
-        <Box flexDirection="row" alignItems="center">
-          <Text color={theme.permission}>
-            {model.provider}/{model.modelId}
-          </Text>
-        </Box>
+      {/* Line 1: Title and Version */}
+      <Box flexDirection="row">
+        <Text bold color={theme.brand}>
+          xd
+        </Text>
+        <Text color={theme.permission}> v{version}</Text>
       </Box>
 
-      {/* Full-width Lavender Header Divider Rule */}
-      <Box width="100%" marginTop={0}>
-        <Text color={theme.lavenderHeader}>
-          {figures.horizontalLine.repeat(dividerWidth)}
-        </Text>
+      {/* Line 2: Type / for commands */}
+      <Box flexDirection="row">
+        <Text dimColor>Type </Text>
+        <Text color={theme.brand}>/</Text>
+        <Text dimColor> for commands</Text>
       </Box>
     </Box>
   );
