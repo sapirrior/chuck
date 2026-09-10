@@ -43,7 +43,6 @@ export const MessageHistory: React.FC<MessageHistoryProps> = ({
                 key={item.id}
                 marginTop={1}
                 marginBottom={0}
-                paddingX={1}
                 backgroundColor={theme.userCardBg}
                 flexDirection="row"
               >
@@ -58,7 +57,6 @@ export const MessageHistory: React.FC<MessageHistoryProps> = ({
                 key={item.id}
                 marginTop={1}
                 marginBottom={0}
-                paddingX={1}
                 backgroundColor={theme.userCardBg}
                 flexDirection="row"
               >
