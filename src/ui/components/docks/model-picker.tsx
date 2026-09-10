@@ -79,9 +79,7 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
       <Text color={theme.lavenderHeader}>{figures.horizontalLine.repeat(dividerWidth)}</Text>
 
       <Box marginY={0} justifyContent="space-between" width="100%">
-        <Text color={theme.info}>
-          Select Model
-        </Text>
+        <Text color={theme.info}>Select Model</Text>
         <Text dimColor>
           Current: {currentModel.provider}/{currentModel.modelId}
         </Text>
@@ -122,14 +120,8 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
                 width="100%"
               >
                 <Box flexDirection="row">
-                  {isSelected ? (
-                    <Text color={theme.info}>{figures.pointer} </Text>
-                  ) : (
-                    <Text>  </Text>
-                  )}
-                  <Text color={isSelected ? theme.info : theme.inactive}>
-                    {m.model_id}
-                  </Text>
+                  {isSelected ? <Text color={theme.info}>{figures.pointer} </Text> : <Text> </Text>}
+                  <Text color={isSelected ? theme.info : theme.inactive}>{m.model_id}</Text>
                   {isCurrent ? <Text color={theme.success}> (active)</Text> : null}
                 </Box>
                 <Box>

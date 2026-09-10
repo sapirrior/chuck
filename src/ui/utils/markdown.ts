@@ -7,11 +7,11 @@ import { highlight as cliHighlight, supportsLanguage } from 'cli-highlight';
 const EOL = '\n';
 
 // Claude Code specific glyphs and colors
-const BRAND_HEX = '#D77757';       // Coral / Terracotta (Headings, Bullets)
-const PERMISSION_HEX = '#B1B9F9';  // Lavender / Code Span
-const INFO_HEX = '#7BA5DA';        // Link Blue
-const DIM_BAR_HEX = '#505050';     // Gutter bars
-const RULE_HEX = '#333333';        // Table / HR lines
+const BRAND_HEX = '#D77757'; // Coral / Terracotta (Headings, Bullets)
+const PERMISSION_HEX = '#B1B9F9'; // Lavender / Code Span
+const INFO_HEX = '#7BA5DA'; // Link Blue
+const DIM_BAR_HEX = '#505050'; // Gutter bars
+const RULE_HEX = '#333333'; // Table / HR lines
 
 let markedConfigured = false;
 
@@ -57,9 +57,7 @@ export function formatToken(
 ): string {
   switch (token.type) {
     case 'blockquote': {
-      const inner = (token.tokens ?? [])
-        .map((t) => formatToken(t, 0, null, null))
-        .join('');
+      const inner = (token.tokens ?? []).map((t) => formatToken(t, 0, null, null)).join('');
       const bar = chalk.hex(DIM_BAR_HEX)('│');
       return inner
         .split(EOL)
@@ -89,9 +87,7 @@ export function formatToken(
     }
 
     case 'strong': {
-      return chalk.bold(
-        (token.tokens ?? []).map((t) => formatToken(t, 0, null, parent)).join(''),
-      );
+      return chalk.bold((token.tokens ?? []).map((t) => formatToken(t, 0, null, parent)).join(''));
     }
 
     case 'heading': {
@@ -121,12 +117,7 @@ export function formatToken(
       return (
         list.items
           .map((item: Token, index: number) =>
-            formatToken(
-              item,
-              listDepth,
-              list.ordered ? (list.start || 1) + index : null,
-              list,
-            ),
+            formatToken(item, listDepth, list.ordered ? (list.start || 1) + index : null, list),
           )
           .join('') + EOL
       );
@@ -143,9 +134,7 @@ export function formatToken(
     }
 
     case 'paragraph': {
-      return (
-        (token.tokens ?? []).map((t) => formatToken(t, 0, null, null)).join('') + EOL + EOL
-      );
+      return (token.tokens ?? []).map((t) => formatToken(t, 0, null, null)).join('') + EOL + EOL;
     }
 
     case 'space':
@@ -166,9 +155,7 @@ export function formatToken(
       const tableToken = token as Tokens.Table;
 
       function getDisplayText(tokens: Token[] | undefined): string {
-        return stripAnsi(
-          tokens?.map((t) => formatToken(t, 0, null, null)).join('') ?? '',
-        );
+        return stripAnsi(tokens?.map((t) => formatToken(t, 0, null, null)).join('') ?? '');
       }
 
       const columnWidths = tableToken.header.map((header, index) => {
@@ -194,7 +181,7 @@ export function formatToken(
             ? cell.tokens.map((t) => formatToken(t, 0, null, null)).join('')
             : '';
           const plain = stripAnsi(raw);
-          const align = isHeader ? 'center' : tableToken.align?.[i] ?? 'left';
+          const align = isHeader ? 'center' : (tableToken.align?.[i] ?? 'left');
           const padded = padAligned(raw, stringWidth(plain), w, align);
           return isHeader ? ` ${chalk.bold(padded)} ` : ` ${padded} `;
         });
@@ -231,5 +218,8 @@ export function applyMarkdown(content: string): string {
 
   configureMarked();
   const tokens = marked.lexer(content);
-  return tokens.map((t) => formatToken(t)).join('').trimEnd();
+  return tokens
+    .map((t) => formatToken(t))
+    .join('')
+    .trimEnd();
 }

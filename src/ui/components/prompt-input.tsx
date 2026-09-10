@@ -294,9 +294,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
         width="100%"
         paddingX={1}
       >
-        <Text color={promptChevronColor}>
-          {figures.pointer}{' '}
-        </Text>
+        <Text color={promptChevronColor}>{figures.pointer} </Text>
         <Box flexGrow={1}>
           {value.length === 0 ? (
             <Text dimColor>Type a prompt, ! for bash, or / for commands...</Text>

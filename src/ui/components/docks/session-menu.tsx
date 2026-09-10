@@ -79,9 +79,7 @@ export const SessionMenu: React.FC<SessionMenuProps> = ({ sessions, onSelect, on
       <Text color={theme.lavenderHeader}>{figures.horizontalLine.repeat(dividerWidth)}</Text>
 
       <Box marginY={0} justifyContent="space-between" width="100%">
-        <Text color={theme.info}>
-          Resume Session
-        </Text>
+        <Text color={theme.info}>Resume Session</Text>
         <Text dimColor>
           {filtered.length} session{filtered.length !== 1 ? 's' : ''}
         </Text>
@@ -120,14 +118,8 @@ export const SessionMenu: React.FC<SessionMenuProps> = ({ sessions, onSelect, on
             return (
               <Box key={s.id} flexDirection="row" justifyContent="space-between" width="100%">
                 <Box flexDirection="row">
-                  {isSelected ? (
-                    <Text color={theme.info}>{figures.pointer} </Text>
-                  ) : (
-                    <Text>  </Text>
-                  )}
-                  <Text color={isSelected ? theme.info : theme.inactive}>
-                    {displayTitle}
-                  </Text>
+                  {isSelected ? <Text color={theme.info}>{figures.pointer} </Text> : <Text> </Text>}
+                  <Text color={isSelected ? theme.info : theme.inactive}>{displayTitle}</Text>
                   <Text dimColor> ({shortId})</Text>
                 </Box>
                 <Box>

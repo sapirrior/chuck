@@ -17,11 +17,13 @@ const execAsync = promisify(exec);
 export interface UseAgentRunnerOptions {
   initialSession?: AgentSession;
   cwd?: string;
+  onExit?: () => void;
 }
 
 export function useAgentRunner({
   initialSession,
   cwd = process.cwd(),
+  onExit,
 }: UseAgentRunnerOptions = {}) {
   const [session, setSession] = useState<AgentSession>(() => initialSession ?? new AgentSession());
   const [historyItems, setHistoryItems] = useState<UIHistoryItem[]>([]);
@@ -197,6 +199,16 @@ export function useAgentRunner({
           return;
         }
 
+        // If /exit executed, trigger exit
+        if (cmdResult.data?.exit) {
+          if (onExit) {
+            onExit();
+          } else {
+            process.exit(0);
+          }
+          return;
+        }
+
         setHistoryItems((prev) => [
           ...prev,
           { id: `cmd-in-${Date.now()}`, type: 'user', content: text },
@@ -205,11 +217,6 @@ export function useAgentRunner({
         if (cmdResult.data?.showModelPicker) {
           setAvailableModels(cmdResult.data.models ?? []);
           setShowModelPicker(true);
-          return;
-        }
-
-        if (cmdResult.data?.showHelp) {
-          setShowHelp(true);
           return;
         }
 
@@ -247,34 +254,58 @@ export function useAgentRunner({
 
       const tools = defaultToolCatalog.toAISDKTools(toolContext);
 
+      let currentStreamText = '';
+      let currentStreamReasoning = '';
+
       try {
         await session.submitPrompt(text, {
           tools,
           onEvent: (event: AgentEvent) => {
             switch (event.type) {
               case 'text-delta':
-                setStreamingText((prev) => prev + event.text);
+                currentStreamText += event.text;
+                setStreamingText(currentStreamText);
                 break;
 
               case 'reasoning-delta':
-                setStreamingReasoning((prev) => prev + event.reasoning);
+                currentStreamReasoning += event.reasoning;
+                setStreamingReasoning(currentStreamReasoning);
                 break;
 
-              case 'tool-call':
-                setHistoryItems((prev) => [
-                  ...prev,
-                  {
-                    id: `tool-${event.toolCall.id}`,
-                    type: 'tool',
-                    content: '',
-                    toolData: {
-                      toolName: event.toolCall.name,
-                      argsSummary: JSON.stringify(event.toolCall.args),
-                      status: 'running',
-                    },
+              case 'tool-call': {
+                const itemsToFlush: UIHistoryItem[] = [];
+                if (currentStreamReasoning) {
+                  itemsToFlush.push({
+                    id: `res-reasoning-${Date.now()}-${Math.random()}`,
+                    type: 'reasoning',
+                    content: currentStreamReasoning,
+                  });
+                  currentStreamReasoning = '';
+                  setStreamingReasoning('');
+                }
+                if (currentStreamText) {
+                  itemsToFlush.push({
+                    id: `res-text-${Date.now()}-${Math.random()}`,
+                    type: 'assistant',
+                    content: currentStreamText,
+                  });
+                  currentStreamText = '';
+                  setStreamingText('');
+                }
+                itemsToFlush.push({
+                  id: `tool-${event.toolCall.id}`,
+                  type: 'tool',
+                  content: '',
+                  toolData: {
+                    toolName: event.toolCall.name,
+                    argsSummary: JSON.stringify(event.toolCall.args),
+                    status: 'running',
                   },
-                ]);
+                });
+
+                setHistoryItems((prev) => [...prev, ...itemsToFlush]);
                 break;
+              }
 
               case 'tool-result':
                 setHistoryItems((prev) =>
@@ -320,29 +351,32 @@ export function useAgentRunner({
                 );
                 break;
 
-              case 'turn-complete':
-                setHistoryItems((prev) => {
-                  const updated = [...prev];
-                  if (event.summary.reasoning) {
-                    updated.push({
-                      id: `res-reasoning-${Date.now()}`,
-                      type: 'reasoning',
-                      content: event.summary.reasoning,
-                    });
-                  }
-                  if (event.summary.text) {
-                    updated.push({
-                      id: `res-text-${Date.now()}`,
-                      type: 'assistant',
-                      content: event.summary.text,
-                    });
-                  }
-                  return updated;
-                });
+              case 'turn-complete': {
+                const finalItems: UIHistoryItem[] = [];
+                if (currentStreamReasoning) {
+                  finalItems.push({
+                    id: `res-reasoning-${Date.now()}-${Math.random()}`,
+                    type: 'reasoning',
+                    content: currentStreamReasoning,
+                  });
+                  currentStreamReasoning = '';
+                }
+                if (currentStreamText) {
+                  finalItems.push({
+                    id: `res-text-${Date.now()}-${Math.random()}`,
+                    type: 'assistant',
+                    content: currentStreamText,
+                  });
+                  currentStreamText = '';
+                }
+                if (finalItems.length > 0) {
+                  setHistoryItems((prev) => [...prev, ...finalItems]);
+                }
                 setStreamingReasoning('');
                 setStreamingText('');
                 setSessionVersion((v) => v + 1);
                 break;
+              }
 
               case 'error':
                 setHistoryItems((prev) => [

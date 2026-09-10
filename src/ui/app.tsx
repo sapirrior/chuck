@@ -44,7 +44,7 @@ export const App: React.FC<AppProps> = ({ session: initialSession, cwd = process
     handleSelectResumeSession,
     handleSelectModel,
     handleSubmit,
-  } = useAgentRunner({ initialSession, cwd });
+  } = useAgentRunner({ initialSession, cwd, onExit: () => exit() });
 
   // Double-press Ctrl+C to exit Claude Code 1:1 behavior
   const handleCtrlCDoublePress = useDoublePress(

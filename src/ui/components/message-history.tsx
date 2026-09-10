@@ -46,9 +46,7 @@ export const MessageHistory: React.FC<MessageHistoryProps> = ({
                 flexDirection="row"
               >
                 <Text color={theme.userChevron}>{figures.pointer} </Text>
-                <Text color={theme.text}>
-                  {item.content}
-                </Text>
+                <Text color={theme.text}>{item.content}</Text>
               </Box>
             );
 
@@ -62,9 +60,7 @@ export const MessageHistory: React.FC<MessageHistoryProps> = ({
                 backgroundColor={theme.userCardBg}
                 flexDirection="row"
               >
-                <Text color={theme.bashPink}>
-                  ! {item.content}
-                </Text>
+                <Text color={theme.bashPink}>! {item.content}</Text>
               </Box>
             );
 
@@ -114,7 +110,7 @@ export const MessageHistory: React.FC<MessageHistoryProps> = ({
       {/* Real-time streaming reasoning */}
       {streamingReasoning ? (
         <Box marginY={0} paddingLeft={2}>
-          <Text color={theme.permission} italic>
+          <Text dimColor italic>
             {figures.teardropAsterisk} {streamingReasoning}
           </Text>
         </Box>
