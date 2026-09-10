@@ -14,20 +14,29 @@ export interface StatusBarProps {
 }
 
 function formatTokens(n: number): string {
+  if (n < 0) return '0';
+  if (n >= 1_000_000_000) {
+    return `${(n / 1_000_000_000).toFixed(1)}B`;
+  }
   if (n >= 1_000_000) {
     return `${(n / 1_000_000).toFixed(1)}M`;
   }
   if (n >= 1_000) {
-    return `${(n / 1_000).toFixed(1)}k`;
+    return `${(n / 1_000).toFixed(1)}K`;
   }
   return `${n}`;
 }
 
+/**
+ * Bottom status line matching Delta's exact RenderStatusLine layout:
+ * - Left: "? for shortcuts" in muted text (or "▸ Press Ctrl+C again to exit" if quit hint)
+ * - Right: Active model name in dim text (with optional token counters)
+ */
 export const StatusBar: React.FC<StatusBarProps> = ({ model, usage, isBusy, exitPending }) => {
   const theme = getTheme();
   const [spinnerIndex, setSpinnerIndex] = useState(0);
 
-  // Animate spinner when generating
+  // Animate spinner during generation
   useEffect(() => {
     if (!isBusy) return;
     const interval = setInterval(() => {
@@ -37,28 +46,42 @@ export const StatusBar: React.FC<StatusBarProps> = ({ model, usage, isBusy, exit
   }, [isBusy]);
 
   return (
-    <Box flexDirection="row" justifyContent="space-between" width="100%" paddingX={2} marginTop={0}>
+    <Box
+      flexDirection="row"
+      justifyContent="space-between"
+      width="100%"
+      paddingX={1}
+      marginTop={0}
+    >
+      {/* Left side: Shortcuts hint or exit hint or streaming status */}
       <Box>
         {exitPending ? (
-          <Text color={theme.error}>Press Ctrl+C again to exit</Text>
+          <Box flexDirection="row">
+            <Text color={theme.error}> ▸ </Text>
+            <Text dimColor>Press </Text>
+            <Text color={theme.error}>Ctrl+C</Text>
+            <Text dimColor> again to exit</Text>
+          </Box>
         ) : isBusy ? (
           <Text color={theme.permission}>
-            {figures.spinnerFrames[spinnerIndex]} processing... <Text dimColor>(Esc to stop)</Text>
+            {figures.spinnerFrames[spinnerIndex]} processing… <Text dimColor>(Esc to stop)</Text>
           </Text>
         ) : (
-          <Text dimColor>
-            ? for shortcuts <Text color={theme.subtle}>{figures.bullet}</Text> /model{' '}
-            <Text color={theme.subtle}>{figures.bullet}</Text> /clear{' '}
-            <Text color={theme.subtle}>{figures.bullet}</Text> 2x Esc to clear{' '}
-            <Text color={theme.subtle}>{figures.bullet}</Text> 2x Ctrl+C to exit
-          </Text>
+          <Text color={theme.textMuted}>? for shortcuts</Text>
         )}
       </Box>
 
-      <Box>
-        <Text dimColor>
-          tokens: in {formatTokens(usage.inputTokens)} / out {formatTokens(usage.outputTokens)}
-        </Text>
+      {/* Right side: Active model name & compact token counters */}
+      <Box flexDirection="row">
+        <Text dimColor>{model.modelId || `${model.provider}/${model.modelId}`}</Text>
+        {usage.totalTokens > 0 ? (
+          <>
+            <Text color={theme.subtle}> {figures.bullet} </Text>
+            <Text color={theme.textMuted}>
+              {formatTokens(usage.totalTokens)} tokens
+            </Text>
+          </>
+        ) : null}
       </Box>
     </Box>
   );
