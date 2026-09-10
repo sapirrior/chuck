@@ -68,7 +68,6 @@ function extractCleanUrl(rawUrl: string): string {
         return decodeURIComponent(uddg);
       }
     } catch {
-      // Fallback to regex extraction if URL parsing fails
       const match = url.match(/uddg=([^&]+)/);
       if (match && match[1]) {
         return decodeURIComponent(match[1]);
@@ -79,22 +78,28 @@ function extractCleanUrl(rawUrl: string): string {
 }
 
 /**
- * Searches DuckDuckGo HTML endpoint using regex parsing.
+ * Searches DuckDuckGo HTML endpoint directly with clean browser headers.
  */
-async function searchDuckDuckGoHtml(
+async function searchDuckDuckGoDirect(
   query: string,
   limit: number,
   signal: AbortSignal,
 ): Promise<WebSearchResultItem[]> {
-  const response = await fetch('https://html.duckduckgo.com/html/', {
-    method: 'POST',
+  const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+
+  const response = await fetch(url, {
+    method: 'GET',
     headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
       'User-Agent':
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      Accept:
+        'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.5',
+      Referer: 'https://html.duckduckgo.com/',
+      DNT: '1',
+      Connection: 'keep-alive',
+      'Upgrade-Insecure-Requests': '1',
     },
-    body: `q=${encodeURIComponent(query)}`,
     signal,
   });
 
@@ -105,32 +110,26 @@ async function searchDuckDuckGoHtml(
   const html = await response.text();
   const results: WebSearchResultItem[] = [];
 
-  // Match result bodies: <div class="result__body"> ... </div>
-  const bodyRegex = /<div\s+class="result__body">([\s\S]*?)<\/div>\s*<\/div>/gi;
-  let bodyMatch: RegExpExecArray | null;
+  // Each individual organic result is split on result container
+  const resultBlocks = html.split(/<div\s+class="[^"]*result\s+results_links/);
 
-  while ((bodyMatch = bodyRegex.exec(html)) !== null && results.length < limit) {
-    const chunk = bodyMatch[1];
-    if (!chunk) continue;
+  for (const block of resultBlocks.slice(1)) {
+    if (results.length >= limit) break;
 
-    // Title and URL extraction
-    const titleMatch =
-      /<a\s+class="result__url"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i.exec(chunk) ||
-      /<a\s+[^>]*class="[^"]*result__snippet[^"]*"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i.exec(
-        chunk,
-      ) ||
-      /<a\s+[^>]*href="([^"]+)"[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/i.exec(chunk) ||
-      /<h2\s+class="result__title">\s*<a\s+[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i.exec(chunk);
+    // Filter out sponsored ads
+    if (block.includes('badge--ad')) continue;
 
-    const snippetMatch =
-      /<a\s+class="result__snippet"[^>]*>([\s\S]*?)<\/a>/i.exec(chunk) ||
-      /<div\s+class="result__snippet"[^>]*>([\s\S]*?)<\/div>/i.exec(chunk);
+    const titleMatch = block.match(
+      /<a[^>]*class="[^"]*result__a[^"]*"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i,
+    );
+    const snippetMatch = block.match(
+      /<(?:a|div|span)[^>]*class="[^"]*result__snippet[^"]*"[^>]*>([\s\S]*?)<\/(?:a|div|span)>/i,
+    );
 
     if (titleMatch && titleMatch[1]) {
-      const rawUrl = titleMatch[1];
+      const cleanUrl = extractCleanUrl(titleMatch[1]);
       const title = cleanText(titleMatch[2] || 'Untitled');
-      const snippet = snippetMatch && snippetMatch[1] ? cleanText(snippetMatch[1]) : '';
-      const cleanUrl = extractCleanUrl(rawUrl);
+      const snippet = cleanText(snippetMatch && snippetMatch[1] ? snippetMatch[1] : '');
 
       if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
         results.push({
@@ -145,71 +144,11 @@ async function searchDuckDuckGoHtml(
   return results;
 }
 
-/**
- * Fallback search using DuckDuckGo Lite endpoint.
- */
-async function searchDuckDuckGoLite(
-  query: string,
-  limit: number,
-  signal: AbortSignal,
-): Promise<WebSearchResultItem[]> {
-  const response = await fetch('https://lite.duckduckgo.com/lite/', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'User-Agent':
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-    },
-    body: `q=${encodeURIComponent(query)}`,
-    signal,
-  });
-
-  if (!response.ok) {
-    throw new Error(`DuckDuckGo Lite returned HTTP status ${response.status}`);
-  }
-
-  const html = await response.text();
-  const results: WebSearchResultItem[] = [];
-
-  // In DDG Lite:
-  // Results are in table rows with class="result-link" and class="result-snippet"
-  const linkRegex = /<a\s+class="result-link"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
-  const snippetRegex = /<td\s+class="result-snippet"[^>]*>([\s\S]*?)<\/td>/gi;
-
-  const links: { url: string; title: string }[] = [];
-  let linkMatch: RegExpExecArray | null;
-  while ((linkMatch = linkRegex.exec(html)) !== null) {
-    links.push({
-      url: extractCleanUrl(linkMatch[1] ?? ''),
-      title: cleanText(linkMatch[2] ?? ''),
-    });
-  }
-
-  const snippets: string[] = [];
-  let snipMatch: RegExpExecArray | null;
-  while ((snipMatch = snippetRegex.exec(html)) !== null) {
-    snippets.push(cleanText(snipMatch[1] ?? ''));
-  }
-
-  for (let i = 0; i < Math.min(links.length, limit); i++) {
-    const item = links[i];
-    if (item && (item.url.startsWith('http://') || item.url.startsWith('https://'))) {
-      results.push({
-        title: item.title,
-        url: item.url,
-        snippet: snippets[i] || '',
-      });
-    }
-  }
-
-  return results;
-}
-
 export const webSearchTool: ToolDefinition<typeof webSearchInputSchema, WebSearchOutput> = {
   name: 'web_search',
   displayName: 'Web Search',
   description:
-    'Searches the web for up-to-date information, documentation, package releases, and technical answers. Returns structured search results with titles, clean URLs, and snippets.',
+    'Searches the web directly for up-to-date information, documentation, package releases, and technical answers. Returns structured search results with titles, clean URLs, and snippets.',
   parameters: webSearchInputSchema,
   confirmationPolicy: 'never',
 
@@ -226,28 +165,13 @@ export const webSearchTool: ToolDefinition<typeof webSearchInputSchema, WebSearc
       ? AbortSignal.any([context.abortSignal, timeoutSignal])
       : timeoutSignal;
 
-    let results: WebSearchResultItem[] = [];
-    let source = 'duckduckgo-html';
-
-    try {
-      results = await searchDuckDuckGoHtml(fullQuery, limit, signal);
-    } catch (primaryError) {
-      // Fallback to Lite version if primary endpoint fails or gets blocked
-      try {
-        results = await searchDuckDuckGoLite(fullQuery, limit, signal);
-        source = 'duckduckgo-lite';
-      } catch (fallbackError) {
-        throw new Error(
-          `Web search failed: ${primaryError instanceof Error ? primaryError.message : String(primaryError)}; fallback error: ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}`,
-        );
-      }
-    }
+    const results = await searchDuckDuckGoDirect(fullQuery, limit, signal);
 
     return {
       query: fullQuery,
       resultCount: results.length,
       results,
-      source,
+      source: 'duckduckgo',
     };
   },
 };
