@@ -31,3 +31,6 @@ Thumbs.db
 
 # Coverage
 coverage/
+
+# References (local development assets)
+references/
