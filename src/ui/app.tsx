@@ -36,6 +36,7 @@ export const App: React.FC<AppProps> = ({ session: initialSession, cwd = process
   const [streamingText, setStreamingText] = useState('');
   const [isBusy, setIsBusy] = useState(false);
   const [exitPending, setExitPending] = useState(false);
+  const [sessionVersion, setSessionVersion] = useState(0);
 
   // Active dock modal states
   const [showHelp, setShowHelp] = useState(false);
@@ -101,14 +102,57 @@ export const App: React.FC<AppProps> = ({ session: initialSession, cwd = process
   const handleSelectResumeSession = (selected: SessionData) => {
     const resumed = AgentSession.resume(selected);
     setSession(resumed);
+    setSessionVersion((v) => v + 1);
     setShowResume(false);
-    setHistoryItems([
-      {
-        id: `sys-resume-${Date.now()}`,
-        type: 'system',
-        content: `Resumed session ${selected.id.slice(0, 8)} (${selected.turns.length} turns)`,
-      },
-    ]);
+
+    // Rehydrate full conversational transcript and tool calls from restored session
+    const restoredItems: UIHistoryItem[] = [];
+    for (const turn of selected.turns) {
+      if (turn.userPrompt) {
+        restoredItems.push({
+          id: `u-${turn.id}`,
+          type: 'user',
+          content: turn.userPrompt,
+        });
+      }
+      if (turn.toolCalls && turn.toolCalls.length > 0) {
+        for (const tc of turn.toolCalls) {
+          restoredItems.push({
+            id: `tool-${tc.id}`,
+            type: 'tool',
+            content: '',
+            toolData: {
+              toolName: tc.name,
+              argsSummary: JSON.stringify(tc.args),
+              status: tc.isError ? 'failed' : 'completed',
+              error: tc.isError ? String(tc.result) : undefined,
+            },
+          });
+        }
+      }
+      if (turn.reasoning) {
+        restoredItems.push({
+          id: `res-reasoning-${turn.id}`,
+          type: 'reasoning',
+          content: turn.reasoning,
+        });
+      }
+      if (turn.assistantText) {
+        restoredItems.push({
+          id: `res-text-${turn.id}`,
+          type: 'assistant',
+          content: turn.assistantText,
+        });
+      }
+    }
+
+    restoredItems.push({
+      id: `sys-resume-${Date.now()}`,
+      type: 'system',
+      content: `Resumed session ${selected.id.slice(0, 8)} (${selected.turns.length} turns, ${selected.totalUsage?.totalTokens ?? 0} tokens)`,
+    });
+
+    setHistoryItems(restoredItems);
   };
 
   const handleSelectModel = (selected: ModelDescriptor) => {
@@ -122,6 +166,7 @@ export const App: React.FC<AppProps> = ({ session: initialSession, cwd = process
         modelId: selected.model_id,
       },
     });
+    setSessionVersion((v) => v + 1);
     setShowModelPicker(false);
     setHistoryItems((prev) => [
       ...prev,
@@ -171,6 +216,7 @@ export const App: React.FC<AppProps> = ({ session: initialSession, cwd = process
       // If /clear executed, wipe UI history items immediately
       if (cmdResult.data?.clearHistory) {
         setHistoryItems([]);
+        setSessionVersion((v) => v + 1);
         return;
       }
 
@@ -294,6 +340,7 @@ export const App: React.FC<AppProps> = ({ session: initialSession, cwd = process
               });
               setStreamingReasoning('');
               setStreamingText('');
+              setSessionVersion((v) => v + 1);
               break;
 
             case 'error':
@@ -322,6 +369,7 @@ export const App: React.FC<AppProps> = ({ session: initialSession, cwd = process
       setIsBusy(false);
       setStreamingReasoning('');
       setStreamingText('');
+      setSessionVersion((v) => v + 1);
     }
   };
 
@@ -370,7 +418,13 @@ export const App: React.FC<AppProps> = ({ session: initialSession, cwd = process
         />
       )}
 
-      <StatusBar model={currentModel} usage={usage} isBusy={isBusy} exitPending={exitPending} />
+      <StatusBar
+        key={sessionVersion}
+        model={currentModel}
+        usage={usage}
+        isBusy={isBusy}
+        exitPending={exitPending}
+      />
     </Box>
   );
 };
