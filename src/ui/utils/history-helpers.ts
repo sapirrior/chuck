@@ -11,6 +11,13 @@ export function formatToolOutputSummary(res: unknown, isError = false): string |
 
   if (typeof res === 'object') {
     const obj = res as Record<string, any>;
+    if (obj.stdout !== undefined || obj.stderr !== undefined) {
+      const combined = ((obj.stdout ?? '') + (obj.stderr ? ` ${obj.stderr}` : '')).trim();
+      if (!combined) {
+        return '(no content)';
+      }
+      return combined.split('\n')[0];
+    }
     if (obj.message && typeof obj.message === 'string') {
       return obj.message;
     }
@@ -21,14 +28,17 @@ export function formatToolOutputSummary(res: unknown, isError = false): string |
       return `Fetched ${obj.contentType ?? 'content'} (${obj.status} OK, ${obj.content?.length ?? 0} chars)`;
     }
     if (obj.content !== undefined) {
-      return typeof obj.content === 'string'
-        ? obj.content.split('\n')[0]
-        : JSON.stringify(obj.content);
+      if (typeof obj.content === 'string') {
+        const trimmed = obj.content.trim();
+        return trimmed ? trimmed.split('\n')[0] : '(no content)';
+      }
+      return JSON.stringify(obj.content);
     }
   }
 
-  if (typeof res === 'string' && res.trim()) {
-    return res.trim().split('\n')[0];
+  if (typeof res === 'string') {
+    const trimmed = res.trim();
+    return trimmed ? trimmed.split('\n')[0] : '(no content)';
   }
 
   return undefined;

@@ -121,10 +121,11 @@ export function useAgentRunner({
 
         try {
           const { stdout, stderr } = await execAsync(text, { cwd, maxBuffer: 10 * 1024 * 1024 });
-          const output = stdout || stderr || '(executed with no output)';
+          const raw = stdout || stderr || '';
+          const output = raw.trim() || '(no content)';
           setHistoryItems((prev) => [
             ...prev,
-            { id: `bash-out-${Date.now()}`, type: 'assistant', content: output.trim() },
+            { id: `bash-out-${Date.now()}`, type: 'assistant', content: output },
           ]);
         } catch (err) {
           setHistoryItems((prev) => [
