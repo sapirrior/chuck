@@ -146,14 +146,14 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   );
 
   return (
-    <Box flexDirection="column" marginTop={1}>
+    <Box flexDirection="column" marginTop={1} width="100%">
       {/* Dynamic hint banner: double-esc or autocomplete */}
       {escPending ? (
-        <Box paddingLeft={2}>
+        <Box paddingLeft={2} marginBottom={0}>
           <Text color={theme.permission}>Press Esc again to clear</Text>
         </Box>
       ) : matchingCommand && value !== `/${matchingCommand.name} ` ? (
-        <Box paddingLeft={2}>
+        <Box paddingLeft={2} marginBottom={0}>
           <Text dimColor>
             Tab to complete: <Text color={theme.permission}>/{matchingCommand.name}</Text> -{' '}
             {matchingCommand.description}
@@ -161,22 +161,30 @@ export const PromptInput: React.FC<PromptInputProps> = ({
         </Box>
       ) : null}
 
-      {/* Input Box with Claude Code 1:1 round border and brand caret */}
+      {/* Input Box matching Claude Code 1:1 round top/bottom borders (borderLeft={false} borderRight={false} borderBottom) */}
       <Box
+        flexDirection="row"
+        alignItems="flex-start"
         borderStyle="round"
         borderColor={disabled ? theme.subtle : theme.promptBorder}
+        borderLeft={false}
+        borderRight={false}
+        borderBottom
+        width="100%"
         paddingX={1}
       >
         <Text color={theme.brand}>{figures.pointer} </Text>
-        {value.length === 0 ? (
-          <Text dimColor>Type a prompt or /model, /clear...</Text>
-        ) : (
-          <Text color={theme.text}>
-            {value.slice(0, cursorPos)}
-            <Text inverse>{value[cursorPos] ?? ' '}</Text>
-            {value.slice(cursorPos + 1)}
-          </Text>
-        )}
+        <Box flexGrow={1}>
+          {value.length === 0 ? (
+            <Text dimColor>Type a prompt or /model, /clear...</Text>
+          ) : (
+            <Text color={theme.text}>
+              {value.slice(0, cursorPos)}
+              <Text inverse>{value[cursorPos] ?? ' '}</Text>
+              {value.slice(cursorPos + 1)}
+            </Text>
+          )}
+        </Box>
       </Box>
     </Box>
   );

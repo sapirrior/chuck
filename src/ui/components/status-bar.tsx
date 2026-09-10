@@ -37,7 +37,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({ model, usage, isBusy, exit
   }, [isBusy]);
 
   return (
-    <Box flexDirection="row" justifyContent="space-between" width="100%" marginTop={1}>
+    <Box flexDirection="row" justifyContent="space-between" width="100%" paddingX={2} marginTop={0}>
       <Box>
         {exitPending ? (
           <Text color={theme.error}>Press Ctrl+C again to exit</Text>
@@ -47,8 +47,10 @@ export const StatusBar: React.FC<StatusBarProps> = ({ model, usage, isBusy, exit
           </Text>
         ) : (
           <Text dimColor>
-            /model {figures.bullet} /clear {figures.bullet} Esc to clear {figures.bullet} 2x Ctrl+C
-            to exit
+            ? for shortcuts <Text color={theme.subtle}>{figures.bullet}</Text> /model{' '}
+            <Text color={theme.subtle}>{figures.bullet}</Text> /clear{' '}
+            <Text color={theme.subtle}>{figures.bullet}</Text> 2x Esc to clear{' '}
+            <Text color={theme.subtle}>{figures.bullet}</Text> 2x Ctrl+C to exit
           </Text>
         )}
       </Box>

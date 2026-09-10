@@ -30,22 +30,22 @@ export const MessageHistory: React.FC<MessageHistoryProps> = ({
   const theme = getTheme();
 
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" width="100%">
       {items.map((item) => {
         switch (item.type) {
           case 'user':
             return (
-              <Box key={item.id} marginY={0} flexDirection="row">
-                <Text bold color={theme.brand}>
-                  {figures.blackCircle} You:
+              <Box key={item.id} marginTop={1} marginBottom={0} flexDirection="row">
+                <Text color={theme.brand}>{figures.blackCircle} </Text>
+                <Text bold color={theme.text}>
+                  {item.content}
                 </Text>
-                <Text color={theme.text}> {item.content}</Text>
               </Box>
             );
 
           case 'reasoning':
             return (
-              <Box key={item.id} marginY={0} paddingLeft={1}>
+              <Box key={item.id} marginY={0} paddingLeft={2}>
                 <Text dimColor>
                   {figures.teardropAsterisk} {item.content}
                 </Text>
@@ -67,7 +67,7 @@ export const MessageHistory: React.FC<MessageHistoryProps> = ({
 
           case 'system':
             return (
-              <Box key={item.id} marginY={0} paddingLeft={1}>
+              <Box key={item.id} marginY={0} paddingLeft={2}>
                 <Text color={theme.permission}>
                   {figures.info} {item.content}
                 </Text>
@@ -77,7 +77,7 @@ export const MessageHistory: React.FC<MessageHistoryProps> = ({
           case 'assistant':
           default:
             return (
-              <Box key={item.id} marginY={0} paddingLeft={1} flexDirection="column">
+              <Box key={item.id} marginY={0} paddingLeft={2} flexDirection="column">
                 <Text color={theme.text}>{item.content}</Text>
               </Box>
             );
@@ -86,7 +86,7 @@ export const MessageHistory: React.FC<MessageHistoryProps> = ({
 
       {/* Real-time streaming reasoning */}
       {streamingReasoning ? (
-        <Box marginY={0} paddingLeft={1}>
+        <Box marginY={0} paddingLeft={2}>
           <Text color={theme.permission}>
             {figures.teardropAsterisk} {streamingReasoning}
           </Text>
@@ -95,7 +95,7 @@ export const MessageHistory: React.FC<MessageHistoryProps> = ({
 
       {/* Real-time streaming assistant text */}
       {streamingText ? (
-        <Box marginY={0} paddingLeft={1}>
+        <Box marginY={0} paddingLeft={2}>
           <Text color={theme.text}>{streamingText}</Text>
         </Box>
       ) : null}

@@ -16,7 +16,7 @@ export const Header: React.FC<HeaderProps> = ({ version = '0.1.0', cwd, model })
   const dirName = cwd.split('/').filter(Boolean).pop() ?? cwd;
 
   return (
-    <Box flexDirection="column" marginBottom={1}>
+    <Box flexDirection="column" marginBottom={0} width="100%">
       <Box justifyContent="space-between" width="100%">
         <Box>
           <Text bold color={theme.brand}>
