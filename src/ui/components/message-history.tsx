@@ -2,6 +2,7 @@ import React from 'react';
 import { Box, Text } from 'ink';
 import { figures, getTheme } from '../theme/index.js';
 import { ToolStatus, type ToolExecutionStatus } from './tool-status.js';
+import { Markdown } from './markdown.js';
 
 export interface UIHistoryItem {
   id: string;
@@ -101,24 +102,9 @@ export const MessageHistory: React.FC<MessageHistoryProps> = ({
 
           case 'assistant':
           default: {
-            const lines = item.content.split('\n');
-            const firstLine = lines[0] ?? '';
-            const restLines = lines.slice(1);
             return (
               <Box key={item.id} marginY={0} flexDirection="column">
-                <Box flexDirection="row">
-                  <Text color={theme.text}>{figures.blackCircle} </Text>
-                  <Text color={theme.text}>{firstLine}</Text>
-                </Box>
-                {restLines.length > 0 ? (
-                  <Box paddingLeft={2} flexDirection="column">
-                    {restLines.map((line, lIdx) => (
-                      <Text key={lIdx} color={theme.text}>
-                        {line}
-                      </Text>
-                    ))}
-                  </Box>
-                ) : null}
+                <Markdown>{item.content}</Markdown>
               </Box>
             );
           }
@@ -134,31 +120,10 @@ export const MessageHistory: React.FC<MessageHistoryProps> = ({
         </Box>
       ) : null}
 
-      {/* Real-time streaming assistant text with bullet */}
+      {/* Real-time streaming assistant text with structured Markdown formatting */}
       {streamingText ? (
         <Box marginY={0} flexDirection="column">
-          {(() => {
-            const lines = streamingText.split('\n');
-            const firstLine = lines[0] ?? '';
-            const restLines = lines.slice(1);
-            return (
-              <>
-                <Box flexDirection="row">
-                  <Text color={theme.text}>{figures.blackCircle} </Text>
-                  <Text color={theme.text}>{firstLine}</Text>
-                </Box>
-                {restLines.length > 0 ? (
-                  <Box paddingLeft={2} flexDirection="column">
-                    {restLines.map((line, lIdx) => (
-                      <Text key={lIdx} color={theme.text}>
-                        {line}
-                      </Text>
-                    ))}
-                  </Box>
-                ) : null}
-              </>
-            );
-          })()}
+          <Markdown>{streamingText}</Markdown>
         </Box>
       ) : null}
     </Box>
