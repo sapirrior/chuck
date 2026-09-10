@@ -1,10 +1,12 @@
 import { defaultToolCatalog, ToolCatalog } from './catalog.js';
 import { readFileTool } from './list/read-file.js';
+import { writeFileTool } from './list/write-file.js';
 import { webFetchTool } from './list/web-fetch.js';
 import type { ToolContext } from './types.js';
 
 // Register built-in tools into defaultToolCatalog
 defaultToolCatalog.register(readFileTool);
+defaultToolCatalog.register(writeFileTool);
 defaultToolCatalog.register(webFetchTool);
 
 /**
@@ -19,5 +21,6 @@ export function getAISDKTools(
 
 export * from './catalog.js';
 export * from './list/read-file.js';
+export * from './list/write-file.js';
 export * from './list/web-fetch.js';
 export * from './types.js';
