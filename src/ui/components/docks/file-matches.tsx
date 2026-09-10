@@ -20,11 +20,11 @@ export const FileMatches: React.FC<FileMatchesProps> = ({ files, selectedIndex }
         return (
           <Box key={file} flexDirection="row">
             {isSelected ? (
-              <Text color={theme.lavenderLight}> {figures.pointer} </Text>
+              <Text color={theme.info}>{figures.pointer} </Text>
             ) : (
-              <Text> </Text>
+              <Text>  </Text>
             )}
-            <Text color={isSelected ? theme.text : theme.inactive}>
+            <Text color={isSelected ? theme.info : theme.inactive}>
               {file}
             </Text>
           </Box>

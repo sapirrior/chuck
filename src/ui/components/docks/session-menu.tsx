@@ -79,7 +79,7 @@ export const SessionMenu: React.FC<SessionMenuProps> = ({ sessions, onSelect, on
       <Text color={theme.lavenderHeader}>{figures.horizontalLine.repeat(dividerWidth)}</Text>
 
       <Box marginY={0} justifyContent="space-between" width="100%">
-        <Text color={theme.lavenderLight}>
+        <Text color={theme.info}>
           Resume Session
         </Text>
         <Text dimColor>
@@ -89,7 +89,7 @@ export const SessionMenu: React.FC<SessionMenuProps> = ({ sessions, onSelect, on
 
       {/* Search Input bar */}
       <Box marginY={0} paddingLeft={1}>
-        <Text color={theme.permission}>{figures.pointer} </Text>
+        <Text color={theme.info}>{figures.pointer} </Text>
         <Text color={theme.text}>{query}</Text>
         <Text inverse> </Text>
         {query.length === 0 ? <Text dimColor> Type to filter sessions…</Text> : null}
@@ -121,11 +121,11 @@ export const SessionMenu: React.FC<SessionMenuProps> = ({ sessions, onSelect, on
               <Box key={s.id} flexDirection="row" justifyContent="space-between" width="100%">
                 <Box flexDirection="row">
                   {isSelected ? (
-                    <Text color={theme.lavenderLight}>{figures.pointer} </Text>
+                    <Text color={theme.info}>{figures.pointer} </Text>
                   ) : (
-                    <Text> </Text>
+                    <Text>  </Text>
                   )}
-                  <Text color={isSelected ? theme.text : theme.inactive}>
+                  <Text color={isSelected ? theme.info : theme.inactive}>
                     {displayTitle}
                   </Text>
                   <Text dimColor> ({shortId})</Text>

@@ -79,7 +79,7 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
       <Text color={theme.lavenderHeader}>{figures.horizontalLine.repeat(dividerWidth)}</Text>
 
       <Box marginY={0} justifyContent="space-between" width="100%">
-        <Text color={theme.lavenderLight}>
+        <Text color={theme.info}>
           Select Model
         </Text>
         <Text dimColor>
@@ -89,7 +89,7 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
 
       {/* Search Filter Box */}
       <Box marginY={0} paddingLeft={1}>
-        <Text color={theme.permission}>{figures.pointer} </Text>
+        <Text color={theme.info}>{figures.pointer} </Text>
         <Text color={theme.text}>{query}</Text>
         <Text inverse> </Text>
         {query.length === 0 ? <Text dimColor> Type to filter models…</Text> : null}
@@ -123,11 +123,11 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
               >
                 <Box flexDirection="row">
                   {isSelected ? (
-                    <Text color={theme.lavenderLight}>{figures.pointer} </Text>
+                    <Text color={theme.info}>{figures.pointer} </Text>
                   ) : (
-                    <Text> </Text>
+                    <Text>  </Text>
                   )}
-                  <Text color={isSelected ? theme.text : theme.inactive}>
+                  <Text color={isSelected ? theme.info : theme.inactive}>
                     {m.model_id}
                   </Text>
                   {isCurrent ? <Text color={theme.success}> (active)</Text> : null}

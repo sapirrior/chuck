@@ -167,11 +167,11 @@ export const PermissionDock: React.FC<PermissionDockProps> = ({ request, onDecis
           return (
             <Box key={opt.key} flexDirection="row">
               {isSelected ? (
-                <Text color={theme.lavenderLight}>{figures.pointer} </Text>
+                <Text color={theme.info}>{figures.pointer} </Text>
               ) : (
-                <Text> </Text>
+                <Text>  </Text>
               )}
-              <Text color={isSelected ? theme.text : theme.inactive}>
+              <Text color={isSelected ? theme.info : theme.inactive}>
                 {opt.key}. {opt.label}
               </Text>
             </Box>

@@ -275,16 +275,6 @@ export const PromptInput: React.FC<PromptInputProps> = ({
 
   return (
     <Box flexDirection="column" marginTop={1} width="100%">
-      {/* File Matches Dock Popover */}
-      {fileMatches.length > 0 ? (
-        <FileMatches files={fileMatches} selectedIndex={fileSelectIdx} />
-      ) : null}
-
-      {/* Command Palette Dock Popover */}
-      {isSlashMode && matchingCommands.length > 0 && value !== `/${matchingCommands[0]?.name} ` ? (
-        <CommandPalette commands={matchingCommands} selectedIndex={paletteIdx} />
-      ) : null}
-
       {/* Double-Esc Notice */}
       {escPending ? (
         <Box paddingLeft={2} marginBottom={0}>
@@ -319,6 +309,16 @@ export const PromptInput: React.FC<PromptInputProps> = ({
           )}
         </Box>
       </Box>
+
+      {/* Command Palette Dock (rendered directly under input bar like Delta) */}
+      {isSlashMode && matchingCommands.length > 0 && value !== `/${matchingCommands[0]?.name} ` ? (
+        <CommandPalette commands={matchingCommands} selectedIndex={paletteIdx} />
+      ) : null}
+
+      {/* File Matches Dock (rendered directly under input bar like Delta) */}
+      {fileMatches.length > 0 ? (
+        <FileMatches files={fileMatches} selectedIndex={fileSelectIdx} />
+      ) : null}
     </Box>
   );
 };

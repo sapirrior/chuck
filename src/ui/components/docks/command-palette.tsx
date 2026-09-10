@@ -17,7 +17,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ commands, select
     <Box flexDirection="column" width="100%" marginTop={1}>
       <Text color={theme.lavenderHeader}>{figures.horizontalLine.repeat(dividerWidth)}</Text>
       <Box marginY={0}>
-        <Text color={theme.lavenderLight}>
+        <Text color={theme.info}>
           Commands
         </Text>
       </Box>
@@ -28,14 +28,16 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ commands, select
           return (
             <Box key={cmd.name} flexDirection="row">
               {isSelected ? (
-                <Text color={theme.lavenderLight}>{figures.pointer} </Text>
+                <Text color={theme.info}>{figures.pointer} </Text>
               ) : (
-                <Text> </Text>
+                <Text>  </Text>
               )}
-              <Text color={isSelected ? theme.text : theme.inactive}>
-                /{cmd.name}
-              </Text>
-              <Text dimColor> {cmd.description}</Text>
+              <Box width={16}>
+                <Text color={isSelected ? theme.info : theme.inactive}>
+                  /{cmd.name}
+                </Text>
+              </Box>
+              <Text color={isSelected ? theme.text : theme.textMuted}>{cmd.description}</Text>
             </Box>
           );
         })}
@@ -43,7 +45,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ commands, select
 
       <Box marginTop={0}>
         <Text italic color={theme.textMuted}>
-          Enter select · Esc dismiss · ↑/↓ navigate
+          Enter to select · Esc to dismiss · ↑/↓ to navigate
         </Text>
       </Box>
     </Box>
