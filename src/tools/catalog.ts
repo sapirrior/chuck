@@ -49,6 +49,7 @@ export class ToolCatalog {
     for (const [name, def] of this.tools.entries()) {
       aiTools[name] = (createAISDKTool as any)({
         description: def.description,
+        inputSchema: def.parameters,
         parameters: def.parameters,
         execute: async (args: any) => {
           // 1. Check if this tool requires confirmation
