@@ -9,11 +9,7 @@ export interface SessionMenuProps {
   onCancel: () => void;
 }
 
-export const SessionMenu: React.FC<SessionMenuProps> = ({
-  sessions,
-  onSelect,
-  onCancel,
-}) => {
+export const SessionMenu: React.FC<SessionMenuProps> = ({ sessions, onSelect, onCancel }) => {
   const theme = getTheme();
   const { columns } = useWindowSize();
   const [selectedIdx, setSelectedIdx] = useState(0);
@@ -65,7 +61,7 @@ export const SessionMenu: React.FC<SessionMenuProps> = ({
   return (
     <Box flexDirection="column" width="100%" marginTop={1}>
       <Text color={theme.lavenderHeader}>{figures.horizontalLine.repeat(dividerWidth)}</Text>
-      
+
       <Box marginY={0}>
         <Text bold color={theme.lavenderLight}>
           Resume Session
@@ -95,7 +91,7 @@ export const SessionMenu: React.FC<SessionMenuProps> = ({
                   {isSelected ? (
                     <Text color={theme.lavenderLight}>{figures.pointer} </Text>
                   ) : (
-                    <Text>   </Text>
+                    <Text> </Text>
                   )}
                   <Text bold={isSelected} color={isSelected ? theme.text : theme.inactive}>
                     session {shortId}
@@ -114,7 +110,7 @@ export const SessionMenu: React.FC<SessionMenuProps> = ({
 
       <Box marginTop={0}>
         <Text italic color={theme.textMuted}>
-          Type to search  ·  Enter to select  ·  Esc to cancel
+          Type to search · Enter to select · Esc to cancel
         </Text>
       </Box>
     </Box>

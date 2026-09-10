@@ -8,10 +8,7 @@ export interface CommandPaletteProps {
   selectedIndex: number;
 }
 
-export const CommandPalette: React.FC<CommandPaletteProps> = ({
-  commands,
-  selectedIndex,
-}) => {
+export const CommandPalette: React.FC<CommandPaletteProps> = ({ commands, selectedIndex }) => {
   const theme = getTheme();
   const { columns } = useWindowSize();
   const dividerWidth = Math.max(10, columns - 4);
@@ -33,12 +30,12 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
               {isSelected ? (
                 <Text color={theme.lavenderLight}>{figures.pointer} </Text>
               ) : (
-                <Text>   </Text>
+                <Text> </Text>
               )}
               <Text bold={isSelected} color={isSelected ? theme.text : theme.inactive}>
                 /{cmd.name}
               </Text>
-              <Text dimColor>  {cmd.description}</Text>
+              <Text dimColor> {cmd.description}</Text>
             </Box>
           );
         })}
@@ -46,7 +43,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
       <Box marginTop={0}>
         <Text italic color={theme.textMuted}>
-          Enter select  ·  Esc dismiss  ·  ↑/↓ navigate
+          Enter select · Esc dismiss · ↑/↓ navigate
         </Text>
       </Box>
     </Box>

@@ -17,12 +17,7 @@ export const HelpMenu: React.FC<HelpMenuProps> = ({ onClose }) => {
     }
   });
 
-  const col1 = [
-    '! for bash mode',
-    '/ for commands',
-    '@ for file paths',
-    '/resume for sessions',
-  ];
+  const col1 = ['! for bash mode', '/ for commands', '@ for file paths', '/resume for sessions'];
 
   const col2 = [
     'double tap esc to clear',
@@ -51,7 +46,7 @@ export const HelpMenu: React.FC<HelpMenuProps> = ({ onClose }) => {
         {col1.map((c1, i) => (
           <Box key={i} flexDirection="row" width="100%">
             <Box width="33%">
-              <Text dimColor>  {c1}</Text>
+              <Text dimColor> {c1}</Text>
             </Box>
             <Box width="33%">
               <Text dimColor>{col2[i]}</Text>

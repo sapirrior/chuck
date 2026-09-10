@@ -270,14 +270,8 @@ export const PromptInput: React.FC<PromptInputProps> = ({
     { isActive: true },
   );
 
-  const promptChevronColor = isBashMode
-    ? theme.bashPink
-    : theme.text;
-  const borderColor = disabled
-    ? theme.subtle
-    : isBashMode
-    ? theme.bashPink
-    : theme.promptBorder;
+  const promptChevronColor = isBashMode ? theme.bashPink : theme.text;
+  const borderColor = disabled ? theme.subtle : isBashMode ? theme.bashPink : theme.promptBorder;
 
   return (
     <Box flexDirection="column" marginTop={1} width="100%">

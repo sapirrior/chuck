@@ -108,7 +108,7 @@ export const PermissionDock: React.FC<PermissionDockProps> = ({ request, onDecis
   return (
     <Box flexDirection="column" width="100%" marginTop={1}>
       <Text color={theme.lavenderHeader}>{figures.horizontalLine.repeat(dividerWidth)}</Text>
-      
+
       <Box marginY={0}>
         <Text bold color={theme.lavenderLight}>
           Permission Required: {request.displayName}
@@ -169,7 +169,7 @@ export const PermissionDock: React.FC<PermissionDockProps> = ({ request, onDecis
               {isSelected ? (
                 <Text color={theme.lavenderLight}>{figures.pointer} </Text>
               ) : (
-                <Text>   </Text>
+                <Text> </Text>
               )}
               <Text bold={isSelected} color={isSelected ? theme.text : theme.inactive}>
                 {opt.key}. {opt.label}

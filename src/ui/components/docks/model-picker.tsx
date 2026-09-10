@@ -27,9 +27,7 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
     if (!query) return models;
     const q = query.toLowerCase();
     return models.filter(
-      (m) =>
-        m.model_id.toLowerCase().includes(q) ||
-        m.provider.toLowerCase().includes(q),
+      (m) => m.model_id.toLowerCase().includes(q) || m.provider.toLowerCase().includes(q),
     );
   }, [models, query]);
 
@@ -70,13 +68,16 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
 
   // Calculate sliding window for pagination
   const visibleCount = 8;
-  const startIdx = Math.max(0, Math.min(selectedIdx - Math.floor(visibleCount / 2), filtered.length - visibleCount));
+  const startIdx = Math.max(
+    0,
+    Math.min(selectedIdx - Math.floor(visibleCount / 2), filtered.length - visibleCount),
+  );
   const visibleModels = filtered.slice(Math.max(0, startIdx), startIdx + visibleCount);
 
   return (
     <Box flexDirection="column" width="100%" marginTop={1}>
       <Text color={theme.lavenderHeader}>{figures.horizontalLine.repeat(dividerWidth)}</Text>
-      
+
       <Box marginY={0} justifyContent="space-between" width="100%">
         <Text bold color={theme.lavenderLight}>
           Select Model
@@ -114,12 +115,17 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
             if (m.provider === 'gemini') providerBadge = '[GEMINI]';
 
             return (
-              <Box key={`${m.provider}-${m.model_id}`} flexDirection="row" justifyContent="space-between" width="100%">
+              <Box
+                key={`${m.provider}-${m.model_id}`}
+                flexDirection="row"
+                justifyContent="space-between"
+                width="100%"
+              >
                 <Box flexDirection="row">
                   {isSelected ? (
                     <Text color={theme.lavenderLight}>{figures.pointer} </Text>
                   ) : (
-                    <Text>   </Text>
+                    <Text> </Text>
                   )}
                   <Text bold={isSelected} color={isSelected ? theme.text : theme.inactive}>
                     {m.model_id}
@@ -137,7 +143,7 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
 
       <Box marginTop={1} justifyContent="space-between" width="100%">
         <Text italic color={theme.textMuted}>
-          ↑/↓ navigate  ·  Enter to select  ·  Esc to cancel
+          ↑/↓ navigate · Enter to select · Esc to cancel
         </Text>
         <Text dimColor>
           {filtered.length} model{filtered.length !== 1 ? 's' : ''} available

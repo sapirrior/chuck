@@ -46,13 +46,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({ model, usage, isBusy, exit
   }, [isBusy]);
 
   return (
-    <Box
-      flexDirection="row"
-      justifyContent="space-between"
-      width="100%"
-      paddingX={1}
-      marginTop={0}
-    >
+    <Box flexDirection="row" justifyContent="space-between" width="100%" paddingX={1} marginTop={0}>
       {/* Left side: Shortcuts hint or exit hint or streaming status */}
       <Box>
         {exitPending ? (
@@ -77,9 +71,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({ model, usage, isBusy, exit
         {usage.totalTokens > 0 ? (
           <>
             <Text color={theme.subtle}> {figures.bullet} </Text>
-            <Text color={theme.textMuted}>
-              {formatTokens(usage.totalTokens)} tokens
-            </Text>
+            <Text color={theme.textMuted}>{formatTokens(usage.totalTokens)} tokens</Text>
           </>
         ) : null}
       </Box>
