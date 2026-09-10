@@ -25,6 +25,6 @@
     "@types/node": "*",
     "@types/react": "*",
     "prettier": "*",
-    "typescript": "*"
+    "typescript": "^5.9.3"
   }
 }
