@@ -132,9 +132,11 @@ export class AgentSession {
       extraInstructions: options.extraInstructions,
     });
 
+    let summary: TurnSummary | undefined;
+
     try {
       // 3. Execute the turn loop
-      const summary = await runAgentTurn({
+      summary = await runAgentTurn({
         model: this.model,
         messages: this.messages,
         instructions,
@@ -175,6 +177,18 @@ export class AgentSession {
       });
 
       return summary;
+    } catch (err) {
+      // If turn was interrupted/aborted after tool was called, persist whatever was recorded
+      if (summary) {
+        recordSessionTurn(this.sessionData, {
+          userPrompt: trimmedPrompt,
+          assistantText: summary.text,
+          reasoning: summary.reasoning,
+          toolCalls: summary.toolCalls,
+          usage: summary.usage,
+        });
+      }
+      throw err;
     } finally {
       this.isGenerating = false;
       this.activeAbortController = null;
