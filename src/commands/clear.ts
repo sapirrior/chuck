@@ -19,6 +19,7 @@ export const clearCommand: SlashCommand = {
     context.session.resetSession();
     return {
       handled: true,
+      data: { clearHistory: true },
       message: 'Conversation history cleared. Started a fresh session.',
     };
   },

@@ -1,5 +1,7 @@
 import { clearCommand } from './clear.js';
+import { helpCommand } from './help.js';
 import { modelCommand } from './model.js';
+import { resumeCommand } from './resume.js';
 import type { CommandContext, CommandResult, SlashCommand } from './types.js';
 
 export class CommandRegistry {
@@ -58,8 +60,10 @@ export class CommandRegistry {
 }
 
 /**
- * Default command registry populated with /model and /clear.
+ * Default command registry populated with standard slash commands.
  */
 export const defaultCommandRegistry = new CommandRegistry();
 defaultCommandRegistry.register(modelCommand);
 defaultCommandRegistry.register(clearCommand);
+defaultCommandRegistry.register(helpCommand);
+defaultCommandRegistry.register(resumeCommand);

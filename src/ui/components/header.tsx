@@ -18,28 +18,32 @@ export const Header: React.FC<HeaderProps> = ({ version = '0.1.0', cwd, model })
   const dividerWidth = Math.max(10, columns - 4);
 
   return (
-    <Box flexDirection="column" marginBottom={0} width="100%">
+    <Box flexDirection="column" marginBottom={1} width="100%">
+      {/* Top Banner Row */}
       <Box justifyContent="space-between" width="100%">
-        <Box>
+        <Box flexDirection="row" alignItems="center">
           <Text bold color={theme.brand}>
             xd
           </Text>
           <Text dimColor> v{version}</Text>
           <Text dimColor> {figures.bullet} </Text>
-          <Text bold color={theme.text}>
+          <Text color={theme.text}>
             {dirName}
           </Text>
         </Box>
-        <Box>
+        <Box flexDirection="row" alignItems="center">
           <Text color={theme.permission}>
             {model.provider}/{model.modelId}
           </Text>
         </Box>
       </Box>
-      <Box width="100%">
-        <Text dimColor>{figures.horizontalLine.repeat(dividerWidth)}</Text>
+
+      {/* Lavender Header Divider Rule */}
+      <Box width="100%" marginTop={0}>
+        <Text color={theme.lavenderHeader}>
+          {figures.horizontalLine.repeat(dividerWidth)}
+        </Text>
       </Box>
     </Box>
   );
 };
-

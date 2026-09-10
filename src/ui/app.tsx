@@ -1,16 +1,27 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Box, useApp, useInput } from 'ink';
+import { exec } from 'node:child_process';
+import { promisify } from 'node:util';
 import { AgentSession } from '../agent/agent-session.js';
 import type { AgentEvent } from '../agent/events.js';
 import { defaultCommandRegistry } from '../commands/registry.js';
 import { defaultToolCatalog } from '../tools/index.js';
 import type { ConfirmationDecision, ConfirmationRequest, ToolContext } from '../tools/types.js';
+import type { ModelDescriptor } from '../models/index.js';
+import type { SessionData } from '../session/types.js';
+import { listSessions, loadSession } from '../session/index.js';
+import { saveSettings } from '../config/index.js';
 import { useDoublePress } from './hooks/use-double-press.js';
 import { Header } from './components/header.js';
 import { MessageHistory, type UIHistoryItem } from './components/message-history.js';
 import { PromptInput } from './components/prompt-input.js';
-import { ConfirmationModal } from './components/confirmation-modal.js';
 import { StatusBar } from './components/status-bar.js';
+import { PermissionDock } from './components/docks/permission-dock.js';
+import { HelpMenu } from './components/docks/help-menu.js';
+import { SessionMenu } from './components/docks/session-menu.js';
+import { ModelPicker } from './components/docks/model-picker.js';
+
+const execAsync = promisify(exec);
 
 export interface AppProps {
   session?: AgentSession;
@@ -25,6 +36,14 @@ export const App: React.FC<AppProps> = ({ session: initialSession, cwd = process
   const [streamingText, setStreamingText] = useState('');
   const [isBusy, setIsBusy] = useState(false);
   const [exitPending, setExitPending] = useState(false);
+
+  // Active dock modal states
+  const [showHelp, setShowHelp] = useState(false);
+  const [showResume, setShowResume] = useState(false);
+  const [showModelPicker, setShowModelPicker] = useState(false);
+  const [availableModels, setAvailableModels] = useState<ModelDescriptor[]>([]);
+  const [availableSessions, setAvailableSessions] = useState<SessionData[]>([]);
+
   const [activeConfirmation, setActiveConfirmation] = useState<{
     request: ConfirmationRequest;
     resolver: (decision: ConfirmationDecision) => void;
@@ -79,15 +98,108 @@ export const App: React.FC<AppProps> = ({ session: initialSession, cwd = process
     [],
   );
 
-  const handleSubmit = async (text: string) => {
-    // 1. Check if slash command
+  const handleSelectResumeSession = (selected: SessionData) => {
+    const resumed = AgentSession.resume(selected);
+    setSession(resumed);
+    setShowResume(false);
+    setHistoryItems([
+      {
+        id: `sys-resume-${Date.now()}`,
+        type: 'system',
+        content: `Resumed session ${selected.id.slice(0, 8)} (${selected.turns.length} turns)`,
+      },
+    ]);
+  };
+
+  const handleSelectModel = (selected: ModelDescriptor) => {
+    session.setModel({
+      provider: selected.provider,
+      modelId: selected.model_id,
+    });
+    saveSettings({
+      model: {
+        provider: selected.provider,
+        modelId: selected.model_id,
+      },
+    });
+    setShowModelPicker(false);
+    setHistoryItems((prev) => [
+      ...prev,
+      {
+        id: `sys-model-${Date.now()}`,
+        type: 'system',
+        content: `Active model switched to ${selected.provider}/${selected.model_id}`,
+      },
+    ]);
+  };
+
+  const handleSubmit = async (text: string, isBash = false) => {
+    // 1. Direct Bash Mode execution (!)
+    if (isBash) {
+      setHistoryItems((prev) => [
+        ...prev,
+        { id: `bash-${Date.now()}`, type: 'bash', content: text },
+      ]);
+      setIsBusy(true);
+
+      try {
+        const { stdout, stderr } = await execAsync(text, { cwd, maxBuffer: 10 * 1024 * 1024 });
+        const output = stdout || stderr || '(executed with no output)';
+        setHistoryItems((prev) => [
+          ...prev,
+          { id: `bash-out-${Date.now()}`, type: 'assistant', content: output.trim() },
+        ]);
+      } catch (err) {
+        setHistoryItems((prev) => [
+          ...prev,
+          {
+            id: `bash-err-${Date.now()}`,
+            type: 'system',
+            content: `Command error: ${err instanceof Error ? err.message : String(err)}`,
+          },
+        ]);
+      } finally {
+        setIsBusy(false);
+      }
+      return;
+    }
+
+    // 2. Slash command execution (/)
     if (defaultCommandRegistry.isCommand(text)) {
+      const cmdResult = await defaultCommandRegistry.execute(text, { session, cwd });
+
+      // If /clear executed, wipe UI history items immediately
+      if (cmdResult.data?.clearHistory) {
+        setHistoryItems([]);
+        return;
+      }
+
       setHistoryItems((prev) => [
         ...prev,
         { id: `cmd-in-${Date.now()}`, type: 'user', content: text },
       ]);
 
-      const cmdResult = await defaultCommandRegistry.execute(text, { session, cwd });
+      if (cmdResult.data?.showModelPicker) {
+        setAvailableModels(cmdResult.data.models ?? []);
+        setShowModelPicker(true);
+        return;
+      }
+
+      if (cmdResult.data?.showHelp) {
+        setShowHelp(true);
+        return;
+      }
+
+      if (cmdResult.data?.showResume) {
+        const summaries = listSessions();
+        const loadedSessions = summaries
+          .map((s) => loadSession(s.id))
+          .filter((s): s is NonNullable<typeof s> => s !== null);
+        setAvailableSessions(cmdResult.data.sessions ?? loadedSessions);
+        setShowResume(true);
+        return;
+      }
+
       if (cmdResult.message) {
         setHistoryItems((prev) => [
           ...prev,
@@ -97,7 +209,7 @@ export const App: React.FC<AppProps> = ({ session: initialSession, cwd = process
       return;
     }
 
-    // 2. Submit user prompt to AgentSession
+    // 3. Submit user prompt to AgentSession
     setHistoryItems((prev) => [...prev, { id: `u-${Date.now()}`, type: 'user', content: text }]);
 
     setIsBusy(true);
@@ -226,10 +338,26 @@ export const App: React.FC<AppProps> = ({ session: initialSession, cwd = process
         streamingText={streamingText}
       />
 
+      {/* Unified Bottom Dock Layer */}
       {activeConfirmation ? (
-        <ConfirmationModal
+        <PermissionDock
           request={activeConfirmation.request}
           onDecision={handleConfirmationDecision}
+        />
+      ) : showModelPicker ? (
+        <ModelPicker
+          models={availableModels}
+          currentModel={currentModel}
+          onSelect={handleSelectModel}
+          onCancel={() => setShowModelPicker(false)}
+        />
+      ) : showHelp ? (
+        <HelpMenu onClose={() => setShowHelp(false)} />
+      ) : showResume ? (
+        <SessionMenu
+          sessions={availableSessions}
+          onSelect={handleSelectResumeSession}
+          onCancel={() => setShowResume(false)}
         />
       ) : (
         <PromptInput
@@ -237,6 +365,8 @@ export const App: React.FC<AppProps> = ({ session: initialSession, cwd = process
           disabled={isBusy}
           onAbort={handleAbort}
           exitPending={exitPending}
+          cwd={cwd}
+          onToggleHelp={() => setShowHelp((prev) => !prev)}
         />
       )}
 

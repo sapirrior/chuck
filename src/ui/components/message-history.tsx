@@ -5,7 +5,7 @@ import { ToolStatus, type ToolExecutionStatus } from './tool-status.js';
 
 export interface UIHistoryItem {
   id: string;
-  type: 'user' | 'assistant' | 'reasoning' | 'tool' | 'system';
+  type: 'user' | 'assistant' | 'reasoning' | 'tool' | 'system' | 'bash';
   content: string;
   toolData?: {
     toolName: string;
@@ -35,10 +35,33 @@ export const MessageHistory: React.FC<MessageHistoryProps> = ({
         switch (item.type) {
           case 'user':
             return (
-              <Box key={item.id} marginTop={1} marginBottom={0} flexDirection="row">
-                <Text color={theme.brand}>{figures.blackCircle} </Text>
+              <Box
+                key={item.id}
+                marginTop={1}
+                marginBottom={0}
+                paddingX={1}
+                backgroundColor={theme.userCardBg}
+                flexDirection="row"
+              >
+                <Text color={theme.userChevron}>{figures.pointer} </Text>
                 <Text bold color={theme.text}>
                   {item.content}
+                </Text>
+              </Box>
+            );
+
+          case 'bash':
+            return (
+              <Box
+                key={item.id}
+                marginTop={1}
+                marginBottom={0}
+                paddingX={1}
+                backgroundColor={theme.userCardBg}
+                flexDirection="row"
+              >
+                <Text bold color={theme.bashPink}>
+                  ! {item.content}
                 </Text>
               </Box>
             );

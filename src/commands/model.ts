@@ -3,63 +3,27 @@ import { fetchAvailableModels, type ModelDescriptor } from '../models/index.js';
 import type { CommandContext, CommandResult, SlashCommand } from './types.js';
 
 /**
- * Formats the list of available models cleanly for terminal display.
- */
-function formatModelList(
-  models: ModelDescriptor[],
-  currentModel: { provider: string; modelId: string },
-): string {
-  if (models.length === 0) {
-    return 'No models available. Please configure your API keys (e.g. GEMINI_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY).';
-  }
-
-  const lines: string[] = [];
-  lines.push('Available Models:');
-
-  // Group by provider
-  const groups = new Map<string, ModelDescriptor[]>();
-  for (const model of models) {
-    const list = groups.get(model.provider) ?? [];
-    list.push(model);
-    groups.set(model.provider, list);
-  }
-
-  for (const [provider, list] of groups.entries()) {
-    lines.push(`\n[${provider.toUpperCase()}]`);
-    for (const m of list) {
-      const isCurrent = m.provider === currentModel.provider && m.model_id === currentModel.modelId;
-      const marker = isCurrent ? ' (active)' : '';
-      lines.push(`  - ${m.model_id}${marker}`);
-    }
-  }
-
-  lines.push('\nUsage:');
-  lines.push('  /model <model_id>             Switch to a model (auto-detects provider)');
-  lines.push('  /model <provider> <model_id>  Switch to model with explicit provider');
-
-  return lines.join('\n');
-}
-
-/**
- * /model slash command: views active model, lists available models,
- * or switches model and persists preference to ~/.xd/settings.json.
+ * /model slash command: opens interactive model picker dock when invoked with no args,
+ * or switches model directly and persists preference to ~/.xd/settings.json.
  */
 export const modelCommand: SlashCommand = {
   name: 'model',
-  description: 'View or switch the active model and save preference to settings',
+  description: 'View or switch the active model with interactive model picker',
   usage: '/model [model_id | provider model_id]',
 
   async execute(args: string[], context: CommandContext): Promise<CommandResult> {
     const current = context.session.getModel();
 
-    // 1. If no args provided, show current model and list available models
+    // 1. If no args provided, trigger interactive ModelPicker dock
     if (args.length === 0) {
       const discovery = await fetchAvailableModels();
-      const listing = formatModelList(discovery.models, current);
       return {
         handled: true,
-        message: `Current Model: ${current.provider}/${current.modelId}\n\n${listing}`,
-        data: { current, models: discovery.models },
+        data: {
+          showModelPicker: true,
+          models: discovery.models,
+          current,
+        },
       };
     }
 
@@ -96,7 +60,7 @@ export const modelCommand: SlashCommand = {
     if (matches.length === 0) {
       return {
         handled: true,
-        message: `Model "${targetModelId}" was not found among available models.\nType "/model" to see the list of available models.`,
+        message: `Model "${targetModelId}" was not found among available models.\nType "/model" to open the interactive model picker.`,
       };
     }
 
