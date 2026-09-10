@@ -103,7 +103,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
         return;
       }
 
-      // 4. Submit on Return
+      // 4. Submit on Return (or insert newline if preceded by backslash \)
       if (key.return) {
         // If file match popup active, insert file
         if (fileMatches.length > 0 && atData) {
@@ -131,6 +131,16 @@ export const PromptInput: React.FC<PromptInputProps> = ({
             onSubmit(cmdText);
             return;
           }
+        }
+
+        // Multiline insertion with \ + Enter
+        if (cursorPos > 0 && value[cursorPos - 1] === '\\') {
+          const before = value.slice(0, cursorPos - 1);
+          const after = value.slice(cursorPos);
+          const withNewline = `${before}\n${after}`;
+          setValue(withNewline);
+          setCursorPos(cursorPos);
+          return;
         }
 
         const trimmed = value.trim();
@@ -265,6 +275,30 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   const spinnerGlyphs = figures.spinnerFrames;
   const currentGlyph = spinnerGlyphs[spinnerFrame % spinnerGlyphs.length] ?? '⠋';
 
+  // Multiline & sliding window scroll calculation when input exceeds 6 lines
+  const MAX_INPUT_LINES = 6;
+  const textWithCursor =
+    cursorPos >= value.length
+      ? `${value}\x00`
+      : `${value.slice(0, cursorPos)}\x00${value.slice(cursorPos)}`;
+  const logicalLines = textWithCursor.split('\n');
+
+  // Find cursor line index
+  let cursorLineIdx = logicalLines.findIndex((line) => line.includes('\x00'));
+  if (cursorLineIdx === -1) cursorLineIdx = 0;
+
+  // Sliding window across lines
+  let startLine = 0;
+  if (logicalLines.length > MAX_INPUT_LINES) {
+    if (cursorLineIdx >= MAX_INPUT_LINES) {
+      startLine = cursorLineIdx - MAX_INPUT_LINES + 1;
+    }
+    if (startLine + MAX_INPUT_LINES > logicalLines.length) {
+      startLine = Math.max(0, logicalLines.length - MAX_INPUT_LINES);
+    }
+  }
+  const visibleInputLines = logicalLines.slice(startLine, startLine + MAX_INPUT_LINES);
+
   return (
     <Box flexDirection="column" marginTop={1} width="100%">
       {/* Double-Esc Notice */}
@@ -318,17 +352,34 @@ export const PromptInput: React.FC<PromptInputProps> = ({
         paddingX={1}
       >
         <Text color={promptChevronColor}>{figures.pointer} </Text>
-        <Box flexGrow={1}>
+        <Box flexGrow={1} flexDirection="column">
           {disabled ? (
             <Text dimColor>Generating response… (Esc to stop)</Text>
           ) : value.length === 0 ? (
             <Text dimColor>Type a prompt, ! for bash, or / for commands...</Text>
           ) : (
-            <Text color={theme.text}>
-              {value.slice(0, cursorPos)}
-              <Text inverse>{value[cursorPos] ?? ' '}</Text>
-              {value.slice(cursorPos + 1)}
-            </Text>
+            visibleInputLines.map((line, idx) => {
+              if (line.includes('\x00')) {
+                const parts = line.split('\x00');
+                const before = parts[0] ?? '';
+                const after = parts[1] ?? '';
+                const atChar = after.length > 0 ? after[0] : ' ';
+                const rest = after.length > 0 ? after.slice(1) : '';
+
+                return (
+                  <Text key={idx} color={theme.text}>
+                    {before}
+                    <Text inverse>{atChar}</Text>
+                    {rest}
+                  </Text>
+                );
+              }
+              return (
+                <Text key={idx} color={theme.text}>
+                  {line}
+                </Text>
+              );
+            })
           )}
         </Box>
       </Box>

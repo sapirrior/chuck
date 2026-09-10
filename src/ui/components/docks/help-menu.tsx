@@ -23,7 +23,7 @@ export const HelpMenu: React.FC<HelpMenuProps> = ({ onClose }) => {
     'double tap esc to clear',
     'ctrl + c to cancel / exit',
     'pgup / pgdn to scroll',
-    '\\ + return for newline',
+    '\\ + enter for newline',
   ];
 
   const col3 = [
