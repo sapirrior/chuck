@@ -4,6 +4,9 @@
   "description": "General-purpose AI terminal agent",
   "private": true,
   "type": "module",
+  "bin": {
+    "xd": "./dist/cli.js"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
