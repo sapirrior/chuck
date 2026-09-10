@@ -7,6 +7,7 @@ import { findFilesTool } from './list/find-files.js';
 import { searchTextTool } from './list/search-text.js';
 import { listDirTool } from './list/list-dir.js';
 import { webFetchTool } from './list/web-fetch.js';
+import { webSearchTool } from './list/web-search.js';
 import type { ToolContext } from './types.js';
 
 // Register built-in tools into defaultToolCatalog
@@ -18,6 +19,7 @@ defaultToolCatalog.register(findFilesTool);
 defaultToolCatalog.register(searchTextTool);
 defaultToolCatalog.register(listDirTool);
 defaultToolCatalog.register(webFetchTool);
+defaultToolCatalog.register(webSearchTool);
 
 /**
  * Returns AI SDK v7 formatted tools object for all registered tools in the catalog.
@@ -38,4 +40,5 @@ export * from './list/find-files.js';
 export * from './list/search-text.js';
 export * from './list/list-dir.js';
 export * from './list/web-fetch.js';
+export * from './list/web-search.js';
 export * from './types.js';
