@@ -1,4 +1,5 @@
 import type { LanguageModel, ModelMessage } from 'ai';
+import { createSession, recordSessionTurn, type SessionData } from '../session/index.js';
 import { runAgentTurn } from './agent-runner.js';
 import type { AgentEventListener } from './events.js';
 import { createModelInstance, resolveActiveModelSelection } from './model-provider.js';
@@ -20,6 +21,7 @@ export class AgentSession {
   private config: SessionConfig;
   private model: LanguageModel;
   private messages: ModelMessage[] = [];
+  private sessionData: SessionData;
   private accumulatedUsage: TokenUsage = {
     inputTokens: 0,
     outputTokens: 0,
@@ -31,15 +33,52 @@ export class AgentSession {
   private activeAbortController: AbortController | null = null;
   private isGenerating = false;
 
-  constructor(initialConfig?: Partial<SessionConfig>) {
-    const selection = resolveActiveModelSelection(initialConfig);
-    this.config = {
-      provider: selection.provider,
-      modelId: selection.modelId,
-      temperature: initialConfig?.temperature,
-      maxSteps: initialConfig?.maxSteps ?? 10,
-    };
-    this.model = createModelInstance(selection);
+  constructor(initialConfig?: Partial<SessionConfig>, existingSession?: SessionData) {
+    if (existingSession) {
+      this.sessionData = existingSession;
+      this.config = {
+        provider: existingSession.model.provider,
+        modelId: existingSession.model.modelId,
+        temperature: initialConfig?.temperature,
+        maxSteps: initialConfig?.maxSteps ?? 10,
+      };
+      this.model = createModelInstance(existingSession.model);
+      this.accumulatedUsage = { ...existingSession.totalUsage };
+
+      // Rehydrate message history from stored turns
+      for (const turn of existingSession.turns) {
+        if (turn.userPrompt) {
+          this.messages.push({ role: 'user', content: turn.userPrompt });
+        }
+        if (turn.assistantText) {
+          this.messages.push({ role: 'assistant', content: turn.assistantText });
+        }
+      }
+    } else {
+      const selection = resolveActiveModelSelection(initialConfig);
+      this.config = {
+        provider: selection.provider,
+        modelId: selection.modelId,
+        temperature: initialConfig?.temperature,
+        maxSteps: initialConfig?.maxSteps ?? 10,
+      };
+      this.model = createModelInstance(selection);
+      this.sessionData = createSession(selection);
+    }
+  }
+
+  /**
+   * Resumes an existing session from its stored document.
+   */
+  public static resume(sessionData: SessionData): AgentSession {
+    return new AgentSession(undefined, sessionData);
+  }
+
+  /**
+   * Returns the underlying session persistence document.
+   */
+  public get session(): SessionData {
+    return this.sessionData;
   }
 
   /**
@@ -125,6 +164,15 @@ export class AgentSession {
         this.accumulatedUsage.cacheReadTokens =
           (this.accumulatedUsage.cacheReadTokens ?? 0) + summary.usage.cacheReadTokens;
       }
+
+      // 6. Record and persist turn in session document (~/.xd/sessions/<date>/<sessionId>.json)
+      recordSessionTurn(this.sessionData, {
+        userPrompt: trimmedPrompt,
+        assistantText: summary.text,
+        reasoning: summary.reasoning,
+        toolCalls: summary.toolCalls,
+        usage: summary.usage,
+      });
 
       return summary;
     } finally {
