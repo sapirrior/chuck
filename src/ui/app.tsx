@@ -303,17 +303,33 @@ export const App: React.FC<AppProps> = ({ session: initialSession, cwd = process
               setHistoryItems((prev) =>
                 prev.map((item) => {
                   if (item.id === `tool-${event.toolResult.id}` && item.toolData) {
-                    const outputStr =
-                      typeof event.toolResult.result === 'string'
-                        ? event.toolResult.result
-                        : JSON.stringify(event.toolResult.result);
+                    let outputSummary: string | undefined = undefined;
+                    const res = event.toolResult.result;
+
+                    if (event.toolResult.isError) {
+                      outputSummary = undefined;
+                    } else if (typeof res === 'object' && res !== null) {
+                      const anyRes = res as any;
+                      if (anyRes.message) {
+                        outputSummary = anyRes.message;
+                      } else if (anyRes.totalLines !== undefined) {
+                        outputSummary = `Read ${anyRes.endLine - anyRes.startLine + 1} of ${anyRes.totalLines} lines`;
+                      } else if (anyRes.url && anyRes.status) {
+                        outputSummary = `Fetched ${anyRes.contentType} (${anyRes.status} OK, ${anyRes.content?.length ?? 0} chars)`;
+                      } else if (anyRes.content) {
+                        outputSummary = typeof anyRes.content === 'string' ? anyRes.content.split('\n')[0] : JSON.stringify(anyRes.content);
+                      }
+                    } else if (typeof res === 'string' && res.trim()) {
+                      outputSummary = res.trim().split('\n')[0];
+                    }
+
                     return {
                       ...item,
                       toolData: {
                         ...item.toolData,
                         status: event.toolResult.isError ? 'failed' : 'completed',
                         error: event.toolResult.isError ? String(event.toolResult.result) : undefined,
-                        toolOutput: !event.toolResult.isError && outputStr ? outputStr : undefined,
+                        toolOutput: outputSummary,
                       },
                     };
                   }
