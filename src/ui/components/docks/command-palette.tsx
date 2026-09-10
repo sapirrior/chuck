@@ -14,8 +14,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ commands, select
   const dividerWidth = Math.max(10, columns - 4);
 
   return (
-    <Box flexDirection="column" width="100%" marginTop={1}>
-      <Text color={theme.lavenderHeader}>{figures.horizontalLine.repeat(dividerWidth)}</Text>
+    <Box flexDirection="column" width="100%" marginTop={0} paddingLeft={1}>
       <Box marginY={0}>
         <Text color={theme.info}>Commands</Text>
       </Box>
