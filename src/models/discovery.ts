@@ -232,11 +232,11 @@ export async function fetchAvailableModels(
 
   // 4. Custom OpenAI-compatible model
   // If all custom variables are added (CUSTOM_API_KEY, CUSTOM_API_MODEL_NAME, CUSTOM_API_URL),
-  // the model is listed as 'Custom'
+  // the model is listed using the configured model name
   if (config.custom.apiKey && config.custom.modelName && config.custom.baseURL) {
     result.models.push({
       provider: 'custom',
-      model_id: 'Custom',
+      model_id: config.custom.modelName,
     });
     result.providers.custom = {
       status: 'available',
