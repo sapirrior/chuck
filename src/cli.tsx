@@ -7,7 +7,9 @@ import { AgentSession } from './agent/index.js';
 async function main() {
   try {
     const session = new AgentSession();
-    render(<App session={session} cwd={process.cwd()} />);
+    render(<App session={session} cwd={process.cwd()} />, {
+      exitOnCtrlC: false,
+    });
   } catch (err) {
     console.error('Failed to initialize xd:', err instanceof Error ? err.message : String(err));
     process.exit(1);
