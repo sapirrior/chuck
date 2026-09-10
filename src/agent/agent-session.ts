@@ -205,10 +205,22 @@ export class AgentSession {
   }
 
   /**
-   * Resets the conversation history.
+   * Resets the conversation history and initializes a new active session document.
    */
-  public clearHistory(): void {
+  public resetSession(): void {
     this.messages = [];
+    this.accumulatedUsage = {
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0,
+      reasoningTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+    };
+    this.sessionData = createSession({
+      provider: this.config.provider,
+      modelId: this.config.modelId,
+    });
   }
 
   /**
