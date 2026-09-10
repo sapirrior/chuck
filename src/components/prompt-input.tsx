@@ -436,7 +436,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
           {disabled ? (
             <Text dimColor>Generating response… (Esc to stop)</Text>
           ) : value.length === 0 ? (
-            <Text dimColor>Type a prompt, ! for bash, or / for commands...</Text>
+            <Text dimColor>Type your message...</Text>
           ) : (
             <>
               {linesAbove > 0 ? (
