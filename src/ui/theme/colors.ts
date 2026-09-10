@@ -1,5 +1,5 @@
 /**
- * Palette colors matching Claude Code's theme system with TrueColor RGB and ANSI fallbacks.
+ * Palette colors matching Claude Code and Delta theme systems with TrueColor RGB and ANSI fallbacks.
  */
 export interface UITheme {
   brand: string;
@@ -13,6 +13,10 @@ export interface UITheme {
   success: string;
   error: string;
   warning: string;
+  info: string;
+  bulletSuccess: string;
+  bulletError: string;
+  bulletRunning: string;
   text: string;
   textMuted: string;
   subtle: string;
@@ -30,24 +34,28 @@ export interface UITheme {
 }
 
 export const darkTheme: UITheme = {
-  brand: 'rgb(215,119,87)', // Brand terracotta / coral
+  brand: 'rgb(215,119,87)', // Brand terracotta / coral (#D77757)
   brandShimmer: 'rgb(235,159,127)',
-  permission: 'rgb(177,185,249)', // Soft blue-purple
+  permission: 'rgb(177,185,249)', // Soft blue-purple (#B1B9F9)
   permissionDim: 'rgb(93,100,128)',
   permissionShimmer: 'rgb(207,215,255)',
-  lavenderHeader: 'rgb(129,136,165)',
-  lavenderLight: 'rgb(183,184,228)',
-  bashPink: 'rgb(253,93,177)', // Vibrant pink for bash mode
-  success: 'rgb(78,186,101)', // Green
-  error: 'rgb(255,107,128)', // Red
-  warning: 'rgb(255,193,7)', // Amber
+  lavenderHeader: 'rgb(129,136,165)', // #8188A5
+  lavenderLight: 'rgb(183,184,228)', // #B7B8E4
+  bashPink: 'rgb(253,93,177)', // Vibrant pink for bash mode (#FD5DB1)
+  success: 'rgb(78,186,101)', // Green (#4EBA65)
+  error: 'rgb(255,107,128)', // Red (#FF6B80)
+  warning: 'rgb(255,193,7)', // Amber (#FFC107)
+  info: 'rgb(123,165,218)', // Info sky blue (#7BA5DA)
+  bulletSuccess: 'rgb(75,185,99)', // #4BB963
+  bulletError: 'rgb(159,82,92)', // #9F525C
+  bulletRunning: 'rgb(123,165,218)', // #7BA5DA
   text: 'rgb(255,255,255)', // White
-  textMuted: 'rgb(110,110,110)',
-  subtle: 'rgb(80,80,80)', // Dark gray
+  textMuted: 'rgb(110,110,110)', // #6E6E6E
+  subtle: 'rgb(80,80,80)', // Dark gray (#505050)
   inactive: 'rgb(153,153,153)', // Muted gray
   promptBorder: 'rgb(136,136,136)',
   userCardBg: 'rgb(38,38,38)', // #262626 shaded user message background
-  userChevron: 'rgb(82,82,82)',
+  userChevron: 'rgb(82,82,82)', // #525252
   toolHeaderBg: 'rgb(35,35,40)',
   diffAddBG: 'rgb(19,54,14)', // #13360E
   diffAddFG: 'rgb(126,231,135)', // #7EE787
@@ -69,6 +77,10 @@ export const lightTheme: UITheme = {
   success: 'rgb(44,122,57)',
   error: 'rgb(171,43,63)',
   warning: 'rgb(150,108,30)',
+  info: 'rgb(40,100,180)',
+  bulletSuccess: 'rgb(44,122,57)',
+  bulletError: 'rgb(171,43,63)',
+  bulletRunning: 'rgb(87,105,247)',
   text: 'rgb(0,0,0)',
   textMuted: 'rgb(120,120,120)',
   subtle: 'rgb(175,175,175)',

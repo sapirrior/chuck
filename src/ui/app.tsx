@@ -303,14 +303,17 @@ export const App: React.FC<AppProps> = ({ session: initialSession, cwd = process
               setHistoryItems((prev) =>
                 prev.map((item) => {
                   if (item.id === `tool-${event.toolResult.id}` && item.toolData) {
+                    const outputStr =
+                      typeof event.toolResult.result === 'string'
+                        ? event.toolResult.result
+                        : JSON.stringify(event.toolResult.result);
                     return {
                       ...item,
                       toolData: {
                         ...item.toolData,
                         status: event.toolResult.isError ? 'failed' : 'completed',
-                        error: event.toolResult.isError
-                          ? String(event.toolResult.result)
-                          : undefined,
+                        error: event.toolResult.isError ? String(event.toolResult.result) : undefined,
+                        toolOutput: !event.toolResult.isError && outputStr ? outputStr : undefined,
                       },
                     };
                   }

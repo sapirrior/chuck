@@ -39,11 +39,23 @@ function formatToolDisplayName(name: string): string {
 }
 
 /**
+ * Truncates long text in the middle with an ellipsis: "start...end"
+ */
+function truncateMiddle(text: string, maxLength = 36): string {
+  if (!text || text.length <= maxLength) return text;
+  const leftChars = Math.floor((maxLength - 1) / 2);
+  const rightChars = Math.ceil((maxLength - 1) / 2);
+  return `${text.slice(0, leftChars)}…${text.slice(text.length - rightChars)}`;
+}
+
+/**
  * Tool status bullet matching Delta / Claude Code 1:1:
- * - Completed: ● SuccessGreen Name(arg)
- * - Failed: ✕ ErrorRed Name(arg)
- * - Running: ◉ InfoBlue Name(arg)
- * - Output summary with tree elbow (└)
+ * - Always uses ● (GlyphBullet) with distinct status colors:
+ *   - Success: ColorBulletSuccess (#4BB963)
+ *   - Error: ColorBulletError (#9F525C)
+ *   - Running: ColorInfoBlue (#7BA5DA)
+ * - Single-line Name(arg) with middle-truncation for long args
+ * - Multiline / status summary indented under tree elbow (└ )
  */
 export const ToolStatus: React.FC<ToolStatusProps> = ({
   toolName,
@@ -55,60 +67,67 @@ export const ToolStatus: React.FC<ToolStatusProps> = ({
   const theme = getTheme();
   const dispName = formatToolDisplayName(toolName);
 
-  let icon = <Text color={theme.permission}>{figures.effortMax} </Text>;
+  let bulletColor = theme.bulletRunning;
   if (status === 'completed') {
-    icon = <Text color={theme.success}>{figures.effortHigh} </Text>;
+    bulletColor = theme.bulletSuccess;
   } else if (status === 'failed') {
-    icon = <Text color={theme.error}>{figures.cross} </Text>;
+    bulletColor = theme.bulletError;
   }
 
-  // Format primary single-line argument
-  let cleanArg = '';
+  // Extract primary single-line argument
+  let rawArg = '';
   if (argsSummary) {
     try {
       const parsed = JSON.parse(argsSummary);
-      const primaryKeys = ['path', 'file_path', 'target_file', 'command', 'url', 'query', 'pattern'];
+      const primaryKeys = ['path', 'file_path', 'target_file', 'command', 'url', 'query', 'pattern', 'name', 'prompt'];
       for (const k of primaryKeys) {
         if (parsed[k]) {
-          cleanArg = String(parsed[k]);
+          rawArg = String(parsed[k]);
           break;
         }
       }
-      if (!cleanArg && Object.values(parsed)[0]) {
-        cleanArg = String(Object.values(parsed)[0]);
+      if (!rawArg && Object.values(parsed)[0]) {
+        rawArg = String(Object.values(parsed)[0]);
       }
     } catch {
-      cleanArg = argsSummary;
+      rawArg = argsSummary;
     }
   }
 
-  if (cleanArg.length > 36) {
-    cleanArg = cleanArg.slice(0, 35) + '…';
-  }
+  const cleanFirstLine = rawArg.split('\n')[0] ?? '';
+  const truncatedArg = truncateMiddle(cleanFirstLine, 36);
 
   return (
     <Box flexDirection="column" marginY={0}>
+      {/* Primary Log Line: ● Name(arg) */}
       <Box flexDirection="row">
-        {icon}
+        <Text color={bulletColor}>{figures.blackCircle} </Text>
         <Text color={theme.text}>{dispName}</Text>
-        {cleanArg ? (
+        {truncatedArg ? (
           <>
             <Text dimColor>(</Text>
-            <Text dimColor>{cleanArg}</Text>
+            <Text dimColor wrap="truncate-middle">
+              {truncatedArg}
+            </Text>
             <Text dimColor>)</Text>
           </>
         ) : null}
       </Box>
 
+      {/* Multiline output / error under Tree Elbow (└ ) */}
       {error ? (
         <Box paddingLeft={2} flexDirection="row">
           <Text color={theme.textMuted}>└ </Text>
-          <Text color={theme.error}>{error}</Text>
+          <Text color={theme.error} wrap="truncate-middle">
+            {error}
+          </Text>
         </Box>
       ) : toolOutput ? (
         <Box paddingLeft={2} flexDirection="row">
           <Text color={theme.textMuted}>└ </Text>
-          <Text dimColor>{toolOutput}</Text>
+          <Text dimColor wrap="truncate-middle">
+            {toolOutput}
+          </Text>
         </Box>
       ) : null}
     </Box>

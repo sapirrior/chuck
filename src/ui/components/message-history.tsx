@@ -13,6 +13,7 @@ export interface UIHistoryItem {
     status: ToolExecutionStatus;
     durationMs?: number;
     error?: string;
+    toolOutput?: string;
   };
 }
 
@@ -69,7 +70,7 @@ export const MessageHistory: React.FC<MessageHistoryProps> = ({
           case 'reasoning':
             return (
               <Box key={item.id} marginY={0} paddingLeft={2}>
-                <Text dimColor>
+                <Text dimColor italic>
                   {figures.teardropAsterisk} {item.content}
                 </Text>
               </Box>
@@ -85,6 +86,7 @@ export const MessageHistory: React.FC<MessageHistoryProps> = ({
                 status={item.toolData.status}
                 durationMs={item.toolData.durationMs}
                 error={item.toolData.error}
+                toolOutput={item.toolData.toolOutput}
               />
             );
 
@@ -110,7 +112,7 @@ export const MessageHistory: React.FC<MessageHistoryProps> = ({
       {/* Real-time streaming reasoning */}
       {streamingReasoning ? (
         <Box marginY={0} paddingLeft={2}>
-          <Text color={theme.permission}>
+          <Text color={theme.permission} italic>
             {figures.teardropAsterisk} {streamingReasoning}
           </Text>
         </Box>
