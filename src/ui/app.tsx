@@ -3,7 +3,7 @@ import { Box, useApp, useInput } from 'ink';
 import { AgentSession } from '../agent/agent-session.js';
 import type { AgentEvent } from '../agent/events.js';
 import { defaultCommandRegistry } from '../commands/registry.js';
-import { defaultToolCatalog } from '../tools/catalog.js';
+import { defaultToolCatalog } from '../tools/index.js';
 import type { ConfirmationDecision, ConfirmationRequest, ToolContext } from '../tools/types.js';
 import { Header } from './components/header.js';
 import { MessageHistory, type UIHistoryItem } from './components/message-history.js';
