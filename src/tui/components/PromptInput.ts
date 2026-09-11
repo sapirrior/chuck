@@ -498,7 +498,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
     lines.push(` ${borderColor(figures.horizontalLine.repeat(dividerWidth))}`);
 
     // Input prompt line
-    const chevColor = isBash ? themeColor(theme.bashPink) : themeColor(theme.text);
+    const chevColor = isBash ? themeColor(theme.bashPink) : themeColor(theme.userChevron);
     const pointer = chevColor(`${figures.pointer} `);
 
     if (value.length === 0) {
