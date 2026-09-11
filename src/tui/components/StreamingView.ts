@@ -67,9 +67,9 @@ export default class StreamingView extends Component<{}, StreamingViewState> {
           }
           if (i === 0) {
             const bullet = chalk.white(`${figures.blackCircle} `);
-            lines.push(`  ${bullet}${l}`);
+            lines.push(` ${bullet}${l}`);
           } else {
-            lines.push(`    ${l}`);
+            lines.push(`   ${l}`);
           }
         }
       }

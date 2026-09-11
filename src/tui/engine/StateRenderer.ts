@@ -67,7 +67,9 @@ export default class StateRenderer {
 
     // Place cursor
     if (nextFrame.cursor) {
-      output += `\x1b[${nextFrame.cursor.line + 1};${nextFrame.cursor.column}H`;
+      output += `\x1b[?25h\x1b[${nextFrame.cursor.line + 1};${nextFrame.cursor.column}H`;
+    } else {
+      output += '\x1b[?25l';
     }
 
     output += this.endSync();

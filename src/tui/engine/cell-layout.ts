@@ -129,6 +129,13 @@ export function wrapVisualLine(text: string, maxCols: number): string[] {
   const plainText = stripAnsi(text);
   let continuationIndent = '';
   if (
+    plainText.startsWith(' ● ') ||
+    plainText.startsWith(' • ') ||
+    plainText.startsWith(' * ') ||
+    plainText.startsWith(' - ')
+  ) {
+    continuationIndent = '   ';
+  } else if (
     plainText.startsWith('  ● ') ||
     plainText.startsWith('  • ') ||
     plainText.startsWith('  * ') ||
@@ -137,6 +144,8 @@ export function wrapVisualLine(text: string, maxCols: number): string[] {
     continuationIndent = '    ';
   } else if (plainText.startsWith('    ')) {
     continuationIndent = '    ';
+  } else if (plainText.startsWith('   ')) {
+    continuationIndent = '   ';
   } else if (plainText.startsWith('  ')) {
     continuationIndent = '  ';
   }
@@ -278,10 +287,11 @@ export function measureNode(
   const logicalLines = node.getLines(contentWidth, forceAll);
   const rows: PhysicalRow[] = [];
   const wrapSegmentCounts: number[] = [];
+  const isWrappable = 'wrappable' in node ? Boolean((node as any).wrappable) : true;
 
   for (let lIdx = 0; lIdx < logicalLines.length; lIdx++) {
     const line = logicalLines[lIdx] ?? '';
-    const segments = wrapVisualLine(line, contentWidth);
+    const segments = isWrappable ? wrapVisualLine(line, contentWidth) : [line];
     wrapSegmentCounts.push(segments.length);
     for (let sIdx = 0; sIdx < segments.length; sIdx++) {
       rows.push({

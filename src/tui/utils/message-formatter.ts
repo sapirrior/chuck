@@ -71,9 +71,9 @@ export function formatAssistantMessage(content: string, reasoning?: string): str
         }
         if (i === 0) {
           const bullet = chalk.white(`${figures.blackCircle} `);
-          lines.push(`  ${bullet}${l}`);
+          lines.push(` ${bullet}${l}`);
         } else {
-          lines.push(`    ${l}`);
+          lines.push(`   ${l}`);
         }
       }
     }
@@ -139,7 +139,7 @@ export function formatToolStatus(options: {
   const cleanFirstLine = rawArg.split('\n')[0] ?? '';
   const truncatedArg = truncateMiddle(cleanFirstLine, 36);
 
-  let mainLine = `  ${bullet} ${dispName}`;
+  let mainLine = ` ${bullet} ${dispName}`;
   if (truncatedArg) {
     mainLine += `${chalk.dim('(')}${chalk.dim(truncatedArg)}${chalk.dim(')')}`;
   }
@@ -154,9 +154,9 @@ export function formatToolStatus(options: {
 
     const errText = isInterrupted ? 'Interrupted · What should xd do instead?' : error;
     const errColor = isInterrupted ? chalk.dim : themeColor(theme.error);
-    lines.push(`    ${chalk.dim('└ ')}${errColor(errText)}`);
+    lines.push(`   ${chalk.dim('└ ')}${errColor(errText)}`);
   } else if (toolOutput) {
-    lines.push(`    ${chalk.dim('└ ')}${chalk.dim(truncateMiddle(toolOutput, 60))}`);
+    lines.push(`   ${chalk.dim('└ ')}${chalk.dim(truncateMiddle(toolOutput, 60))}`);
   }
 
   return lines;

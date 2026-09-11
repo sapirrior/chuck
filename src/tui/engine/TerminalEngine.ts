@@ -235,7 +235,8 @@ export default class TerminalEngine {
     this.ensureAlternateScreen();
     this.history.push(kind, lines);
     const maxReadableWidth = kind === 'assistant-message' ? 100 : undefined;
-    this.tree.addText(lines, kind !== 'logo', maxReadableWidth);
+    const isWrappable = kind !== 'logo' && kind !== 'prompt';
+    this.tree.addText(lines, isWrappable, maxReadableWidth);
     this.requestFrame();
   }
 
