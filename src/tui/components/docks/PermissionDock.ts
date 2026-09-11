@@ -187,10 +187,16 @@ export default class PermissionDock extends Component<PermissionDockProps, Permi
           lineText = chalk.green(line.text);
         } else if (line.kind === 'delete') {
           lineText = chalk.red(line.text);
+        } else if (line.kind === 'hunk') {
+          lineText = chalk.cyan.bold(line.text);
         }
 
         const cursorStr = isCursorLine ? lavLight('> ') : '  ';
-        lines.push(`${cursorStr}${chalk.dim(`${lineNum} ${line.prefix} `)}${lineText}`);
+        if (line.kind === 'hunk') {
+          lines.push(`${cursorStr}   ${lineText}`);
+        } else {
+          lines.push(`${cursorStr}${chalk.dim(`${lineNum} ${line.prefix} `)}${lineText}`);
+        }
       }
 
       if (!isReviewing && this.diffLines.length > maxPreview) {
