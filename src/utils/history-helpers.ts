@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { UIHistoryItem } from '../components/message-history.js';
+import type { UIHistoryItem } from '../tui/types.js';
 import type { SessionData } from '../session/types.js';
 
 /**

@@ -24,16 +24,13 @@
     "chalk": "^6.0.0",
     "cli-highlight": "^2.1.11",
     "get-east-asian-width": "^1.6.0",
-    "ink": "^7.1.1",
     "marked": "^18.0.12",
-    "react": "^19.3.0",
     "string-width": "^8.2.2",
     "strip-ansi": "^7.2.0",
     "zod": "^4.6.1"
   },
   "devDependencies": {
     "@types/node": "*",
-    "@types/react": "*",
     "prettier": "*",
     "typescript": "^5.9.3"
   }

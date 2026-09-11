@@ -36,10 +36,8 @@ The `references/` directory contains external reference archives and codebases p
       - `src/engine/` (Agent Core): Model turn loop, streaming orchestration, and context compilation.
       - `src/tools/`: Self-contained tool modules (`src/tools/<tool-name>/`), each encapsulating its parameter schema (Zod), execution handler, safety/confirmation rules, and UI preview component.
       - `src/commands/`: Modular slash command system (`src/commands/<command-name>/`) for terminal commands like `/model`, `/clear`, `/help`.
-      - `src/components/`: Modular, decoupled Ink UI presentation components (`message`, `tool-call`, `input`, `dialogs`).
+      - `src/tui/`: High-performance, zero-flicker Alternate-Screen TUI Engine (`StateRenderer`, `TerminalEngine`, `DocumentTree`, `PromptInput`, `StatusBar`, dock overlays).
       - `src/context/`: Workspace boundary discovery, system prompt compilation, and environment context.
-      - `src/state/`: Central typed state machine and store.
-      - `src/hooks/`: Reusable Ink hooks for keyboard shortcuts, terminal dimensions, and lifecycle management.
       - `src/utils/`: Shell execution, token counters, and ANSI styling.
     - **Model-Agnostic Adaptation:** While Claude Code is locked to Anthropic's proprietary SDK, `xd` is fully model-agnostic via the Vercel AI SDK (`@ai-sdk/google`, `@ai-sdk/openai`, `@ai-sdk/anthropic`, `@ai-sdk/openai-compatible`) and excludes enterprise overhead (telemetry, remote SSH bridges, internal proxies) to remain lean and fast.
 

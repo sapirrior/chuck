@@ -11,6 +11,7 @@ A clear and concise description of what the bug is.
 
 **To Reproduce**
 Steps to reproduce the behavior:
+
 1. Run '...'
 2. Input '....'
 3. See error
@@ -19,9 +20,10 @@ Steps to reproduce the behavior:
 A clear and concise description of what you expected to happen.
 
 **Environment:**
- - OS: [e.g. Linux / macOS / Windows]
- - Node version: [e.g. 20.x]
- - Terminal / Emulator: [e.g. xterm, iTerm2, Alacritty]
+
+- OS: [e.g. Linux / macOS / Windows]
+- Node version: [e.g. 20.x]
+- Terminal / Emulator: [e.g. xterm, iTerm2, Alacritty]
 
 **Additional context**
 Add any other context about the problem here.
