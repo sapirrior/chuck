@@ -421,7 +421,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
     const beforeCursor = this.state.value.slice(0, this.state.cursorPos);
     const beforeLines = beforeCursor.split('\n');
     const curLineIdx = beforeLines.length - 1;
-    const curCol = stringWidth(beforeLines[curLineIdx] ?? '') + 4; // +4 for '  ❯ '
+    const curCol = stringWidth(beforeLines[curLineIdx] ?? '') + 3; // +3 for pointer "▸ "
 
     return {
       line: lineOffset + curLineIdx,
@@ -483,36 +483,36 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
         }
       }
 
-      lines.push(`  ${glyph} ${chalk.italic(waveText)}`);
+      lines.push(` ${glyph} ${chalk.italic(waveText)}`);
       // Top Border
-      lines.push(`  ${borderColor(figures.horizontalLine.repeat(dividerWidth))}`);
+      lines.push(` ${borderColor(figures.horizontalLine.repeat(dividerWidth))}`);
       // Inside box message
-      lines.push(`    ${chalk.dim('Generating response… (Esc to stop)')}`);
+      lines.push(`  ${chalk.dim('Generating response… (Esc to stop)')}`);
       // Bottom Border
-      lines.push(`  ${borderColor(figures.horizontalLine.repeat(dividerWidth))}`);
+      lines.push(` ${borderColor(figures.horizontalLine.repeat(dividerWidth))}`);
       return lines;
     }
 
     // Top Border
-    lines.push(`  ${borderColor(figures.horizontalLine.repeat(dividerWidth))}`);
+    lines.push(` ${borderColor(figures.horizontalLine.repeat(dividerWidth))}`);
 
     // Input prompt line
     const chevColor = isBash ? themeColor(theme.bashPink) : themeColor(theme.text);
     const pointer = chevColor(`${figures.pointer} `);
 
     if (value.length === 0) {
-      lines.push(`  ${pointer}${chalk.dim('Type your message...')}`);
+      lines.push(` ${pointer}${chalk.dim('Type your message...')}`);
     } else {
       const vLines = value.split('\n');
       for (let i = 0; i < vLines.length; i++) {
         const l = vLines[i] ?? '';
         const p = i === 0 ? pointer : '  ';
-        lines.push(`  ${p}${chalk.white(l)}`);
+        lines.push(` ${p}${chalk.white(l)}`);
       }
     }
 
     // Bottom Border
-    lines.push(`  ${borderColor(figures.horizontalLine.repeat(dividerWidth))}`);
+    lines.push(` ${borderColor(figures.horizontalLine.repeat(dividerWidth))}`);
 
     // Inline CommandPalette
     const isSlashMode = value.startsWith('/') && !value.includes(' ');

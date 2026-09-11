@@ -70,8 +70,8 @@ export default class StatusBar extends Component<StatusBarProps, StatusBarState>
 
     const leftWidth = stringWidth(stripAnsi(left));
     const rightWidth = stringWidth(stripAnsi(right));
-    const spaceCount = Math.max(1, termWidth - leftWidth - rightWidth - 4);
-    const line = `  ${left}${' '.repeat(spaceCount)}${right}  `;
+    const spaceCount = Math.max(1, termWidth - leftWidth - rightWidth - 2);
+    const line = ` ${left}${' '.repeat(spaceCount)}${right} `;
 
     return [line];
   }

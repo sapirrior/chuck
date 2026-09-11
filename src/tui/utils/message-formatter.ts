@@ -16,13 +16,13 @@ export function formatUserMessage(content: string, isBash = false): string[] {
   const bg = themeBgColor(theme.userCardBg);
   const chevColor = isBash ? themeColor(theme.bashPink) : themeColor(theme.userChevron);
   const pointer = isBash ? '! ' : `${figures.pointer} `;
-  const prefix = `  ${pointer}`;
+  const prefix = ` ${pointer}`;
 
   const vLines = content.split('\n');
   const lines: string[] = [];
 
   for (let i = 0; i < vLines.length; i++) {
-    const p = i === 0 ? prefix : '    ';
+    const p = i === 0 ? prefix : '   ';
     const textStr = vLines[i] ?? '';
     const visibleLen = stringWidth(p) + stringWidth(textStr);
     const padLen = Math.max(0, termWidth - visibleLen);
