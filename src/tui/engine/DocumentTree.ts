@@ -52,6 +52,7 @@ export class UserMessageNode implements ComponentNode {
   kind: 'custom' = 'custom';
   content: string;
   isBash: boolean;
+  wrappable = false;
   private _cachedWidth = -1;
   private _cachedColumns = -1;
   private _cachedLines: string[] = [];
