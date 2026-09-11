@@ -32,12 +32,10 @@ export function formatUserMessage(content: string, isBash = false, targetWidth?:
     for (const segment of wrappedSegments) {
       const p = isFirstRow ? prefix : '   ';
       isFirstRow = false;
-      const visibleLen = stringWidth(p) + stringWidth(segment);
-      const padLen = Math.max(0, fullTermWidth - visibleLen);
       const pStyled = isBash ? chevColor(p) : themeColor(theme.userChevron)(p);
       const textStyled = isBash ? chevColor(segment) : chalk.white(segment);
-      const fullRow = bg(`${pStyled}${textStyled}${' '.repeat(padLen)}`);
-      lines.push(fullRow);
+      const row = bg(`${pStyled}${textStyled}`);
+      lines.push(row);
     }
   }
 
