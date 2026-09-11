@@ -95,9 +95,9 @@ export class TUIApp {
       const items = rehydrateSessionHistory(this.session.session);
       for (const item of items) {
         if (item.type === 'user') {
-          this.engine.commit('prompt', formatUserMessage(item.content));
+          this.engine.commitPrompt(item.content);
         } else if (item.type === 'bash') {
-          this.engine.commit('prompt', formatUserMessage(item.content, true));
+          this.engine.commitPrompt(item.content, true);
         } else if (item.type === 'system') {
           this.engine.commit('system', formatSystemMessage(item.content));
         } else if (item.type === 'tool' && item.toolData) {
@@ -245,9 +245,9 @@ export class TUIApp {
         const items = rehydrateSessionHistory(selected);
         for (const item of items) {
           if (item.type === 'user') {
-            this.engine.commit('prompt', formatUserMessage(item.content));
+            this.engine.commitPrompt(item.content);
           } else if (item.type === 'bash') {
-            this.engine.commit('prompt', formatUserMessage(item.content, true));
+            this.engine.commitPrompt(item.content, true);
           } else if (item.type === 'system') {
             this.engine.commit('system', formatSystemMessage(item.content));
           } else if (item.type === 'tool' && item.toolData) {
@@ -313,7 +313,7 @@ export class TUIApp {
   private async handleSubmit(text: string, isBash = false): Promise<void> {
     // 1. Bash execution (!)
     if (isBash) {
-      this.engine.commit('prompt', formatUserMessage(text, true));
+      this.engine.commitPrompt(text, true);
       this.setBusy(true);
 
       try {
@@ -356,7 +356,7 @@ export class TUIApp {
         return;
       }
 
-      this.engine.commit('prompt', formatUserMessage(text));
+      this.engine.commitPrompt(text);
 
       if (cmdResult.data?.showModelPicker) {
         this.openModelPicker(cmdResult.data.models ?? []);
@@ -379,7 +379,7 @@ export class TUIApp {
     }
 
     // 3. Submit user prompt to AgentSession
-    this.engine.commit('prompt', formatUserMessage(text));
+    this.engine.commitPrompt(text);
     this.setBusy(true);
 
     let accumulatedReasoning = '';

@@ -1,6 +1,7 @@
 import stringWidth from 'string-width';
 import { getTheme, figures } from '../../theme/index.js';
 import { themeColor, themeBgColor, chalk, formatMarkdown } from './format.js';
+import { wrapVisualLine } from '../engine/cell-layout.js';
 import type { ToolExecutionStatus } from '../types.js';
 
 function truncateMiddle(text: string, maxLength = 36): string {
@@ -10,26 +11,34 @@ function truncateMiddle(text: string, maxLength = 36): string {
   return `${text.slice(0, leftChars)}…${text.slice(text.length - rightChars)}`;
 }
 
-export function formatUserMessage(content: string, isBash = false): string[] {
+export function formatUserMessage(content: string, isBash = false, targetWidth?: number): string[] {
   const theme = getTheme();
-  const termWidth = process.stdout.columns || 80;
+  const fullTermWidth = process.stdout.columns || 80;
+  const wrapWidth = targetWidth ?? fullTermWidth;
   const bg = themeBgColor(theme.userCardBg);
   const chevColor = isBash ? themeColor(theme.bashPink) : themeColor(theme.userChevron);
   const pointer = isBash ? '! ' : `${figures.pointer} `;
   const prefix = ` ${pointer}`;
 
+  const availableTextWidth = Math.max(10, wrapWidth - 3);
   const vLines = content.split('\n');
   const lines: string[] = [];
 
+  let isFirstRow = true;
   for (let i = 0; i < vLines.length; i++) {
-    const p = i === 0 ? prefix : '   ';
-    const textStr = vLines[i] ?? '';
-    const visibleLen = stringWidth(p) + stringWidth(textStr);
-    const padLen = Math.max(0, termWidth - visibleLen);
-    const pStyled = isBash ? chevColor(p) : themeColor(theme.userChevron)(p);
-    const textStyled = isBash ? chevColor(textStr) : chalk.white(textStr);
-    const fullRow = bg(`${pStyled}${textStyled}${' '.repeat(padLen)}`);
-    lines.push(fullRow);
+    const rawLine = vLines[i] ?? '';
+    const wrappedSegments = rawLine ? wrapVisualLine(rawLine, availableTextWidth) : [''];
+
+    for (const segment of wrappedSegments) {
+      const p = isFirstRow ? prefix : '   ';
+      isFirstRow = false;
+      const visibleLen = stringWidth(p) + stringWidth(segment);
+      const padLen = Math.max(0, fullTermWidth - visibleLen);
+      const pStyled = isBash ? chevColor(p) : themeColor(theme.userChevron)(p);
+      const textStyled = isBash ? chevColor(segment) : chalk.white(segment);
+      const fullRow = bg(`${pStyled}${textStyled}${' '.repeat(padLen)}`);
+      lines.push(fullRow);
+    }
   }
 
   return lines;

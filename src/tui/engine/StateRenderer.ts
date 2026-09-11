@@ -44,7 +44,9 @@ export default class StateRenderer {
       output += '\x1b[H\x1b[J';
       for (let i = 0; i < nextLines.length; i++) {
         const line = nextLines[i] ?? '';
-        output += i === nextLines.length - 1 ? '\r' + line : '\r' + line + '\n';
+        const resetSuffix = line.includes('\x1b') && !line.endsWith('\x1b[0m') ? '\x1b[0m' : '';
+        output +=
+          i === nextLines.length - 1 ? '\r' + line + resetSuffix : '\r' + line + resetSuffix + '\n';
       }
     } else {
       // Line-diff: only rewrite lines that changed
@@ -55,11 +57,12 @@ export default class StateRenderer {
 
         if (next !== prev) {
           if (next !== undefined && next.length > 0) {
-            // Move to row i+1 col 1, clear entire row first, then write line
-            output += `\x1b[${i + 1};1H\x1b[2K${next}`;
+            // Move to row i+1 col 1, clear entire row first, then write line with reset
+            const resetSuffix = next.includes('\x1b') && !next.endsWith('\x1b[0m') ? '\x1b[0m' : '';
+            output += `\x1b[${i + 1};1H\x1b[2K${next}${resetSuffix}`;
           } else {
             // Clear entire row if line was removed or empty
-            output += `\x1b[${i + 1};1H\x1b[2K`;
+            output += `\x1b[${i + 1};1H\x1b[2K\x1b[0m`;
           }
         }
       }

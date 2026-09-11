@@ -1,4 +1,5 @@
 import { wrapVisualLine } from './cell-layout.js';
+import { formatUserMessage } from '../utils/message-formatter.js';
 
 export interface ComponentNode {
   id: string;
@@ -31,23 +32,72 @@ export class TextNode implements ComponentNode {
     this.maxReadableWidth = maxReadableWidth;
   }
 
-  getLines(width: number): string[] {
+  invalidateCache(): void {
+    this._cachedWidth = -1;
+    this._cachedWrapped = [];
+  }
+
+  getLines(width: number, forceAll = false): string[] {
     if (!this.wrappable) return this.lines;
     const effectiveWidth = this.maxReadableWidth ? Math.min(width, this.maxReadableWidth) : width;
-    if (effectiveWidth === this._cachedWidth) return this._cachedWrapped;
+    if (!forceAll && effectiveWidth === this._cachedWidth) return this._cachedWrapped;
     this._cachedWidth = effectiveWidth;
     this._cachedWrapped = this.lines.flatMap((line) => wrapVisualLine(line, effectiveWidth));
     return this._cachedWrapped;
   }
 }
 
+export class UserMessageNode implements ComponentNode {
+  id: string;
+  kind: 'custom' = 'custom';
+  content: string;
+  isBash: boolean;
+  private _cachedWidth = -1;
+  private _cachedColumns = -1;
+  private _cachedLines: string[] = [];
+
+  constructor(id: string, content: string, isBash = false) {
+    this.id = id;
+    this.content = content;
+    this.isBash = isBash;
+  }
+
+  invalidateCache(): void {
+    this._cachedWidth = -1;
+    this._cachedColumns = -1;
+    this._cachedLines = [];
+  }
+
+  getLines(width: number, forceAll = false): string[] {
+    const termCols = process.stdout.columns || 80;
+    if (
+      !forceAll &&
+      width === this._cachedWidth &&
+      termCols === this._cachedColumns &&
+      this._cachedLines.length > 0
+    ) {
+      return this._cachedLines;
+    }
+    this._cachedWidth = width;
+    this._cachedColumns = termCols;
+    this._cachedLines = formatUserMessage(this.content, this.isBash, width);
+    return this._cachedLines;
+  }
+}
+
 export class DocumentTree {
-  private historyNodes: TextNode[] = [];
+  private historyNodes: (TextNode | UserMessageNode | ComponentNode)[] = [];
   private liveNodes: ComponentNode[] = [];
   private idCounter = 0;
 
   addText(lines: string[], wrappable = true, maxReadableWidth?: number): TextNode {
     const node = new TextNode(`node-${this.idCounter++}`, lines, wrappable, maxReadableWidth);
+    this.historyNodes.push(node);
+    return node;
+  }
+
+  addUserMessage(content: string, isBash = false): UserMessageNode {
+    const node = new UserMessageNode(`user-node-${this.idCounter++}`, content, isBash);
     this.historyNodes.push(node);
     return node;
   }
@@ -70,6 +120,14 @@ export class DocumentTree {
 
   getNodes(): ComponentNode[] {
     return [...this.historyNodes, ...this.liveNodes];
+  }
+
+  invalidateCache(): void {
+    for (const node of this.historyNodes) {
+      if ('invalidateCache' in node && typeof (node as any).invalidateCache === 'function') {
+        (node as any).invalidateCache();
+      }
+    }
   }
 
   clearHistory(): void {

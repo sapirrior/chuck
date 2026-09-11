@@ -86,6 +86,7 @@ export default class TerminalEngine {
       this.resizeTimer = setTimeout(() => {
         const w = process.stdout.columns || 80;
         const h = process.stdout.rows || 24;
+        this.tree.invalidateCache();
         for (const comp of this.components) {
           if (typeof comp.onResize === 'function') {
             comp.onResize(w, h);
@@ -102,6 +103,18 @@ export default class TerminalEngine {
     this.inputHandler = (data: Buffer) => {
       if (!this.inAlternateScreen) return;
 
+      const str = data.toString();
+
+      // Consume focus tracking event escapes (Mode 1004: \x1b[I = focus in, \x1b[O = focus out)
+      if (
+        str === '\x1b[I' ||
+        str === '\x1b[O' ||
+        str.startsWith('\x1b[I') ||
+        str.startsWith('\x1b[O')
+      ) {
+        return;
+      }
+
       // Check registered custom input listeners first
       for (let i = this.customInputListeners.length - 1; i >= 0; i--) {
         const listener = this.customInputListeners[i];
@@ -111,7 +124,6 @@ export default class TerminalEngine {
         }
       }
 
-      const str = data.toString();
       const halfPage = Math.max(1, Math.floor(((process.stdout.rows || 24) - 1) / 2));
 
       // PageUp / PageDown / Ctrl+U / Ctrl+D scrolling
@@ -163,7 +175,7 @@ export default class TerminalEngine {
 
   ensureAlternateScreen(): void {
     if (!this.inAlternateScreen) {
-      process.stdout.write('\x1b[?1049h\x1b[H');
+      process.stdout.write('\x1b[?1049h\x1b[?1004h\x1b[H');
       this.inAlternateScreen = true;
       if (process.stdin.isTTY) {
         process.stdin.setRawMode(true);
@@ -177,7 +189,7 @@ export default class TerminalEngine {
   cleanupSync(): void {
     this.showCursor();
     if (this.inAlternateScreen) {
-      process.stdout.write('\x1b[?1049l');
+      process.stdout.write('\x1b[?1004l\x1b[?1049l');
       this.inAlternateScreen = false;
       try {
         if (process.stdin.isTTY) process.stdin.setRawMode(false);
@@ -188,7 +200,7 @@ export default class TerminalEngine {
   async exitAlternateScreen(): Promise<void> {
     this.showCursor();
     if (this.inAlternateScreen) {
-      process.stdout.write('\x1b[?1049l');
+      process.stdout.write('\x1b[?1004l\x1b[?1049l');
       this.inAlternateScreen = false;
       if (process.stdin.isTTY) {
         process.stdin.off('data', this.inputHandler);
@@ -219,6 +231,12 @@ export default class TerminalEngine {
     }
   }
 
+  commitPrompt(text: string, isBash = false): void {
+    this.ensureAlternateScreen();
+    this.tree.addUserMessage(text, isBash);
+    this.requestFrame();
+  }
+
   commit(
     kind:
       | 'log'
@@ -235,7 +253,7 @@ export default class TerminalEngine {
     this.ensureAlternateScreen();
     this.history.push(kind, lines);
     const maxReadableWidth = kind === 'assistant-message' ? 100 : undefined;
-    const isWrappable = kind !== 'logo' && kind !== 'prompt';
+    const isWrappable = kind !== 'logo';
     this.tree.addText(lines, isWrappable, maxReadableWidth);
     this.requestFrame();
   }

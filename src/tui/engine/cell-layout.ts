@@ -156,22 +156,93 @@ export function wrapVisualLine(text: string, maxCols: number): string[] {
   const lines: string[] = [];
   let currentTokens: AnsiToken[] = [];
   let currentWidth = 0;
-  let activeStyles: string[] = [];
+  let activeFg: string | null = null;
+  let activeBg: string | null = null;
+  const activeModifiers = new Set<string>();
 
   function updateActiveStyles(token: AnsiToken) {
     if (token.type !== 'ansi') return;
-    if (token.value === '\x1b[0m' || token.value === '\x1b[39m' || token.value === '\x1b[49m') {
-      if (token.value === '\x1b[0m') {
-        activeStyles = [];
-      } else {
-        activeStyles = activeStyles.filter((s) => s !== token.value);
+    const match = token.value.match(/^\x1b\[([0-9;]*)m$/);
+    if (!match) return;
+
+    const rawParams = match[1] || '0';
+    const params = rawParams.split(';').map((p) => parseInt(p, 10) || 0);
+
+    let i = 0;
+    while (i < params.length) {
+      const code = params[i] ?? 0;
+
+      if (code === 0) {
+        activeFg = null;
+        activeBg = null;
+        activeModifiers.clear();
+      } else if (
+        code === 1 ||
+        code === 2 ||
+        code === 3 ||
+        code === 4 ||
+        code === 7 ||
+        code === 8 ||
+        code === 9
+      ) {
+        activeModifiers.add(`\x1b[${code}m`);
+      } else if (code === 22) {
+        activeModifiers.delete('\x1b[1m');
+        activeModifiers.delete('\x1b[2m');
+      } else if (code === 23) {
+        activeModifiers.delete('\x1b[3m');
+      } else if (code === 24) {
+        activeModifiers.delete('\x1b[4m');
+      } else if (code === 27) {
+        activeModifiers.delete('\x1b[7m');
+      } else if (code === 28) {
+        activeModifiers.delete('\x1b[8m');
+      } else if (code === 29) {
+        activeModifiers.delete('\x1b[9m');
+      } else if ((code >= 30 && code <= 37) || (code >= 90 && code <= 97)) {
+        activeFg = `\x1b[${code}m`;
+      } else if (code === 38) {
+        // 38;5;n or 38;2;r;g;b
+        if (params[i + 1] === 5 && i + 2 < params.length) {
+          activeFg = `\x1b[38;5;${params[i + 2]}m`;
+          i += 2;
+        } else if (params[i + 1] === 2 && i + 4 < params.length) {
+          activeFg = `\x1b[38;2;${params[i + 2]};${params[i + 3]};${params[i + 4]}m`;
+          i += 4;
+        }
+      } else if (code === 39) {
+        activeFg = null;
+      } else if ((code >= 40 && code <= 47) || (code >= 100 && code <= 107)) {
+        activeBg = `\x1b[${code}m`;
+      } else if (code === 48) {
+        // 48;5;n or 48;2;r;g;b
+        if (params[i + 1] === 5 && i + 2 < params.length) {
+          activeBg = `\x1b[48;5;${params[i + 2]}m`;
+          i += 2;
+        } else if (params[i + 1] === 2 && i + 4 < params.length) {
+          activeBg = `\x1b[48;2;${params[i + 2]};${params[i + 3]};${params[i + 4]}m`;
+          i += 4;
+        }
+      } else if (code === 49) {
+        activeBg = null;
       }
-    } else {
-      activeStyles.push(token.value);
+
+      i++;
     }
   }
 
+  function getActiveStyleCodes(): string[] {
+    const codes: string[] = [];
+    if (activeFg) codes.push(activeFg);
+    if (activeBg) codes.push(activeBg);
+    for (const mod of activeModifiers) {
+      codes.push(mod);
+    }
+    return codes;
+  }
+
   function emitCurrentLine() {
+    const activeStyles = getActiveStyleCodes();
     let lineStr = currentTokens.map((t) => t.value).join('');
     if (activeStyles.length > 0 && !lineStr.endsWith('\x1b[0m')) {
       lineStr += '\x1b[0m';
@@ -181,8 +252,9 @@ export function wrapVisualLine(text: string, maxCols: number): string[] {
     currentTokens = [];
     currentWidth = 0;
 
-    // Carry forward active styles to next line
+    // Carry forward active styles to next line with a reset followed by active styles
     if (activeStyles.length > 0) {
+      currentTokens.push({ type: 'ansi', value: '\x1b[0m', width: 0 });
       for (const s of activeStyles) {
         currentTokens.push({ type: 'ansi', value: s, width: 0 });
       }
@@ -259,6 +331,7 @@ export function wrapVisualLine(text: string, maxCols: number): string[] {
   }
 
   if (currentTokens.length > 0 || lines.length === 0) {
+    const activeStyles = getActiveStyleCodes();
     let lineStr = currentTokens.map((t) => t.value).join('');
     if (activeStyles.length > 0 && lines.length > 0 && !lineStr.endsWith('\x1b[0m')) {
       lineStr += '\x1b[0m';
