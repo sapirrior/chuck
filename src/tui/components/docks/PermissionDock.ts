@@ -61,12 +61,22 @@ export default class PermissionDock extends Component<PermissionDockProps, Permi
       }
 
       // 'f' toggles review mode
-      if (str.toLowerCase() === 'f' && this.diffLines.length > 0) {
+      const hasReviewableContent =
+        this.diffLines.length > 0 ||
+        (this.props.request.toolName === 'run_command' &&
+          ((this.props.request.args as any)?.command ?? '').split('\n').length > 5);
+
+      if (str.toLowerCase() === 'f' && hasReviewableContent) {
         this.setState({ isReviewing: !this.state.isReviewing });
         return true;
       }
 
       if (this.state.isReviewing) {
+        const totalItems =
+          this.diffLines.length > 0
+            ? this.diffLines.length
+            : ((this.props.request.args as any)?.command ?? '').split('\n').length;
+
         if (str === '\x1b[A') {
           // Up arrow
           this.setState({ reviewOffset: Math.max(0, this.state.reviewOffset - 1) });
@@ -75,10 +85,7 @@ export default class PermissionDock extends Component<PermissionDockProps, Permi
         if (str === '\x1b[B') {
           // Down arrow
           this.setState({
-            reviewOffset: Math.min(
-              Math.max(0, this.diffLines.length - 1),
-              this.state.reviewOffset + 1,
-            ),
+            reviewOffset: Math.min(Math.max(0, totalItems - 1), this.state.reviewOffset + 1),
           });
           return true;
         }
@@ -147,11 +154,7 @@ export default class PermissionDock extends Component<PermissionDockProps, Permi
     lines.push(lavHeader(figures.horizontalLine.repeat(dividerWidth)));
     lines.push(lavLight(`Permission Required: ${request.displayName}`));
 
-    if (request.promptTitle) {
-      lines.push(chalk.dim(request.promptTitle));
-    }
-
-    // Diff preview
+    // Diff preview for file ops
     if (this.diffLines.length > 0) {
       lines.push(dashRule(figures.horizontalLine.repeat(dividerWidth)));
       const maxPreview = 8;
@@ -201,8 +204,36 @@ export default class PermissionDock extends Component<PermissionDockProps, Permi
     } else if (request.toolName === 'run_command' && (request.args as any)?.command) {
       lines.push(dashRule(figures.horizontalLine.repeat(dividerWidth)));
       const pink = themeColor(theme.bashPink);
-      lines.push(`  ${pink('$ ')}${chalk.white((request.args as any).command)}`);
+      const cmdRaw: string = (request.args as any).command;
+      const cmdLines = cmdRaw.split('\n');
+      const maxPreview = 5;
+      const reviewWindowSize = 10;
+
+      let visibleCmdLines: string[] = [];
+      if (isReviewing) {
+        const start = Math.max(
+          0,
+          Math.min(reviewOffset, Math.max(0, cmdLines.length - reviewWindowSize)),
+        );
+        visibleCmdLines = cmdLines.slice(start, start + reviewWindowSize);
+      } else {
+        visibleCmdLines = cmdLines.slice(0, maxPreview);
+      }
+
+      for (let i = 0; i < visibleCmdLines.length; i++) {
+        const cl = visibleCmdLines[i] ?? '';
+        const p = i === 0 ? pink('$ ') : '  ';
+        lines.push(`  ${p}${chalk.white(cl)}`);
+      }
+
+      if (!isReviewing && cmdLines.length > maxPreview) {
+        lines.push(
+          chalk.dim(`  ... (${cmdLines.length - maxPreview} more lines, press 'f' to review)`),
+        );
+      }
       lines.push(dashRule(figures.horizontalLine.repeat(dividerWidth)));
+    } else if (request.promptTitle) {
+      lines.push(chalk.dim(`  ${request.promptTitle}`));
     }
 
     const options = [
