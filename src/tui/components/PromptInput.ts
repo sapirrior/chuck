@@ -421,7 +421,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
     const beforeCursor = this.state.value.slice(0, this.state.cursorPos);
     const beforeLines = beforeCursor.split('\n');
     const curLineIdx = beforeLines.length - 1;
-    // Prefix is " ❯ " -> 1 space (col 1) + pointer (col 2) + 1 space (col 3) -> text starts at 1-indexed col 4
+    // Prefix is " > " -> 1 space (col 1) + pointer (col 2) + 1 space (col 3) -> text starts at 1-indexed col 4
     const curCol = 4 + stringWidth(beforeLines[curLineIdx] ?? '');
 
     return {

@@ -17,7 +17,7 @@ export function formatUserMessage(content: string, isBash = false, targetWidth?:
   const wrapWidth = targetWidth ?? fullTermWidth;
   const bg = themeBgColor(theme.userCardBg);
   const chevColor = isBash ? themeColor(theme.bashPink) : themeColor(theme.userChevron);
-  const pointer = isBash ? '! ' : `${figures.pointer} `;
+  const pointer = isBash ? '! ' : `${figures.pointerBold} `;
   const prefix = ` ${pointer}`;
 
   const availableTextWidth = Math.max(10, wrapWidth - 3);

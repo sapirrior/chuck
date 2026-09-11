@@ -10,7 +10,8 @@ export const figures = {
   blackCircle: isDarwin ? '⏺' : '●',
   bullet: '∙',
   teardropAsterisk: '✻', // For reasoning / thinking indicator
-  pointer: '❯',
+  pointer: '>',
+  pointerBold: '❯',
   pointerSmall: '›',
 
   // Status indicators
