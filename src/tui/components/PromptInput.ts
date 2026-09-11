@@ -462,7 +462,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
     targetRow += 1;
 
     const termWidth = process.stdout.columns || 80;
-    const dividerWidth = Math.max(10, termWidth);
+    const dividerWidth = Math.max(10, termWidth - 1);
     const availableWidth = Math.max(10, dividerWidth - 2);
 
     const vLines = this.state.value.split('\n');
@@ -512,7 +512,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
   override render(): string[] {
     const theme = getTheme();
     const termWidth = process.stdout.columns || 80;
-    const dividerWidth = Math.max(10, termWidth);
+    const dividerWidth = Math.max(10, termWidth - 1);
     const {
       value,
       cursorPos,
