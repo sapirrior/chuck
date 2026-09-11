@@ -18,9 +18,9 @@ export function formatUserMessage(content: string, isBash = false, targetWidth?:
   const bg = themeBgColor(theme.userCardBg);
   const chevColor = isBash ? themeColor(theme.bashPink) : themeColor(theme.userChevron);
   const pointer = isBash ? '! ' : `${figures.pointerBold} `;
-  const prefix = ` ${pointer}`;
+  const prefix = pointer;
 
-  const availableTextWidth = Math.max(10, wrapWidth - 3);
+  const availableTextWidth = Math.max(10, wrapWidth - 2);
   const vLines = content.split('\n');
   const lines: string[] = [];
 
@@ -30,7 +30,7 @@ export function formatUserMessage(content: string, isBash = false, targetWidth?:
     const wrappedSegments = rawLine ? wrapVisualLine(rawLine, availableTextWidth) : [''];
 
     for (const segment of wrappedSegments) {
-      const p = isFirstRow ? prefix : '   ';
+      const p = isFirstRow ? prefix : '  ';
       isFirstRow = false;
       const visibleLen = stringWidth(p) + stringWidth(segment);
       const padLen = Math.max(0, fullTermWidth - visibleLen);
@@ -47,7 +47,7 @@ export function formatUserMessage(content: string, isBash = false, targetWidth?:
 export function formatSystemMessage(content: string): string[] {
   const theme = getTheme();
   const infoColor = themeColor(theme.permission);
-  return [`  ${infoColor(`${figures.info} ${content}`)}`];
+  return [`${infoColor(`${figures.info} ${content}`)}`];
 }
 
 export function formatAssistantMessage(content: string, reasoning?: string): string[] {
@@ -57,7 +57,7 @@ export function formatAssistantMessage(content: string, reasoning?: string): str
   if (reasoning) {
     const ast = chalk.dim.italic(`${figures.teardropAsterisk} ${reasoning}`);
     for (const l of ast.split('\n')) {
-      lines.push(`    ${l}`);
+      lines.push(`  ${l}`);
     }
   }
 
@@ -80,9 +80,9 @@ export function formatAssistantMessage(content: string, reasoning?: string): str
         }
         if (i === 0) {
           const bullet = chalk.white(`${figures.blackCircle} `);
-          lines.push(` ${bullet}${l}`);
+          lines.push(`${bullet}${l}`);
         } else {
-          lines.push(`   ${l}`);
+          lines.push(`  ${l}`);
         }
       }
     }
@@ -148,7 +148,7 @@ export function formatToolStatus(options: {
   const cleanFirstLine = rawArg.split('\n')[0] ?? '';
   const truncatedArg = truncateMiddle(cleanFirstLine, 36);
 
-  let mainLine = ` ${bullet} ${dispName}`;
+  let mainLine = `${bullet} ${dispName}`;
   if (truncatedArg) {
     mainLine += `${chalk.dim('(')}${chalk.dim(truncatedArg)}${chalk.dim(')')}`;
   }
@@ -163,9 +163,9 @@ export function formatToolStatus(options: {
 
     const errText = isInterrupted ? 'Interrupted · What should xd do instead?' : error;
     const errColor = isInterrupted ? chalk.dim : themeColor(theme.error);
-    lines.push(`   ${chalk.dim('└ ')}${errColor(errText)}`);
+    lines.push(`  ${chalk.dim('└ ')}${errColor(errText)}`);
   } else if (toolOutput) {
-    lines.push(`   ${chalk.dim('└ ')}${chalk.dim(truncateMiddle(toolOutput, 60))}`);
+    lines.push(`  ${chalk.dim('└ ')}${chalk.dim(truncateMiddle(toolOutput, 60))}`);
   }
 
   return lines;

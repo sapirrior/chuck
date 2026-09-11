@@ -462,12 +462,12 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
     targetRow += 1;
 
     const termWidth = process.stdout.columns || 80;
-    const dividerWidth = Math.max(10, termWidth - 4);
+    const dividerWidth = Math.max(10, termWidth);
     const availableWidth = Math.max(10, dividerWidth - 2);
 
     const vLines = this.state.value.split('\n');
     let currentOffset = 0;
-    let targetCol = 4;
+    let targetCol = 3;
 
     for (let i = 0; i < vLines.length; i++) {
       const line = vLines[i] ?? '';
@@ -494,7 +494,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
 
         targetRow += segIdx;
         const segText = (wrappedSegments[segIdx] ?? '').slice(0, remainingChars);
-        targetCol = 4 + stringWidth(segText);
+        targetCol = 3 + stringWidth(segText);
         break;
       } else {
         const wrappedSegments = wrapVisualLine(line, availableWidth);
@@ -512,7 +512,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
   override render(): string[] {
     const theme = getTheme();
     const termWidth = process.stdout.columns || 80;
-    const dividerWidth = Math.max(10, termWidth - 4);
+    const dividerWidth = Math.max(10, termWidth);
     const {
       value,
       cursorPos,
@@ -529,7 +529,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
     // Double-Esc Notice
     if (escPending) {
       const permColor = themeColor(theme.permission);
-      lines.push(permColor('  Press Esc again to clear'));
+      lines.push(permColor('Press Esc again to clear'));
     }
 
     const isBash = value.startsWith('!');
@@ -563,36 +563,36 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
         }
       }
 
-      lines.push(` ${glyph} ${chalk.italic(waveText)}`);
+      lines.push(`${glyph} ${chalk.italic(waveText)}`);
       // Top Border
-      lines.push(` ${borderColor(figures.horizontalLine.repeat(dividerWidth))}`);
+      lines.push(borderColor(figures.horizontalLine.repeat(dividerWidth)));
       // Inside box message
-      lines.push(`  ${chalk.dim('Generating response… (Esc to stop)')}`);
+      lines.push(chalk.dim('Generating response… (Esc to stop)'));
       // Bottom Border
-      lines.push(` ${borderColor(figures.horizontalLine.repeat(dividerWidth))}`);
+      lines.push(borderColor(figures.horizontalLine.repeat(dividerWidth)));
       return lines;
     }
 
     // Top Border
-    lines.push(` ${borderColor(figures.horizontalLine.repeat(dividerWidth))}`);
+    lines.push(borderColor(figures.horizontalLine.repeat(dividerWidth)));
 
     // Input prompt line
     const chevColor = isBash ? themeColor(theme.bashPink) : themeColor(theme.userChevron);
     const pointer = chevColor(`${figures.pointer} `);
 
     if (value.length === 0) {
-      lines.push(` ${pointer}${chalk.dim('Type your message...')}`);
+      lines.push(`${pointer}${chalk.dim('Type your message...')}`);
     } else {
       const vLines = value.split('\n');
       for (let i = 0; i < vLines.length; i++) {
         const l = vLines[i] ?? '';
         const p = i === 0 ? pointer : '  ';
-        lines.push(` ${p}${chalk.white(l)}`);
+        lines.push(`${p}${chalk.white(l)}`);
       }
     }
 
     // Bottom Border
-    lines.push(` ${borderColor(figures.horizontalLine.repeat(dividerWidth))}`);
+    lines.push(borderColor(figures.horizontalLine.repeat(dividerWidth)));
 
     // Inline CommandPalette
     const isSlashMode = value.startsWith('/') && !value.includes(' ');
@@ -604,11 +604,11 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
 
     if (isSlashMode && matchingCommands.length > 0 && value !== `/${matchingCommands[0]?.name} `) {
       const infoColor = themeColor(theme.info);
-      lines.push(infoColor('  Commands'));
+      lines.push(infoColor('Commands'));
       for (let i = 0; i < matchingCommands.length; i++) {
         const cmd = matchingCommands[i]!;
         const isSelected = i === paletteIdx;
-        const p = isSelected ? infoColor(`  ${figures.pointer} `) : '    ';
+        const p = isSelected ? infoColor(`${figures.pointer} `) : '  ';
         const name = isSelected
           ? infoColor(`/${cmd.name}`.padEnd(16))
           : chalk.dim(`/${cmd.name}`.padEnd(16));
@@ -620,11 +620,11 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
     // Inline FileMatches
     if (fileMatches.length > 0) {
       const infoColor = themeColor(theme.info);
-      lines.push(chalk.dim('  Matching files (@):'));
+      lines.push(chalk.dim('Matching files (@):'));
       for (let i = 0; i < fileMatches.length; i++) {
         const f = fileMatches[i]!;
         const isSelected = i === fileSelectIdx;
-        const p = isSelected ? infoColor(`  ${figures.pointer} `) : '    ';
+        const p = isSelected ? infoColor(`${figures.pointer} `) : '  ';
         const fileText = isSelected ? infoColor(f) : chalk.dim(f);
         lines.push(`${p}${fileText}`);
       }

@@ -38,7 +38,7 @@ export default class StreamingView extends Component<{}, StreamingViewState> {
       const ast = chalk.dim.italic(`${figures.teardropAsterisk} ${reasoning}`);
       const rLines = ast.split('\n');
       for (const rl of rLines) {
-        lines.push(`    ${rl}`);
+        lines.push(`  ${rl}`);
       }
     }
 
@@ -67,9 +67,9 @@ export default class StreamingView extends Component<{}, StreamingViewState> {
           }
           if (i === 0) {
             const bullet = chalk.white(`${figures.blackCircle} `);
-            lines.push(` ${bullet}${l}`);
+            lines.push(`${bullet}${l}`);
           } else {
-            lines.push(`   ${l}`);
+            lines.push(`  ${l}`);
           }
         }
       }
