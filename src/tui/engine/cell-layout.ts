@@ -379,13 +379,8 @@ export function measureNode(
   if (node.getCursorPosition) {
     const pos = node.getCursorPosition();
     if (pos) {
-      const logicalRow = pos.line;
-      let physicalRowOffset = 0;
-      for (let i = 0; i < logicalRow && i < wrapSegmentCounts.length; i++) {
-        physicalRowOffset += wrapSegmentCounts[i] ?? 0;
-      }
       cursorWithinNode = {
-        row: physicalRowOffset,
+        row: pos.line,
         column: pos.column,
       };
     }

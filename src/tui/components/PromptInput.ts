@@ -4,6 +4,7 @@ import type { SlashCommand } from '../../commands/types.js';
 import { searchWorkspaceFiles } from '../../utils/file-search.js';
 import { getTheme, figures } from '../../theme/index.js';
 import { themeColor, chalk } from '../utils/format.js';
+import { wrapVisualLine } from '../engine/cell-layout.js';
 import stringWidth from 'string-width';
 
 export interface PromptInputProps {
@@ -136,7 +137,24 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
             .filter((c) => `/${c.name}`.toLowerCase().startsWith(this.state.value.toLowerCase()))
         : [];
 
-      // 4. Return (Submit or multiline with \)
+      // 4. Multiline newline insertion (Shift+Enter, Alt+Enter, Ctrl+Enter)
+      const isShiftOrAltEnter =
+        str === '\x1b\r' ||
+        str === '\x1b\n' ||
+        str === '\x1b[13;2u' ||
+        str === '\x1b[27;2;13~' ||
+        str === '\x1b[13;5u' ||
+        str === '\x1b[13;6u' ||
+        str === '\x1bOM';
+
+      if (isShiftOrAltEnter) {
+        const before = this.state.value.slice(0, this.state.cursorPos);
+        const after = this.state.value.slice(this.state.cursorPos);
+        this.updateValueAndCheckCompletions(`${before}\n${after}`, this.state.cursorPos + 1);
+        return true;
+      }
+
+      // 5. Return (Submit or multiline with \)
       if (str === '\r' || str === '\n') {
         // File selection
         if (this.state.fileMatches.length > 0) {
@@ -173,10 +191,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
         if (this.state.cursorPos > 0 && this.state.value[this.state.cursorPos - 1] === '\\') {
           const before = this.state.value.slice(0, this.state.cursorPos - 1);
           const after = this.state.value.slice(this.state.cursorPos);
-          this.setState({
-            value: `${before}\n${after}`,
-            cursorPos: this.state.cursorPos,
-          });
+          this.updateValueAndCheckCompletions(`${before}\n${after}`, this.state.cursorPos);
           return true;
         }
 
@@ -194,7 +209,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
         return true;
       }
 
-      // 5. Tab Completion
+      // 6. Tab Completion
       if (str === '\t') {
         if (this.state.fileMatches.length > 0) {
           const atData = this.getAtData();
@@ -228,7 +243,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
         return true;
       }
 
-      // 6. Arrow Up
+      // 7. Arrow Up
       if (str === '\x1b[A') {
         if (this.state.fileMatches.length > 0) {
           this.setState({
@@ -244,6 +259,19 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
             paletteIdx:
               this.state.paletteIdx > 0 ? this.state.paletteIdx - 1 : matchingCommands.length - 1,
           });
+          return true;
+        }
+
+        // Multiline cursor navigation (Up)
+        const beforeCursor = this.state.value.slice(0, this.state.cursorPos);
+        const lastNewline = beforeCursor.lastIndexOf('\n');
+        if (lastNewline !== -1) {
+          const colOnCurLine = this.state.cursorPos - (lastNewline + 1);
+          const prevNewline = beforeCursor.slice(0, lastNewline).lastIndexOf('\n');
+          const prevLineStart = prevNewline === -1 ? 0 : prevNewline + 1;
+          const prevLineLen = lastNewline - prevLineStart;
+          const targetPos = prevLineStart + Math.min(colOnCurLine, prevLineLen);
+          this.setState({ cursorPos: targetPos });
           return true;
         }
 
@@ -266,7 +294,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
         return true;
       }
 
-      // 7. Arrow Down
+      // 8. Arrow Down
       if (str === '\x1b[B') {
         if (this.state.fileMatches.length > 0) {
           this.setState({
@@ -282,6 +310,22 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
             paletteIdx:
               this.state.paletteIdx < matchingCommands.length - 1 ? this.state.paletteIdx + 1 : 0,
           });
+          return true;
+        }
+
+        // Multiline cursor navigation (Down)
+        const nextNewline = this.state.value.indexOf('\n', this.state.cursorPos);
+        if (nextNewline !== -1) {
+          const beforeCursor = this.state.value.slice(0, this.state.cursorPos);
+          const lastNewline = beforeCursor.lastIndexOf('\n');
+          const colOnCurLine =
+            lastNewline === -1 ? this.state.cursorPos : this.state.cursorPos - (lastNewline + 1);
+          const nextLineStart = nextNewline + 1;
+          const nextNextNewline = this.state.value.indexOf('\n', nextLineStart);
+          const nextLineEnd = nextNextNewline === -1 ? this.state.value.length : nextNextNewline;
+          const nextLineLen = nextLineEnd - nextLineStart;
+          const targetPos = nextLineStart + Math.min(colOnCurLine, nextLineLen);
+          this.setState({ cursorPos: targetPos });
           return true;
         }
 
@@ -412,21 +456,56 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
   override getCursorPosition(): { line: number; column: number } | null {
     if (this.state.disabled) return null;
 
-    let lineOffset = 0;
-    if (this.state.escPending) lineOffset += 1;
-    // Top border line offset
-    lineOffset += 1;
+    let targetRow = 0;
+    if (this.state.escPending) targetRow += 1;
+    // Top border
+    targetRow += 1;
 
-    // Check lines before cursor
-    const beforeCursor = this.state.value.slice(0, this.state.cursorPos);
-    const beforeLines = beforeCursor.split('\n');
-    const curLineIdx = beforeLines.length - 1;
-    // Prefix is " > " -> 1 space (col 1) + pointer (col 2) + 1 space (col 3) -> text starts at 1-indexed col 4
-    const curCol = 4 + stringWidth(beforeLines[curLineIdx] ?? '');
+    const termWidth = process.stdout.columns || 80;
+    const dividerWidth = Math.max(10, termWidth - 4);
+    const availableWidth = Math.max(10, dividerWidth - 2);
+
+    const vLines = this.state.value.split('\n');
+    let currentOffset = 0;
+    let targetCol = 4;
+
+    for (let i = 0; i < vLines.length; i++) {
+      const line = vLines[i] ?? '';
+      const lineLen = line.length;
+      const isLast = i === vLines.length - 1;
+      const lineEndOffset = currentOffset + lineLen;
+
+      if (
+        this.state.cursorPos >= currentOffset &&
+        (this.state.cursorPos <= lineEndOffset || isLast)
+      ) {
+        const textBeforeCursor = line.slice(0, Math.max(0, this.state.cursorPos - currentOffset));
+        const wrappedSegments = wrapVisualLine(line, availableWidth);
+
+        let remainingChars = textBeforeCursor.length;
+        let segIdx = 0;
+        while (
+          segIdx < wrappedSegments.length - 1 &&
+          remainingChars > (wrappedSegments[segIdx]?.length ?? 0)
+        ) {
+          remainingChars -= wrappedSegments[segIdx]!.length;
+          segIdx++;
+        }
+
+        targetRow += segIdx;
+        const segText = (wrappedSegments[segIdx] ?? '').slice(0, remainingChars);
+        targetCol = 4 + stringWidth(segText);
+        break;
+      } else {
+        const wrappedSegments = wrapVisualLine(line, availableWidth);
+        targetRow += Math.max(1, wrappedSegments.length);
+        currentOffset = lineEndOffset + 1; // +1 for '\n'
+      }
+    }
 
     return {
-      line: lineOffset + curLineIdx,
-      column: curCol,
+      line: targetRow,
+      column: targetCol,
     };
   }
 
