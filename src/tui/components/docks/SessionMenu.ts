@@ -4,6 +4,8 @@ import { getTheme, figures } from '../../../theme/index.js';
 import { themeColor, chalk, stripAnsi, truncateToWidth } from '../../utils/format.js';
 import stringWidth from 'string-width';
 
+import { box, text, Justify, type LayoutNode } from '../../layout/index.js';
+
 export interface SessionMenuProps {
   sessions: SessionData[];
   onSelect: (session: SessionData) => void;
@@ -109,6 +111,74 @@ export default class SessionMenu extends Component<SessionMenuProps, SessionMenu
       this.removeInputListener();
       this.removeInputListener = null;
     }
+  }
+
+  override renderLayout(width?: number): LayoutNode {
+    const theme = getTheme();
+    const termWidth = width ?? process.stdout.columns ?? 80;
+    const maxCols = Math.max(0, termWidth - 1);
+    const dividerWidth = Math.max(1, Math.min(termWidth - 4, maxCols));
+    const { selectedIdx, query } = this.state;
+    const filtered = this.getFiltered();
+
+    const lavHeader = themeColor(theme.lavenderHeader);
+    const infoColor = themeColor(theme.info);
+    const dashRule = themeColor(theme.dashedRule);
+
+    const rows: LayoutNode[] = [
+      text(lavHeader(figures.horizontalLine.repeat(dividerWidth))),
+      box(
+        { direction: 'row', width: '100%', justify: Justify.SpaceBetween, overflow: 'hidden' },
+        text(infoColor('Resume Session'), { flexShrink: 0 }),
+        text(chalk.dim(`${filtered.length} session${filtered.length !== 1 ? 's' : ''}`), {
+          flexShrink: 0,
+        }),
+      ),
+      text(
+        `${infoColor(`${figures.pointer} `)}${query ? chalk.white(query) : chalk.dim('Type to filter sessions…')}`,
+      ),
+      text(dashRule(figures.horizontalLine.repeat(dividerWidth))),
+    ];
+
+    if (filtered.length === 0) {
+      rows.push(text(chalk.dim(`  No saved sessions matching "${query}".`)));
+    } else {
+      const visibleCount = 6;
+      const startIdx = Math.max(
+        0,
+        Math.min(selectedIdx - Math.floor(visibleCount / 2), filtered.length - visibleCount),
+      );
+      const visibleSessions = filtered.slice(
+        Math.max(0, startIdx),
+        Math.max(0, startIdx) + visibleCount,
+      );
+
+      for (let relativeIdx = 0; relativeIdx < visibleSessions.length; relativeIdx++) {
+        const s = visibleSessions[relativeIdx]!;
+        const actualIdx = Math.max(0, startIdx) + relativeIdx;
+        const isSelected = actualIdx === selectedIdx;
+        const shortId = s.id.slice(0, 8);
+        const firstMessage = s.name || s.turns?.[0]?.userPrompt || 'Untitled Session';
+        const metaInfo = `${s.date} · ${s.turns.length} turns`;
+
+        const p = isSelected ? infoColor(`${figures.pointer} `) : '  ';
+        const titleStr = isSelected ? infoColor(firstMessage) : chalk.dim(firstMessage);
+        const leftStr = `${p}${titleStr} ${chalk.dim(`(${shortId})`)}`;
+        const rightStr = chalk.dim(metaInfo);
+
+        rows.push(
+          box(
+            { direction: 'row', width: '100%', justify: Justify.SpaceBetween, overflow: 'hidden' },
+            text(leftStr, { flexShrink: 1, wrappable: false }),
+            text(rightStr, { flexShrink: 0 }),
+          ),
+        );
+      }
+    }
+
+    rows.push(text(chalk.dim.italic('↑/↓ scroll · Enter to resume · Esc to cancel')));
+
+    return box({ direction: 'column', width: '100%', overflow: 'hidden' }, ...rows);
   }
 
   override render(width?: number): string[] {

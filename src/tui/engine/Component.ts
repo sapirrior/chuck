@@ -1,4 +1,6 @@
 import type TerminalEngine from './TerminalEngine.js';
+import type { LayoutNode } from '../layout/LayoutNode.js';
+import { renderLayoutToLines } from '../layout/index.js';
 
 /**
  * Base Component class.
@@ -48,11 +50,22 @@ export default class Component<
   }
 
   /**
+   * Optional Yoga layout renderer. If implemented, takes precedence over render().
+   */
+  renderLayout?(width?: number, height?: number): LayoutNode;
+
+  /**
    * Returns lines array, using cache if clean and width matches.
    */
   _getLines(width?: number, forceRedraw = false): string[] {
     if (this._dirty || forceRedraw || (width !== undefined && width !== this._lastWidth)) {
-      this._cachedLines = this.render(width);
+      if (typeof this.renderLayout === 'function') {
+        const termCols = width ?? process.stdout.columns ?? 80;
+        const layoutTree = this.renderLayout(termCols);
+        this._cachedLines = renderLayoutToLines(layoutTree, termCols);
+      } else {
+        this._cachedLines = this.render(width);
+      }
       this._lastWidth = width;
       this._dirty = false;
     }
