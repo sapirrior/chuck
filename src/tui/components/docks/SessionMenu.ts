@@ -158,7 +158,7 @@ export default class SessionMenu extends Component<SessionMenuProps, SessionMenu
         const actualIdx = Math.max(0, startIdx) + relativeIdx;
         const isSelected = actualIdx === selectedIdx;
         const shortId = s.id.slice(0, 8);
-        const firstMessage = s.turns?.[0]?.userPrompt || s.name || 'Untitled Session';
+        const firstMessage = s.name || s.turns?.[0]?.userPrompt || 'Untitled Session';
 
         const metaInfo = `${s.date} · ${s.turns.length} turns`;
         const maxTitleLen = Math.max(20, termWidth - metaInfo.length - 20);

@@ -225,6 +225,47 @@ export class TUIApp {
     this.engine.mount(this.statusBar);
   }
 
+  private switchToSession(selected: SessionData): void {
+    this.session = AgentSession.resume(selected);
+    const model = this.session.getModel();
+    this.statusBar.update({ model, usage: this.session.session.totalUsage });
+
+    // Clear engine and rehydrate
+    this.engine.clearAll();
+    this.engine.commit('header', this.header.render());
+
+    const items = rehydrateSessionHistory(selected);
+    for (const item of items) {
+      if (item.type === 'user') {
+        this.engine.commitPrompt(item.content);
+      } else if (item.type === 'bash') {
+        this.engine.commitPrompt(item.content, true);
+      } else if (item.type === 'system') {
+        this.engine.commit('system', formatSystemMessage(item.content));
+      } else if (item.type === 'tool' && item.toolData) {
+        this.engine.commit(
+          'tool-result',
+          formatToolStatus({
+            toolName: item.toolData.toolName,
+            displayName: item.toolData.displayName,
+            icon: item.toolData.icon,
+            argsSummary: item.toolData.argsSummary,
+            status: item.toolData.status,
+            durationMs: item.toolData.durationMs,
+            error: item.toolData.error,
+            toolOutput: item.toolData.toolOutput,
+          }),
+        );
+      } else if (item.type === 'assistant') {
+        this.engine.commit('assistant-message', formatAssistantMessage(item.content));
+      }
+    }
+
+    this.engine.mount(this.streamingView);
+    this.engine.mount(this.promptInput, { keepCursorVisible: true, kind: 'input' });
+    this.engine.mount(this.statusBar);
+  }
+
   private openSessionMenu(sessions: SessionData[]): void {
     if (this.activeModal) this.closeModal();
     this.engine.unmount(this.promptInput);
@@ -234,44 +275,7 @@ export class TUIApp {
       sessions,
       onSelect: (selected) => {
         this.closeModal();
-        this.session = AgentSession.resume(selected);
-        const model = this.session.getModel();
-        this.statusBar.update({ model, usage: this.session.session.totalUsage });
-
-        // Clear engine and rehydrate
-        this.engine.clearAll();
-        this.engine.commit('header', this.header.render());
-
-        const items = rehydrateSessionHistory(selected);
-        for (const item of items) {
-          if (item.type === 'user') {
-            this.engine.commitPrompt(item.content);
-          } else if (item.type === 'bash') {
-            this.engine.commitPrompt(item.content, true);
-          } else if (item.type === 'system') {
-            this.engine.commit('system', formatSystemMessage(item.content));
-          } else if (item.type === 'tool' && item.toolData) {
-            this.engine.commit(
-              'tool-result',
-              formatToolStatus({
-                toolName: item.toolData.toolName,
-                displayName: item.toolData.displayName,
-                icon: item.toolData.icon,
-                argsSummary: item.toolData.argsSummary,
-                status: item.toolData.status,
-                durationMs: item.toolData.durationMs,
-                error: item.toolData.error,
-                toolOutput: item.toolData.toolOutput,
-              }),
-            );
-          } else if (item.type === 'assistant') {
-            this.engine.commit('assistant-message', formatAssistantMessage(item.content));
-          }
-        }
-
-        this.engine.mount(this.streamingView);
-        this.engine.mount(this.promptInput, { keepCursorVisible: true, kind: 'input' });
-        this.engine.mount(this.statusBar);
+        this.switchToSession(selected);
       },
       onCancel: () => this.closeModal(),
     });
@@ -360,6 +364,11 @@ export class TUIApp {
 
       if (cmdResult.data?.showModelPicker) {
         this.openModelPicker(cmdResult.data.models ?? []);
+        return;
+      }
+
+      if (cmdResult.data?.resumeDirect) {
+        this.switchToSession(cmdResult.data.resumeDirect);
         return;
       }
 
