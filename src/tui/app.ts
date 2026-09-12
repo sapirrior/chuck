@@ -453,7 +453,13 @@ export class TUIApp {
                   argsSummary: JSON.stringify(event.toolResult.args),
                   status: event.toolResult.isError ? 'failed' : 'completed',
                   durationMs,
-                  error: event.toolResult.isError ? String(event.toolResult.result) : undefined,
+                  error: event.toolResult.isError
+                    ? typeof event.toolResult.result === 'object' &&
+                      event.toolResult.result !== null
+                      ? ((event.toolResult.result as any).message ??
+                        JSON.stringify(event.toolResult.result))
+                      : String(event.toolResult.result)
+                    : undefined,
                   toolOutput: outputSummary,
                 }),
               );

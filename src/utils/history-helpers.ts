@@ -69,7 +69,11 @@ export function rehydrateSessionHistory(sessionData: SessionData): UIHistoryItem
             toolName: tc.name,
             argsSummary: JSON.stringify(tc.args),
             status: tc.isError ? 'failed' : 'completed',
-            error: tc.isError ? String(tc.result) : undefined,
+            error: tc.isError
+              ? typeof tc.result === 'object' && tc.result !== null
+                ? ((tc.result as any).message ?? JSON.stringify(tc.result))
+                : String(tc.result)
+              : undefined,
             toolOutput: formatToolOutputSummary(tc.result, tc.isError),
           },
         });

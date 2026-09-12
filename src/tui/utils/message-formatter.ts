@@ -135,13 +135,15 @@ export function formatToolStatus(options: {
         'prompt',
       ];
       for (const k of primaryKeys) {
-        if (parsed[k]) {
-          rawArg = String(parsed[k]);
+        if (parsed[k] !== undefined) {
+          const val = parsed[k];
+          rawArg = typeof val === 'object' && val !== null ? JSON.stringify(val) : String(val);
           break;
         }
       }
-      if (!rawArg && Object.values(parsed)[0]) {
-        rawArg = String(Object.values(parsed)[0]);
+      if (!rawArg && Object.values(parsed)[0] !== undefined) {
+        const val = Object.values(parsed)[0];
+        rawArg = typeof val === 'object' && val !== null ? JSON.stringify(val) : String(val);
       }
     } catch {
       rawArg = argsSummary;
