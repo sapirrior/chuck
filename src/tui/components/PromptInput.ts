@@ -478,7 +478,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
   override render(width?: number): string[] {
     const theme = getTheme();
     const termWidth = width ?? process.stdout.columns ?? 80;
-    const maxCols = Math.max(1, termWidth - 1);
+    const maxCols = Math.max(1, termWidth);
     const dividerWidth = maxCols;
     const { value, disabled, escPending, spinnerFrame, fileMatches, fileSelectIdx, paletteIdx } =
       this.state;

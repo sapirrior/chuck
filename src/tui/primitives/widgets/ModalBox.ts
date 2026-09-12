@@ -15,8 +15,8 @@ export interface ModalBoxOptions {
 export function renderModalBox(options: ModalBoxOptions): string[] {
   const theme = getTheme();
   const termWidth = options.width ?? process.stdout.columns ?? 80;
-  const maxCols = Math.max(1, termWidth - 1);
-  const dividerWidth = Math.max(1, Math.min(termWidth - 4, maxCols));
+  const maxCols = Math.max(1, termWidth);
+  const dividerWidth = Math.max(1, termWidth);
 
   const lavHeader = themeColor(theme.lavenderHeader);
   const infoColor = themeColor(theme.info);

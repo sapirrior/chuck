@@ -17,7 +17,7 @@ export function computeDocumentFrame(
   forceAll = false,
   lineWidthCache: Map<string, number> = new Map(),
 ): DocumentFrame {
-  const safeWidth = Math.max(20, termWidth - 1);
+  const safeWidth = Math.max(20, termWidth);
   const layout: CellLayoutResult = layoutDocument(tree, safeWidth, forceAll, lineWidthCache);
   const physicalRows = layout.physicalRows;
   const totalPhysicalRows = layout.totalPhysicalRows;

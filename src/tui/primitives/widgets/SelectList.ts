@@ -109,7 +109,7 @@ export class SelectList<T> extends Component<SelectListProps<T>, SelectListState
 
   override render(width?: number): string[] {
     const termWidth = width ?? process.stdout.columns ?? 80;
-    const maxCols = Math.max(1, termWidth - 1);
+    const maxCols = Math.max(1, termWidth);
     const { title, subtitle, placeholder, maxVisible = 8, emptyMessage } = this.props;
     const { selectedIdx, query } = this.state;
     const filtered = this.getFiltered();

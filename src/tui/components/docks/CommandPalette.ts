@@ -20,7 +20,7 @@ export default class CommandPalette extends Component<CommandPaletteProps> {
     const theme = getTheme();
     const selColor = themeColor(theme.permission);
     const termWidth = width ?? process.stdout.columns ?? 80;
-    const maxCols = Math.max(1, termWidth - 1);
+    const maxCols = Math.max(1, termWidth);
 
     const rows = commands.map((cmd, i) => {
       const isSelected = i === selectedIndex;

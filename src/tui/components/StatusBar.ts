@@ -53,7 +53,7 @@ export default class StatusBar extends Component<StatusBarProps, StatusBarState>
   override render(width?: number): string[] {
     const theme = getTheme();
     const termWidth = width ?? process.stdout.columns ?? 80;
-    const maxCols = Math.max(1, termWidth - 1);
+    const maxCols = Math.max(1, termWidth);
     const { model, usage, exitPending } = this.state;
 
     let left = '';

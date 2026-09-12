@@ -34,7 +34,7 @@ export default class HelpMenu extends Component<HelpMenuProps> {
 
   override render(width?: number): string[] {
     const termWidth = width ?? process.stdout.columns ?? 80;
-    const maxCols = Math.max(1, termWidth - 1);
+    const maxCols = Math.max(1, termWidth);
 
     const leftCol = [
       { key: '!', desc: 'Bash command' },

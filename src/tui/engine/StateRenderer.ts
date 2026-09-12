@@ -41,7 +41,7 @@ export default class StateRenderer {
     const currentBuffer = new ScreenBuffer(termWidth, termHeight);
     for (let y = 0; y < nextLines.length && y < termHeight; y++) {
       const line = nextLines[y] ?? '';
-      currentBuffer.blitText(0, y, termWidth - 1, line);
+      currentBuffer.blitText(0, y, termWidth, line);
     }
 
     let output = this.beginSync();

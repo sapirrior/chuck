@@ -35,7 +35,7 @@ export default class StreamingView extends Component<{}, StreamingViewState> {
     if (!isStreaming && !reasoning && !text) return [];
 
     const termWidth = width ?? process.stdout.columns ?? 80;
-    const maxCols = Math.max(0, termWidth - 1);
+    const maxCols = Math.max(1, termWidth);
     const textWidth = Math.max(1, Math.min(96, maxCols) - 2);
 
     const lines: string[] = [];
