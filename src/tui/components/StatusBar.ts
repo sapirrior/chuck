@@ -1,7 +1,7 @@
 import Component from '../engine/Component.js';
 import type { TokenUsage } from '../../engine/types.js';
 import { getTheme, figures } from '../../theme/index.js';
-import { themeColor, chalk, stripAnsi } from '../utils/format.js';
+import { themeColor, chalk, stripAnsi, truncateToWidth } from '../utils/format.js';
 import { MAX_READABLE_WIDTH } from '../engine/cell-layout.js';
 import stringWidth from 'string-width';
 
@@ -69,9 +69,23 @@ export default class StatusBar extends Component<StatusBarProps, StatusBarState>
     }
 
     const leftWidth = stringWidth(stripAnsi(left));
-    const rightWidth = stringWidth(stripAnsi(right));
+    let rightWidth = stringWidth(stripAnsi(right));
+    const minGap = 1;
+    const maxRightWidth = Math.max(0, termWidth - 1 - leftWidth - minGap);
+    if (rightWidth > maxRightWidth) {
+      // drop the token-count segment first, then hard-truncate the model id
+      right = chalk.dim(model.modelId || `${model.provider}/${model.modelId}`);
+      rightWidth = stringWidth(stripAnsi(right));
+      if (rightWidth > maxRightWidth) {
+        right = truncateToWidth(right, maxRightWidth);
+        rightWidth = stringWidth(stripAnsi(right));
+      }
+    }
     const spaceCount = Math.max(1, termWidth - 1 - leftWidth - rightWidth);
-    const line = `${left}${' '.repeat(spaceCount)}${right}`;
+    const line = truncateToWidth(
+      `${left}${' '.repeat(spaceCount)}${right}`,
+      Math.max(0, termWidth - 1),
+    );
 
     return [line];
   }

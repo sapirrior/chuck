@@ -1,6 +1,6 @@
 import Component from '../../engine/Component.js';
 import { getTheme, figures } from '../../../theme/index.js';
-import { themeColor, chalk } from '../../utils/format.js';
+import { themeColor, chalk, stripAnsi, truncateToWidth } from '../../utils/format.js';
 import stringWidth from 'string-width';
 
 export interface HelpMenuProps {
@@ -33,7 +33,8 @@ export default class HelpMenu extends Component<HelpMenuProps> {
   override render(width?: number): string[] {
     const theme = getTheme();
     const termWidth = width ?? process.stdout.columns ?? 80;
-    const dividerWidth = Math.max(10, termWidth - 4);
+    const maxCols = Math.max(0, termWidth - 1);
+    const dividerWidth = Math.max(1, Math.min(termWidth - 4, maxCols));
 
     const lines: string[] = [];
     const lavHeader = themeColor(theme.lavenderHeader);
@@ -58,20 +59,21 @@ export default class HelpMenu extends Component<HelpMenuProps> {
       '? for shortcuts',
     ];
 
-    const colWidth = Math.floor((termWidth - 6) / 3);
+    const colWidth = Math.max(1, Math.floor((maxCols - 6) / 3));
 
     for (let i = 0; i < col1.length; i++) {
       const c1 = chalk.dim(col1[i] ?? '');
       const c2 = chalk.dim(col2[i] ?? '');
       const c3 = chalk.dim(col3[i] ?? '');
 
-      const pad1 = Math.max(1, colWidth - stringWidth(col1[i] ?? ''));
-      const pad2 = Math.max(1, colWidth - stringWidth(col2[i] ?? ''));
+      const pad1 = Math.max(1, colWidth - stringWidth(stripAnsi(c1)));
+      const pad2 = Math.max(1, colWidth - stringWidth(stripAnsi(c2)));
 
-      lines.push(` ${c1}${' '.repeat(pad1)}${c2}${' '.repeat(pad2)}${c3}`);
+      const assembled = ` ${c1}${' '.repeat(pad1)}${c2}${' '.repeat(pad2)}${c3}`;
+      lines.push(truncateToWidth(assembled, maxCols));
     }
 
     lines.push(chalk.dim.italic('Esc or Enter to dismiss'));
-    return lines;
+    return lines.map((l) => truncateToWidth(l, maxCols));
   }
 }

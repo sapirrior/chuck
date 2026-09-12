@@ -133,6 +133,10 @@ export function wrapVisualLineWithCursor(
   maxCols: number,
   targetCharOffset: number | null,
 ): WrapResultWithCursor {
+  // A logical "line" must never contain a raw line break — normalize
+  // defensively; upstream producers are responsible for pre-splitting.
+  text = text.replace(/\r\n|\r|\n/g, ' ');
+
   if (text.length === 0) {
     return {
       segments: [''],

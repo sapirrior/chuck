@@ -47,7 +47,10 @@ export function formatUserMessage(content: string, isBash = false, targetWidth?:
 export function formatSystemMessage(content: string): string[] {
   const theme = getTheme();
   const infoColor = themeColor(theme.permission);
-  return [`${infoColor(`${figures.info} ${content}`)}`];
+  const rawLines = content.split('\n');
+  return rawLines.map((l, i) =>
+    i === 0 ? infoColor(`${figures.info} ${l}`) : infoColor(`  ${l}`),
+  );
 }
 
 export function formatAssistantMessage(content: string, reasoning?: string): string[] {
