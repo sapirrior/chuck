@@ -556,15 +556,15 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
       : [];
 
     if (isSlashMode && matchingCommands.length > 0 && value !== `/${matchingCommands[0]?.name} `) {
-      const infoColor = themeColor(theme.info);
-      lines.push(infoColor('Commands'));
+      const selColor = themeColor(theme.permission);
+      lines.push(selColor('Commands'));
       for (let i = 0; i < matchingCommands.length; i++) {
         const cmd = matchingCommands[i]!;
         const isSelected = i === paletteIdx;
-        const p = isSelected ? infoColor(`${figures.pointer} `) : '  ';
+        const p = isSelected ? selColor(`${figures.pointer} `) : '  ';
         const name = isSelected
-          ? infoColor(`/${cmd.name}`.padEnd(16))
-          : chalk.dim(`/${cmd.name}`.padEnd(16));
+          ? selColor(`/${cmd.name}`.padEnd(16))
+          : chalk.white(`/${cmd.name}`.padEnd(16));
         const desc = isSelected ? chalk.white(cmd.description) : chalk.dim(cmd.description);
         lines.push(truncateToWidth(`${p}${name}${desc}`, maxCols));
       }

@@ -18,23 +18,23 @@ export default class CommandPalette extends Component<CommandPaletteProps> {
     if (commands.length === 0) return [];
 
     const theme = getTheme();
-    const infoColor = themeColor(theme.info);
+    const selColor = themeColor(theme.permission);
     const termWidth = width ?? process.stdout.columns ?? 80;
     const maxCols = Math.max(1, termWidth - 1);
 
     const rows = commands.map((cmd, i) => {
       const isSelected = i === selectedIndex;
-      const pointer = isSelected ? `${figures.pointer} ` : '  ';
+      const pointer = isSelected ? selColor(`${figures.pointer} `) : '  ';
       const name = `/${cmd.name}`.padEnd(16);
 
       return Box({ direction: 'row', gap: 1, width: maxCols }, [
-        Text(`${pointer}${name}`, { color: isSelected ? infoColor : chalk.dim }),
+        Text(`${pointer}${isSelected ? selColor(name) : chalk.white(name)}`),
         Text(cmd.description, { color: isSelected ? 'white' : chalk.dim, overflow: 'hidden' }),
       ]);
     });
 
     const paletteBox = Box({ direction: 'column', width: maxCols, overflow: 'hidden' }, [
-      Text('Commands', { color: theme.info }),
+      Text('Commands', { color: theme.permission }),
       ...rows,
       Text('Enter to select · Esc to dismiss · ↑/↓ to navigate', { dim: true, italic: true }),
     ]);
