@@ -18,7 +18,7 @@ export default class SessionMenu extends SelectList<SessionData> {
       subtitle: `${props.sessions.length} saved`,
       placeholder: 'Type to filter…',
       emptyMessage: '  No saved sessions found.',
-      maxVisible: 6,
+      maxVisible: 4,
       searchFilter: (s, q) => {
         const firstPrompt = s.turns?.[0]?.userPrompt?.toLowerCase() ?? '';
         const name = s.name?.toLowerCase() ?? '';
@@ -33,16 +33,27 @@ export default class SessionMenu extends SelectList<SessionData> {
         const rawTitle = s.name || s.turns?.[0]?.userPrompt || 'Untitled Session';
         const cleanTitle = rawTitle.replace(/\s+/g, ' ').trim();
         const pointer = isSelected ? selColor(`${figures.pointer} `) : '  ';
+        const shortId = s.id.slice(0, 8);
+        const dateStr = s.date ? s.date.split('T')[0] : '';
         const turnsCount = s.turns?.length ?? 0;
-        const meta = `${turnsCount} turn${turnsCount !== 1 ? 's' : ''}`;
+        const metaParts = [
+          shortId,
+          dateStr,
+          `${turnsCount} turn${turnsCount !== 1 ? 's' : ''}`,
+        ].filter(Boolean);
+        const meta = metaParts.join(' • ');
 
-        return Box({ direction: 'row', justify: 'space-between', width: maxCols }, [
+        return Box({ direction: 'column', width: maxCols }, [
           Text(`${pointer}${cleanTitle}`, {
             color: isSelected ? selColor : chalk.white,
             overflow: 'hidden',
             truncation: 'ellipsis',
           }),
-          Text(meta, { dim: true }),
+          Text(`  ${meta}`, {
+            dim: true,
+            overflow: 'hidden',
+            truncation: 'ellipsis',
+          }),
         ]);
       },
     });
