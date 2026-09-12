@@ -8,6 +8,9 @@ export interface FileMatchesProps {
 }
 
 export default class FileMatches extends Component<FileMatchesProps> {
+  override overflow = 'hidden' as const;
+  override truncation = 'clip' as const;
+
   override render(): string[] {
     const { files, selectedIndex } = this.props;
     if (files.length === 0) return [];

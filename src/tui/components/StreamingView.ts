@@ -10,6 +10,9 @@ export interface StreamingViewState {
 }
 
 export default class StreamingView extends Component<{}, StreamingViewState> {
+  override overflow = 'wrap' as const;
+  override truncation = 'none' as const;
+
   constructor() {
     super({});
     this.state = {
@@ -33,7 +36,7 @@ export default class StreamingView extends Component<{}, StreamingViewState> {
 
     const termWidth = width ?? process.stdout.columns ?? 80;
     const maxCols = Math.max(0, termWidth - 1);
-    const contentWidth = Math.max(10, Math.min(96, maxCols));
+    const textWidth = Math.max(1, Math.min(96, maxCols) - 2);
 
     const lines: string[] = [];
     const theme = getTheme();
@@ -42,7 +45,7 @@ export default class StreamingView extends Component<{}, StreamingViewState> {
       const ast = chalk.dim.italic(`${figures.teardropAsterisk} ${reasoning}`);
       const rLines = ast.split('\n');
       for (const rl of rLines) {
-        const wrapped = wrapVisualLine(rl, contentWidth);
+        const wrapped = wrapVisualLine(rl, textWidth);
         for (const wl of wrapped) {
           lines.push(`  ${wl}`);
         }
@@ -59,7 +62,7 @@ export default class StreamingView extends Component<{}, StreamingViewState> {
           if (!fl.trim()) {
             wrappedLines.push('');
           } else {
-            const wrapped = wrapVisualLine(fl, contentWidth);
+            const wrapped = wrapVisualLine(fl, textWidth);
             for (const wl of wrapped) {
               wrappedLines.push(wl);
             }
@@ -82,6 +85,6 @@ export default class StreamingView extends Component<{}, StreamingViewState> {
       }
     }
 
-    return lines.map((l) => truncateToWidth(l, maxCols));
+    return lines;
   }
 }

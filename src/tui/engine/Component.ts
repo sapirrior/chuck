@@ -1,6 +1,7 @@
 import type TerminalEngine from './TerminalEngine.js';
-import type { LayoutNode } from '../layout/LayoutNode.js';
-import { renderLayoutToLines } from '../layout/index.js';
+
+export type ComponentOverflow = 'wrap' | 'hidden';
+export type ComponentTruncation = 'clip' | 'ellipsis' | 'none';
 
 /**
  * Base Component class.
@@ -16,6 +17,21 @@ export default class Component<
   _dirty = true;
   _lastWidth?: number;
   _cachedLines: string[] = [];
+
+  /**
+   * Overflow handling:
+   * - 'wrap': text lines are permitted to wrap across rows (used for PromptInput, StreamingView, chat history).
+   * - 'hidden': text lines must stay single-row and not expand horizontally or vertically.
+   */
+  overflow: ComponentOverflow = 'hidden';
+
+  /**
+   * Truncation handling:
+   * - 'clip': hard truncate any line exceeding width to avoid overflowing borders or docks.
+   * - 'ellipsis': truncate with ellipsis (…) if exceeding width.
+   * - 'none': keep line content as-is (used when overflow: 'wrap' handles wrapping downstream).
+   */
+  truncation: ComponentTruncation = 'clip';
 
   constructor(props: Props = {} as Props) {
     this.props = props;
@@ -50,26 +66,19 @@ export default class Component<
   }
 
   /**
-   * Optional Yoga layout renderer. If implemented, takes precedence over render().
-   */
-  renderLayout?(width?: number, height?: number): LayoutNode;
-
-  /**
    * Returns lines array, using cache if clean and width matches.
    */
   _getLines(width?: number, forceRedraw = false): string[] {
     if (this._dirty || forceRedraw || (width !== undefined && width !== this._lastWidth)) {
-      if (typeof this.renderLayout === 'function') {
-        const termCols = width ?? process.stdout.columns ?? 80;
-        const layoutTree = this.renderLayout(termCols);
-        this._cachedLines = renderLayoutToLines(layoutTree, termCols);
-      } else {
-        this._cachedLines = this.render(width);
-      }
+      this._cachedLines = this.render(width);
       this._lastWidth = width;
       this._dirty = false;
     }
     return this._cachedLines;
+  }
+
+  getLines(width?: number, forceRedraw = false): string[] {
+    return this._getLines(width, forceRedraw);
   }
 
   /**

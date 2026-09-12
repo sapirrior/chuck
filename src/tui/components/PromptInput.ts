@@ -35,6 +35,9 @@ const STATUS_WORDS = [
 ];
 
 export default class PromptInput extends Component<PromptInputProps, PromptInputState> {
+  override overflow = 'wrap' as const;
+  override truncation = 'none' as const;
+
   private history: string[] = [];
   private draft = '';
   private removeInputListener: (() => void) | null = null;
@@ -554,7 +557,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
       lines.push(chalk.dim('Generating response… (Esc to stop)'));
       // Bottom Border
       lines.push(borderColor(figures.horizontalLine.repeat(dividerWidth)));
-      return lines.map((l) => truncateToWidth(l, maxCols));
+      return lines;
     }
 
     // Top Border
@@ -565,7 +568,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
     const pointer = chevColor(`${figures.pointer} `);
 
     if (value.length === 0) {
-      lines.push(`${pointer}${chalk.dim('Type your message...')}`);
+      lines.push(truncateToWidth(`${pointer}${chalk.dim('Type your message...')}`, maxCols));
     } else {
       const vLines = value.split('\n');
       for (let i = 0; i < vLines.length; i++) {
@@ -597,7 +600,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
           ? infoColor(`/${cmd.name}`.padEnd(16))
           : chalk.dim(`/${cmd.name}`.padEnd(16));
         const desc = isSelected ? chalk.white(cmd.description) : chalk.dim(cmd.description);
-        lines.push(`${p}${name}${desc}`);
+        lines.push(truncateToWidth(`${p}${name}${desc}`, maxCols));
       }
     }
 
@@ -610,10 +613,10 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
         const isSelected = i === fileSelectIdx;
         const p = isSelected ? infoColor(`${figures.pointer} `) : '  ';
         const fileText = isSelected ? infoColor(f) : chalk.dim(f);
-        lines.push(`${p}${fileText}`);
+        lines.push(truncateToWidth(`${p}${fileText}`, maxCols));
       }
     }
 
-    return lines.map((l) => truncateToWidth(l, maxCols));
+    return lines;
   }
 }

@@ -473,6 +473,7 @@ export function wrapByVisualWidth(text: string, maxCols: number): string[] {
 
 /**
  * Measures a single ComponentNode and breaks its logical lines into PhysicalRows.
+ * Respects overflow ('wrap' | 'hidden') and truncation ('clip' | 'ellipsis' | 'none') properties.
  */
 export function measureNode(
   node: ComponentNode,
@@ -481,13 +482,27 @@ export function measureNode(
 ): { rows: PhysicalRow[]; cursorWithinNode: { row: number; column: number } | null } {
   const logicalLines = node.getLines(contentWidth, forceAll);
   const rows: PhysicalRow[] = [];
-  const isWrappable = 'wrappable' in node ? Boolean((node as any).wrappable) : true;
+
+  const overflow = 'overflow' in node ? (node as any).overflow : undefined;
+  const isWrappable =
+    overflow !== undefined
+      ? overflow === 'wrap'
+      : 'wrappable' in node
+        ? Boolean((node as any).wrappable)
+        : true;
+
+  const truncation = 'truncation' in node ? (node as any).truncation : undefined;
   const logicalCursor = node.getLogicalCursor ? node.getLogicalCursor() : null;
 
   let cursorWithinNode: { row: number; column: number } | null = null;
 
   for (let lIdx = 0; lIdx < logicalLines.length; lIdx++) {
-    const line = logicalLines[lIdx] ?? '';
+    const rawLine = logicalLines[lIdx] ?? '';
+    const line =
+      !isWrappable && (truncation === 'clip' || truncation === 'ellipsis')
+        ? truncateToWidth(rawLine, contentWidth)
+        : rawLine;
+
     const targetCharOffset =
       logicalCursor && logicalCursor.logicalLineIndex === lIdx
         ? logicalCursor.characterOffsetWithinLine

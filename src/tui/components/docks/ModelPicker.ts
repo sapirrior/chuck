@@ -4,8 +4,6 @@ import { getTheme, figures } from '../../../theme/index.js';
 import { themeColor, chalk, stripAnsi, truncateToWidth } from '../../utils/format.js';
 import stringWidth from 'string-width';
 
-import { box, text, Justify, type LayoutNode } from '../../layout/index.js';
-
 export interface ModelPickerProps {
   models: ModelDescriptor[];
   currentModel: { provider: string; modelId: string };
@@ -19,6 +17,9 @@ export interface ModelPickerState {
 }
 
 export default class ModelPicker extends Component<ModelPickerProps, ModelPickerState> {
+  override overflow = 'hidden' as const;
+  override truncation = 'clip' as const;
+
   private removeInputListener: (() => void) | null = null;
 
   constructor(props: ModelPickerProps) {
@@ -108,83 +109,6 @@ export default class ModelPicker extends Component<ModelPickerProps, ModelPicker
       this.removeInputListener();
       this.removeInputListener = null;
     }
-  }
-
-  override renderLayout(width?: number): LayoutNode {
-    const theme = getTheme();
-    const termWidth = width ?? process.stdout.columns ?? 80;
-    const maxCols = Math.max(0, termWidth - 1);
-    const dividerWidth = Math.max(1, Math.min(termWidth - 4, maxCols));
-    const { currentModel } = this.props;
-    const { selectedIdx, query } = this.state;
-    const filtered = this.getFiltered();
-
-    const lavHeader = themeColor(theme.lavenderHeader);
-    const infoColor = themeColor(theme.info);
-    const dashRule = themeColor(theme.dashedRule);
-
-    const rows: LayoutNode[] = [
-      text(lavHeader(figures.horizontalLine.repeat(dividerWidth))),
-      box(
-        { direction: 'row', width: '100%', justify: Justify.SpaceBetween, overflow: 'hidden' },
-        text(infoColor('Select Model'), { flexShrink: 0 }),
-        text(chalk.dim(`Current: ${currentModel.provider}/${currentModel.modelId}`), {
-          flexShrink: 1,
-          wrappable: false,
-        }),
-      ),
-      text(
-        `${infoColor(`${figures.pointer} `)}${query ? chalk.white(query) : chalk.dim('Type to filter models…')}`,
-      ),
-      text(dashRule(figures.horizontalLine.repeat(dividerWidth))),
-    ];
-
-    if (filtered.length === 0) {
-      rows.push(text(chalk.dim(`  No models matching "${query}".`)));
-    } else {
-      const visibleCount = 8;
-      const startIdx = Math.max(
-        0,
-        Math.min(selectedIdx - Math.floor(visibleCount / 2), filtered.length - visibleCount),
-      );
-      const visibleModels = filtered.slice(
-        Math.max(0, startIdx),
-        Math.max(0, startIdx) + visibleCount,
-      );
-
-      for (let relativeIdx = 0; relativeIdx < visibleModels.length; relativeIdx++) {
-        const m = visibleModels[relativeIdx]!;
-        const actualIdx = Math.max(0, startIdx) + relativeIdx;
-        const isSelected = actualIdx === selectedIdx;
-        const isCurrent =
-          m.provider === currentModel.provider && m.model_id === currentModel.modelId;
-
-        const p = isSelected ? infoColor(`${figures.pointer} `) : '  ';
-        const modelText = isSelected ? infoColor(m.model_id) : chalk.dim(m.model_id);
-        const activeBadge = isCurrent ? chalk.green(' (active)') : '';
-
-        let badge = `[${m.provider.toUpperCase()}]`;
-        if (m.provider === 'anthropic') badge = '[ANTHROPIC]';
-        if (m.provider === 'openai') badge = '[OPENAI]';
-        if (m.provider === 'gemini') badge = '[GEMINI]';
-
-        rows.push(
-          box(
-            { direction: 'row', width: '100%', justify: Justify.SpaceBetween, overflow: 'hidden' },
-            text(`${p}${modelText}${activeBadge}`, { flexShrink: 1, wrappable: false }),
-            text(chalk.dim(badge), { flexShrink: 0 }),
-          ),
-        );
-      }
-    }
-
-    rows.push(
-      text(
-        `${chalk.dim.italic('↑/↓ navigate · Enter select · Esc cancel')}  ${chalk.dim(`${filtered.length} models available`)}`,
-      ),
-    );
-
-    return box({ direction: 'column', width: '100%', overflow: 'hidden' }, ...rows);
   }
 
   override render(width?: number): string[] {

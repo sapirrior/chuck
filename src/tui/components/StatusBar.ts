@@ -35,6 +35,9 @@ function formatTokens(n: number): string {
 }
 
 export default class StatusBar extends Component<StatusBarProps, StatusBarState> {
+  override overflow = 'hidden' as const;
+  override truncation = 'clip' as const;
+
   constructor(props: StatusBarProps) {
     super(props);
     this.state = {
@@ -47,37 +50,6 @@ export default class StatusBar extends Component<StatusBarProps, StatusBarState>
 
   update(partial: Partial<StatusBarState>): void {
     this.setState(partial);
-  }
-
-  override renderLayout(_width?: number): LayoutNode {
-    const theme = getTheme();
-    const { model, usage, exitPending } = this.state;
-
-    let left = '';
-    if (exitPending) {
-      const errColor = themeColor(theme.error);
-      left = `${errColor('▸ ')}${chalk.dim('Press ')}${errColor('Ctrl+C')}${chalk.dim(' again to exit')}`;
-    } else {
-      left = themeColor(theme.textMuted)('? for shortcuts');
-    }
-
-    let right = chalk.dim(model.modelId || `${model.provider}/${model.modelId}`);
-    if (usage && usage.totalTokens > 0) {
-      const bullet = themeColor(theme.subtle)(` ${figures.bullet} `);
-      const tokStr = themeColor(theme.textMuted)(`${formatTokens(usage.totalTokens)} tokens`);
-      right += `${bullet}${tokStr}`;
-    }
-
-    return box(
-      {
-        direction: 'row',
-        width: '100%',
-        justify: Justify.SpaceBetween,
-        overflow: 'hidden',
-      },
-      text(left, { flexShrink: 0 }),
-      text(right, { flexShrink: 1, wrappable: false }),
-    );
   }
 
   override render(width?: number): string[] {

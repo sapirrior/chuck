@@ -2,8 +2,6 @@ import Component from '../engine/Component.js';
 import { getTheme, LOGO_LINES } from '../../theme/index.js';
 import { themeColor, chalk, truncateToWidth } from '../utils/format.js';
 
-import { box, text, type LayoutNode } from '../layout/index.js';
-
 export interface HeaderProps {
   version?: string;
   cwd?: string;
@@ -14,28 +12,9 @@ export interface HeaderProps {
 }
 
 export default class Header extends Component<HeaderProps> {
-  override renderLayout(_width?: number): LayoutNode {
-    const theme = getTheme();
-    const version = this.props.version ?? '0.1.0';
-    const brandColor = themeColor(theme.brand);
-    const permColor = themeColor(theme.permission);
+  override overflow = 'hidden' as const;
+  override truncation = 'clip' as const;
 
-    const logoL0 = brandColor(LOGO_LINES[0] ?? '');
-    const logoL1 = brandColor(LOGO_LINES[1] ?? '');
-    const logoL2 = brandColor(LOGO_LINES[2] ?? '');
-
-    const line0 = `${logoL0}  ${chalk.white.bold('xd')} ${permColor(`v${version}`)}`;
-    const line1 = `${logoL1}  ${chalk.dim('Type ')}${brandColor('/')}${chalk.dim(' for commands')}`;
-    const line2 = `${logoL2}`;
-
-    return box(
-      { direction: 'column', width: '100%', overflow: 'hidden' },
-      text(line0, { wrappable: false }),
-      text(line1, { wrappable: false }),
-      text(line2, { wrappable: false }),
-      text(''),
-    );
-  }
   override render(width?: number): string[] {
     const theme = getTheme();
     const version = this.props.version ?? '0.1.0';

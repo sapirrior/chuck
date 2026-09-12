@@ -4,8 +4,6 @@ import { getTheme, figures } from '../../../theme/index.js';
 import { themeColor, chalk, truncateToWidth } from '../../utils/format.js';
 import { computeLineDiff, type DiffLine } from '../../../utils/diff.js';
 
-import { box, text, type LayoutNode } from '../../layout/index.js';
-
 export interface PermissionDockProps {
   request: ConfirmationRequest;
   onDecision: (decision: ConfirmationDecision) => void;
@@ -18,6 +16,9 @@ export interface PermissionDockState {
 }
 
 export default class PermissionDock extends Component<PermissionDockProps, PermissionDockState> {
+  override overflow = 'hidden' as const;
+  override truncation = 'clip' as const;
+
   private removeInputListener: (() => void) | null = null;
   private diffLines: DiffLine[] = [];
 
@@ -139,141 +140,6 @@ export default class PermissionDock extends Component<PermissionDockProps, Permi
       this.removeInputListener();
       this.removeInputListener = null;
     }
-  }
-
-  override renderLayout(width?: number): LayoutNode {
-    const theme = getTheme();
-    const termWidth = width ?? process.stdout.columns ?? 80;
-    const maxCols = Math.max(0, termWidth - 1);
-    const dividerWidth = Math.max(1, Math.min(termWidth - 4, maxCols));
-    const { request } = this.props;
-    const { selectedIdx, isReviewing, reviewOffset } = this.state;
-
-    const lavHeader = themeColor(theme.lavenderHeader);
-    const lavLight = themeColor(theme.lavenderLight);
-    const dashRule = themeColor(theme.dashedRule);
-
-    const rows: LayoutNode[] = [
-      text(lavHeader(figures.horizontalLine.repeat(dividerWidth))),
-      text(lavLight(`Permission Required: ${request.displayName}`)),
-    ];
-
-    if (this.diffLines.length > 0) {
-      rows.push(text(dashRule(figures.horizontalLine.repeat(dividerWidth))));
-      const maxPreview = 8;
-      const reviewWindowSize = 10;
-      let visibleLines: DiffLine[] = [];
-
-      if (isReviewing) {
-        const start = Math.max(
-          0,
-          Math.min(reviewOffset, Math.max(0, this.diffLines.length - reviewWindowSize)),
-        );
-        visibleLines = this.diffLines.slice(start, start + reviewWindowSize);
-      } else {
-        visibleLines = this.diffLines.slice(0, maxPreview);
-      }
-
-      for (let idx = 0; idx < visibleLines.length; idx++) {
-        const line = visibleLines[idx]!;
-        const actualIdx = isReviewing
-          ? Math.max(
-              0,
-              Math.min(reviewOffset, Math.max(0, this.diffLines.length - reviewWindowSize)),
-            ) + idx
-          : idx;
-        const isCursorLine = isReviewing && actualIdx === reviewOffset;
-        const lineNum = line.lineNumber ? `${line.lineNumber}`.padStart(3) : '   ';
-
-        let lineText = line.text;
-        if (line.kind === 'add') {
-          lineText = chalk.green(line.text);
-        } else if (line.kind === 'delete') {
-          lineText = chalk.red(line.text);
-        } else if (line.kind === 'hunk') {
-          lineText = chalk.cyan.bold(line.text);
-        }
-
-        const cursorStr = isCursorLine ? lavLight('> ') : '  ';
-        if (line.kind === 'hunk') {
-          rows.push(text(`${cursorStr}   ${lineText}`, { wrappable: false }));
-        } else {
-          rows.push(
-            text(`${cursorStr}${chalk.dim(`${lineNum} ${line.prefix} `)}${lineText}`, {
-              wrappable: false,
-            }),
-          );
-        }
-      }
-
-      if (!isReviewing && this.diffLines.length > maxPreview) {
-        rows.push(
-          text(
-            chalk.dim(
-              `  ... (${this.diffLines.length - maxPreview} more lines, press 'f' to review)`,
-            ),
-          ),
-        );
-      }
-      rows.push(text(dashRule(figures.horizontalLine.repeat(dividerWidth))));
-    } else if (request.toolName === 'run_command' && (request.args as any)?.command) {
-      rows.push(text(dashRule(figures.horizontalLine.repeat(dividerWidth))));
-      const pink = themeColor(theme.bashPink);
-      const cmdRaw: string = (request.args as any).command;
-      const cmdLines = cmdRaw.split('\n');
-      const maxPreview = 5;
-      const reviewWindowSize = 10;
-
-      let visibleCmdLines: string[] = [];
-      if (isReviewing) {
-        const start = Math.max(
-          0,
-          Math.min(reviewOffset, Math.max(0, cmdLines.length - reviewWindowSize)),
-        );
-        visibleCmdLines = cmdLines.slice(start, start + reviewWindowSize);
-      } else {
-        visibleCmdLines = cmdLines.slice(0, maxPreview);
-      }
-
-      for (let i = 0; i < visibleCmdLines.length; i++) {
-        const cl = visibleCmdLines[i] ?? '';
-        const p = i === 0 ? pink('$ ') : '  ';
-        rows.push(text(`  ${p}${chalk.white(cl)}`, { wrappable: false }));
-      }
-
-      if (!isReviewing && cmdLines.length > maxPreview) {
-        rows.push(
-          text(
-            chalk.dim(`  ... (${cmdLines.length - maxPreview} more lines, press 'f' to review)`),
-          ),
-        );
-      }
-      rows.push(text(dashRule(figures.horizontalLine.repeat(dividerWidth))));
-    } else if (request.promptTitle) {
-      rows.push(text(chalk.dim(`  ${request.promptTitle}`)));
-    }
-
-    const options = [
-      { key: '1', label: 'Yes', decision: 'allow_once' },
-      { key: '2', label: 'Yes, allow for session', decision: 'allow_session' },
-      { key: '3', label: 'No', decision: 'deny' },
-    ];
-
-    for (let i = 0; i < options.length; i++) {
-      const opt = options[i]!;
-      const isSelected = i === selectedIdx;
-      const pointer = isSelected ? themeColor(theme.info)(`${figures.pointer} `) : '  ';
-      const label = isSelected
-        ? themeColor(theme.info)(`${opt.key}. ${opt.label}`)
-        : chalk.dim(`${opt.key}. ${opt.label}`);
-      rows.push(text(`${pointer}${label}`));
-    }
-
-    rows.push(
-      text(chalk.dim.italic('1/2/3 or y/a/n to choose · ↑/↓ navigate · Enter select · Esc deny')),
-    );
-
-    return box({ direction: 'column', width: '100%', overflow: 'hidden' }, ...rows);
   }
 
   override render(width?: number): string[] {
