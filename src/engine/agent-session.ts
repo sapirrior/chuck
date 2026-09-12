@@ -21,7 +21,6 @@ export interface SubmitPromptOptions {
 /**
  * Stateful conversation session harness managing message history,
  * active model configuration, abort controls, and turn execution.
- * (Equivalent to Claude Code's QueryEngine).
  */
 export class AgentSession {
   private config: SessionConfig;

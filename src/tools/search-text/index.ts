@@ -94,7 +94,7 @@ function searchInDir(
 }
 
 /**
- * Text Search (Grep) Tool matching Claude Code & Delta specifications:
+ * Text Search (Grep) Tool:
  * - Recursively searches files for pattern matches.
  * - Extracts file path, line numbers, and matching line content.
  */

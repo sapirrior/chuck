@@ -21,7 +21,7 @@ export interface WriteFileOutput {
 }
 
 /**
- * Write File Tool matching Anthropic Claude Code & Delta standards:
+ * Write File Tool:
  * - Creates new files or overwrites existing files completely.
  * - Automatically ensures parent directories exist.
  * - Generates structured diff metadata for confirmation dialogs.

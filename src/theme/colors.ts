@@ -1,5 +1,5 @@
 /**
- * Palette colors matching Claude Code and Delta theme systems with TrueColor RGB and ANSI fallbacks.
+ * Theme palette with TrueColor RGB and ANSI fallbacks.
  */
 export interface UITheme {
   brand: string;

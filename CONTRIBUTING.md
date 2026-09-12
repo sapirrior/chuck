@@ -1,128 +1,129 @@
 # Contributing to xd
 
-Thank you for contributing to `xd`!
-
-This guide defines the code quality, engineering standards, Git commit conventions, and pull request workflows for **all contributors** to `xd`—whether human engineers or AI coding agents. Every contribution follows the exact same bar for quality, consistency, and testing.
+Thank you for your interest in contributing to `xd`! This guide covers everything you need to get started.
 
 ---
 
-## 1. Getting Started
+## Getting Started
 
 ### Prerequisites
 
-- **Node.js:** Ensure you are using the Node.js version pinned in [.nvmrc](.nvmrc) (`>= 20`).
-- **Package Manager:** `npm` is the standard package manager for this repository. Please do not commit lockfiles from other package managers (e.g., `pnpm-lock.yaml`, `yarn.lock`).
+- **Bun** >= 1.0 — [Install Bun](https://bun.sh/docs/installation)
 
-### Setup & Workflow Commands
+### Setup
 
 ```bash
+# Clone the repo
+git clone https://github.com/sapirrior/xd.git
+cd xd
+
 # Install dependencies
-npm install
+bun install
 
-# Type check
-npm run typecheck
-
-# Format check / auto-formatting
-npm run format
-
-# Run tests
-npm test
-
-# Build
-npm run build
+# Run in development (watch mode)
+bun run dev
 ```
 
 ---
 
-## 2. Project Architecture & Boundaries
+## Project Structure
 
-All application logic will reside under `src/`. To maintain maintainability, future implementation should respect these modular boundaries:
-
-- **Agent Orchestration:** Context compilation, agent loop execution, and model communication via the Vercel AI SDK.
-- **Tools:** Discrete, typed tool declarations and handlers made available to the agent.
-- **UI:** Terminal user interface rendered via Ink components.
-
-> Note: Infrastructure and governance passes do not create empty feature folders prematurely. Structure emerges as features land.
+```
+src/
+├── engine/       # Agent loop, model orchestration, session management
+├── tools/        # Tool definitions exposed to the model
+├── tui/          # Alternate-screen TUI engine, renderer, layout
+├── commands/     # Slash command system (/model, /clear, /resume, etc.)
+├── config/       # Environment and settings
+├── models/       # Model discovery and provider mapping
+├── session/      # Session persistence and storage
+├── skills/       # Skills discovery and loading
+├── theme/        # Colors, figures, and visual tokens
+└── utils/        # Shared helpers (markdown, ANSI, token formatting)
+```
 
 ---
 
-## 3. Code Standards & Style
+## Development Scripts
+
+| Command | Description |
+| :--- | :--- |
+| `bun run dev` | Run from source in watch mode |
+| `bun run start` | Run the CLI directly |
+| `bun run build` | Bundle to `./dist/cli.js` |
+| `bun run compile` | Compile to standalone binary `./dist/xd` |
+| `bun run format` | Check formatting |
+| `bun run format:fix` | Auto-fix formatting |
+| `bun test` | Run tests |
+
+---
+
+## Code Standards
 
 ### TypeScript
-
-- Strict mode is enabled and enforced via `tsconfig.json`.
-- Do not use `any` unless strictly necessary and accompanied by an explanatory comment.
+- Strict mode is enforced. Avoid `any` — if unavoidable, add an explanatory comment.
+- Bun is the runtime; no compilation step required for development.
 
 ### Formatting
-
-- **Prettier** handles all code formatting (`.prettierrc`).
-- Run `npm run format` prior to committing.
+- **Prettier** handles all formatting.
+- Run `bun run format:fix` before committing.
 
 ### Naming Conventions
 
-- **Files & Directories:** `kebab-case` (e.g., `agent-runner.ts`, `status-badge.tsx`).
-- **Types & Interfaces:** `PascalCase` (e.g., `AgentContext`, `ToolDefinition`).
-- **Functions, Variables & Methods:** `camelCase` (e.g., `runAgentLoop`, `activeSession`).
-
-### Ink Components
-
-- Keep Ink components modular: one component per file with colocated custom hooks when applicable.
-- Adhere to design tokens and UI references provided in `references/`.
+| Type | Convention | Example |
+| :--- | :--- | :--- |
+| Files & Directories | `kebab-case` | `agent-runner.ts` |
+| Types & Interfaces | `PascalCase` | `AgentContext` |
+| Functions & Variables | `camelCase` | `runAgentLoop` |
 
 ---
 
-## 4. Working with `.agents/` and `references/`
+## Commit Messages
 
-- The `.agents/` and `references/` directories are **human-managed**.
-- Do not create, overwrite, or edit files in these folders.
-- See [IMPORTANT.md](IMPORTANT.md) for full details regarding manual assets and the strict separation between visual styling references and application logic.
-
----
-
-## 5. Git & Commit Message Conventions
-
-We follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
+We follow [Conventional Commits](https://www.conventionalcommits.org/):
 
 ```
-<type>(<optional scope>): <description>
+<type>(<scope>): <description>
 ```
 
-### Common Types:
+### Types
 
-- `feat`: A new feature
-- `fix`: A bug fix
-- `docs`: Documentation changes
-- `style`: Changes that do not affect the meaning of the code (formatting, white-space)
-- `refactor`: Code changes that neither fix a bug nor add a feature
-- `test`: Adding or correcting tests
-- `chore`: Maintenance tasks, dependencies, tooling configs
+| Type | When to use |
+| :--- | :--- |
+| `feat` | New feature |
+| `fix` | Bug fix |
+| `docs` | Documentation only |
+| `style` | Formatting, no logic change |
+| `refactor` | Refactor without feature/fix |
+| `test` | Adding or updating tests |
+| `chore` | Build, deps, tooling |
+| `build` | Build system or scripts |
 
-### Examples:
+### Examples
 
-- `feat(agent): support streaming responses in tool loops`
-- `fix(tui): correct ANSI color overflow in terminal width calculations`
-- `docs(infra): update AGENTS.md with new command reference`
-
----
-
-## 6. Branching & Pull Request Process
-
-1. **Branching:** Create feature or fix branches branching from `main` (e.g., `feat/tool-runner`, `fix/cursor-blink`).
-2. **Pull Requests:**
-   - Submit PRs targeting `main`.
-   - Provide a clear description of what changed and why.
-   - Include verification details (manual testing steps, test command output).
-   - Ensure `npm run typecheck` and `npm test` pass before requesting review.
+```
+feat(engine): add streaming tool call support
+fix(tui): correct ANSI width calculation for wide characters
+docs: update contributing guide for Bun setup
+chore: upgrade ai sdk to 7.x
+```
 
 ---
 
-## 7. Testing Strategy
+## Pull Requests
 
-- The official test framework choice is currently **TBD** and will be finalized prior to the initial feature implementation PR.
-- Once the testing suite is established, all new feature additions and bug fixes must include unit or integration tests.
+1. **Branch** from `main` using a descriptive name: `feat/tool-name` or `fix/issue-description`.
+2. **Keep PRs focused** — one feature or fix per PR.
+3. **Describe your changes** — what changed, why, and how to verify.
+4. **Ensure** `bun run format` and `bun test` pass before opening a PR.
+5. **Target** `main` for all PRs.
 
 ---
 
-## 8. Reporting Issues
+## Reporting Issues
 
-- Use the issue templates located in `.github/ISSUE_TEMPLATE/` when submitting bug reports or feature requests.
+Open an issue on [GitHub Issues](https://github.com/sapirrior/xd/issues) with:
+- A clear description of the problem.
+- Steps to reproduce.
+- Expected vs actual behavior.
+- Your OS, Bun version, and terminal emulator.

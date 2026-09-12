@@ -54,7 +54,7 @@ function padAligned(
 }
 
 /**
- * 1:1 Claude Code Token Formatter
+ * Token Formatter
  */
 export function formatToken(
   token: Token,
@@ -229,7 +229,7 @@ export function formatToken(
 }
 
 /**
- * 1:1 Claude Code Markdown Renderer
+ * Markdown Renderer
  */
 export function applyMarkdown(content: string): string {
   if (!content) return '';

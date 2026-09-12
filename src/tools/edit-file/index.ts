@@ -25,7 +25,7 @@ export interface EditFileOutput {
 }
 
 /**
- * Edit File Tool matching Anthropic Claude Code & Delta specifications:
+ * Edit File Tool:
  * - Exact string replacement in local files.
  * - Handles single replacement vs replace_all.
  * - Prompts for user confirmation with before/after diff preview.

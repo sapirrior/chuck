@@ -6,7 +6,7 @@ Universal operational guidelines for AI coding agents working in the `xd` reposi
 
 `xd` is a general-purpose AI terminal agent built with:
 
-- **Language/Runtime:** TypeScript (Node.js >= 20, pinned via `.nvmrc`)
+- **Language/Runtime:** TypeScript, executed natively by [Bun](https://bun.sh)
 - **Model Orchestration & Tool Calling:** Vercel AI SDK (`ai`)
 - **Terminal User Interface (TUI):** Custom Alternate-Screen TUI Engine with Mode 2026 Synchronized Output and line-differential rendering
 
@@ -15,7 +15,6 @@ Universal operational guidelines for AI coding agents working in the `xd` reposi
 ## 2. Source of Truth for APIs & Libraries
 
 - **Vercel AI SDK APIs:** Always consult reference skills in `.agents/skills/` before writing code. Do not hallucinate or rely on outdated pre-training memory for API signatures.
-- **Reference Code & Examples:** Consult `references/` for design patterns, conceptual examples, and UI references (see [IMPORTANT.md](IMPORTANT.md)). Do not blindly copy reference code.
 
 ## 3. Architecture & Directory Boundaries
 
@@ -27,16 +26,21 @@ All application source code resides in `src/`. Source code maintains strict sepa
 
 ## 4. Commands
 
-Execute the following standard npm scripts defined in `package.json`:
+Standard scripts defined in `package.json`:
 
-- **Build:** `npm run build`
-- **Typecheck:** `npm run typecheck`
-- **Format:** `npm run format`
-- **Test:** `npm test`
+| Command | Description |
+| :--- | :--- |
+| `bun run dev` | Run directly from source in watch mode |
+| `bun run start` | Run the CLI directly |
+| `bun run build` | Bundle to `./dist/cli.js` (Node-compatible) |
+| `bun run compile` | Compile to a standalone binary `./dist/xd` |
+| `bun run format` | Check formatting with Prettier |
+| `bun run format:fix` | Auto-fix formatting |
+| `bun test` | Run tests |
 
 ## 5. Rules & Boundaries
 
-- **Strict Boundaries:** Never edit, delete, or generate files in `.agents/` or `references/`. These are strictly human-managed (see [IMPORTANT.md](IMPORTANT.md)).
+- **Strict Boundaries:** Never edit, delete, or generate files in `.agents/`. These are strictly human-managed.
 - **No Side-Effect Code:** Do not write feature or runtime code into `src/` during docs or infrastructure passes.
 - **Secrets Policy:** Never commit secrets, API keys, credentials, or `.env*` files.
 - **Workflow & Style:** Follow Conventional Commits and code formatting guidelines defined in [CONTRIBUTING.md](CONTRIBUTING.md).

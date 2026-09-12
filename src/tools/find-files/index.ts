@@ -65,7 +65,7 @@ function walkDir(dir: string, baseDir: string, pattern: string, results: string[
 }
 
 /**
- * File Find / Glob Tool matching Claude Code & Delta specifications:
+ * File Find / Glob Tool:
  * - Fast workspace filesystem traversal.
  * - Respects standard ignore directories (node_modules, .git, etc.).
  * - Returns relativized paths.

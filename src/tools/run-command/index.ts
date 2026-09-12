@@ -24,7 +24,7 @@ export interface RunCommandOutput {
 }
 
 /**
- * Bash Execution Tool matching Anthropic Claude Code & Delta specifications:
+ * Bash Execution Tool:
  * - Executes shell commands in the project directory.
  * - Requires user confirmation unless pre-allowed for the session.
  * - Streams execution time and returns exitCode, stdout, and stderr.

@@ -29,7 +29,7 @@ export interface ListDirOutput {
 }
 
 /**
- * List Directory Tool matching Claude Code & Delta specifications:
+ * List Directory Tool:
  * - Lists directory entries with file types and sizes.
  */
 export const listDirTool: ToolDefinition<typeof listDirInputSchema, ListDirOutput> = {
