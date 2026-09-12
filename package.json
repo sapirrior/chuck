@@ -2,6 +2,8 @@
   "name": "xd",
   "version": "0.1.0",
   "description": "General-purpose AI terminal agent",
+  "author": "sapirrior",
+  "license": "MIT",
   "files": [
     "dist"
   ],
