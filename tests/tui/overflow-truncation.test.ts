@@ -5,6 +5,7 @@ import StatusBar from '../../src/tui/components/StatusBar.js';
 import Header from '../../src/tui/components/Header.js';
 import CommandPalette from '../../src/tui/components/docks/CommandPalette.js';
 import HelpMenu from '../../src/tui/components/docks/HelpMenu.js';
+import TerminalEngine from '../../src/tui/engine/TerminalEngine.js';
 import { measureNode } from '../../src/tui/engine/cell-layout.js';
 import stringWidth from 'string-width';
 import stripAnsi from 'strip-ansi';
@@ -109,5 +110,16 @@ describe('Component Overflow and Truncation Invariants', () => {
         }
       }
     }
+  });
+
+  it('TerminalEngine commits header lines without wrapping', () => {
+    const engine = new TerminalEngine();
+    const header = new Header();
+    const lines = header.render();
+    engine.commit('header', lines);
+
+    const historyRows = engine.tree.getHistoryRows(30);
+    // 4 lines rendered by header should yield exactly 4 physical rows without wrapping
+    expect(historyRows.length).toBe(4);
   });
 });
