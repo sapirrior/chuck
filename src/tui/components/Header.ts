@@ -31,7 +31,7 @@ export default class Header extends Component<HeaderProps> {
         overflow: 'visible',
         truncation: 'none',
       }),
-      Text(`${logoL1}  ${chalk.dim('Type ')}${brandColor('/')}${chalk.dim(' for commands')}`, {
+      Text(`${logoL1}  ${chalk.dim('AI can make mistakes. Verify important info.')}`, {
         overflow: 'visible',
         truncation: 'none',
       }),
