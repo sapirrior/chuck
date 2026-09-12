@@ -1,5 +1,10 @@
 import type { LanguageModel, ModelMessage } from 'ai';
-import { createSession, recordSessionTurn, type SessionData } from '../session/index.js';
+import {
+  createSession,
+  recordSessionTurn,
+  renameSession,
+  type SessionData,
+} from '../session/index.js';
 import { runAgentTurn } from './agent-runner.js';
 import { SAFETY_STEP_CEILING } from './constants.js';
 import type { AgentEventListener } from './events.js';
@@ -107,6 +112,19 @@ export class AgentSession {
       provider: this.config.provider,
       modelId: this.config.modelId,
     };
+  }
+
+  /**
+   * Renames the active session and saves the update to disk.
+   */
+  public renameSession(newName: string): string {
+    const trimmed = newName.trim();
+    if (!trimmed) {
+      throw new Error('Session name cannot be empty.');
+    }
+    this.sessionData.name = trimmed;
+    renameSession(this.sessionData, trimmed);
+    return trimmed;
   }
 
   /**

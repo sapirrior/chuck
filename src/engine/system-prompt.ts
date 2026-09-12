@@ -57,6 +57,7 @@ Users can run slash commands directly in the prompt box:
 - /model — switch the active AI model or provider
 - /clear — clear the current conversation context
 - /resume — resume a previous session
+- /rename — rename the current conversation session
 - /skills — list available specialized skills
 - /exit or /quit — exit xd
 - /help — show available commands

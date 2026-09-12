@@ -69,6 +69,7 @@ export function createSession(model: ModelSelection, customId?: string): Session
  * Does not write system prompts, and preserves all tool calls and outputs.
  */
 export function saveSession(session: SessionData): string {
+  session.date = session.date || getCurrentDateString();
   const dateDir = join(getSessionsRootDir(), session.date);
   if (!existsSync(dateDir)) {
     mkdirSync(dateDir, { recursive: true });
@@ -83,7 +84,7 @@ export function saveSession(session: SessionData): string {
 
 /**
  * Appends a completed turn to a session and writes the update to disk.
- * Sets the session name to the first user message if this is the initial turn.
+ * Sets the session name to the first user message if this is the initial turn and it has not been renamed.
  */
 export function recordSessionTurn(
   session: SessionData,
@@ -95,8 +96,12 @@ export function recordSessionTurn(
     ...turnData,
   };
 
-  // The first user message becomes the session name
-  if (session.turns.length === 0 && turnData.userPrompt) {
+  // The first user message becomes the session name only if it hasn't been custom-named
+  if (
+    session.turns.length === 0 &&
+    turnData.userPrompt &&
+    (!session.name || session.name === 'New Session')
+  ) {
     session.name = turnData.userPrompt.slice(0, 100).trim();
   }
 
@@ -120,6 +125,19 @@ export function recordSessionTurn(
 }
 
 /**
+ * Renames a session document and persists the update to disk.
+ */
+export function renameSession(session: SessionData, newName: string): SessionData {
+  const trimmed = newName.trim();
+  if (!trimmed) {
+    throw new Error('Session name cannot be empty.');
+  }
+  session.name = trimmed;
+  saveSession(session);
+  return session;
+}
+
+/**
  * Loads a session document by session ID (searching all date folders) or by absolute path.
  */
 export function loadSession(sessionIdOrPath: string): SessionData | null {
@@ -127,7 +145,11 @@ export function loadSession(sessionIdOrPath: string): SessionData | null {
   if (existsSync(sessionIdOrPath) && sessionIdOrPath.endsWith('.json')) {
     try {
       const raw = readFileSync(sessionIdOrPath, 'utf-8');
-      return JSON.parse(raw) as SessionData;
+      const doc = JSON.parse(raw) as SessionData;
+      if (!doc.date) {
+        doc.date = getCurrentDateString();
+      }
+      return doc;
     } catch {
       return null;
     }
@@ -148,7 +170,11 @@ export function loadSession(sessionIdOrPath: string): SessionData | null {
     if (existsSync(filePath)) {
       try {
         const raw = readFileSync(filePath, 'utf-8');
-        return JSON.parse(raw) as SessionData;
+        const doc = JSON.parse(raw) as SessionData;
+        if (!doc.date) {
+          doc.date = date;
+        }
+        return doc;
       } catch {
         return null;
       }
