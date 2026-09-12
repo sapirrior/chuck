@@ -5,44 +5,31 @@ An ultra-fast, lightweight general-purpose AI terminal agent built natively for 
 ---
 
 > [!IMPORTANT]
-> **Active Development / Beta:** `xd` is currently under active development. APIs, commands, and interfaces may evolve rapidly. Feedback, bug reports, and pull requests are warmly welcomed!
+> **Active Development / Beta:** `xd` is currently under active development. APIs, commands, and interfaces may evolve rapidly. Feedback, bug reports, and pull requests are warmly welcomed.
 
 ---
 
-## ⚡ Features
+## Installation
 
-- **Blazing Fast Alternate-Screen TUI:** Zero-flicker differential line-rendering engine utilizing Mode 2026 Synchronized Output and a 2D integer cell buffer.
-- **Declarative UI Primitives:** Composable layout primitives (`Box`, `Text`, `SelectList`, `ModalBox`, `KeyReader`) with full ANSI styling and strict overflow boundaries (`wrap`, `clip`, `ellipsis`).
-- **Multi-Provider LLM Orchestration:** Seamless support for Anthropic (Claude 3.5/3.7), OpenAI (GPT-4o, o1/o3), Google Gemini (2.0 Flash/Pro), Ollama, and OpenAI-compatible providers.
-- **Agentic Tool Calling:**
-  - 📁 **File Operations:** Safe diff-preview file editing, whole file creation, directory tree inspection, and fuzzy file search.
-  - ⚡ **Shell Execution:** Interactive bash commands with permission gates, full diff review, and inline execution.
-  - 🌐 **Web Intelligence:** Live web search and clean markdown web fetching.
-- **Session Continuity:** Instant resume of past conversation sessions with turn tracking and metadata search via `/resume`.
-- **Extensible Skills & Commands:** Discover and activate local skill documents and slash commands on the fly.
-- **Cross-Platform Standalone Binaries:** Single executable binaries for Linux (x64/ARM64), macOS (Intel/Apple Silicon), and Windows with zero runtime dependencies.
+### Unix / Linux / macOS / Termux
 
----
-
-## 📦 Installation
-
-### Option 1: Standalone Binary (Recommended)
-
-Download the latest pre-compiled binary for your architecture from [GitHub Releases](https://github.com/sapirrior/xd/releases):
+Run the following command in your terminal:
 
 ```bash
-# Example: Linux x64
-curl -fsSL https://github.com/sapirrior/xd/releases/latest/download/xd-linux-x64.tar.gz | tar -xz
-sudo mv xd /usr/local/bin/
-
-# Example: macOS (Apple Silicon)
-curl -fsSL https://github.com/sapirrior/xd/releases/latest/download/xd-darwin-arm64.tar.gz | tar -xz
-sudo mv xd /usr/local/bin/
+curl -fsSL https://raw.githubusercontent.com/sapirrior/xd/main/installer/install.sh | bash
 ```
 
-### Option 2: Run from Source with Bun
+This script automatically detects your platform (Linux x64/ARM64, macOS Intel/Apple Silicon, Termux), downloads the pre-compiled binary, and installs it to `~/.local/bin` or `$PREFIX/bin`.
 
-Ensure you have [Bun](https://bun.sh) (>= 1.0) installed:
+### Windows (PowerShell)
+
+Run the following command in PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/sapirrior/xd/main/installer/install.ps1 | iex
+```
+
+### Run from Source with Bun
 
 ```bash
 # Clone the repository
@@ -58,7 +45,22 @@ bun run start
 
 ---
 
-## 🚀 Quick Start & API Keys
+## Features
+
+- **Alternate-Screen TUI Engine:** Zero-flicker differential line-rendering engine utilizing Mode 2026 Synchronized Output and a 2D integer cell buffer.
+- **Declarative UI Primitives:** Composable layout primitives (`Box`, `Text`, `SelectList`, `ModalBox`, `KeyReader`) with full ANSI styling and strict overflow boundaries (`wrap`, `clip`, `ellipsis`).
+- **Multi-Provider LLM Orchestration:** Seamless support for Anthropic (Claude 3.5/3.7), OpenAI (GPT-4o, o1/o3), Google Gemini (2.0 Flash/Pro), Ollama, and OpenAI-compatible providers.
+- **Agentic Tool Calling:**
+  - File Operations: Safe diff-preview file editing, whole file creation, directory tree inspection, and fuzzy file search.
+  - Shell Execution: Interactive bash commands with permission gates, full diff review, and inline execution.
+  - Web Intelligence: Live web search and clean markdown web fetching.
+- **Session Continuity:** Instant resume of past conversation sessions with turn tracking and metadata search via `/resume`.
+- **Extensible Skills & Commands:** Discover and activate local skill documents and slash commands on the fly.
+- **Cross-Platform Standalone Binaries:** Single executable binaries for Linux (x64/ARM64), macOS (Intel/Apple Silicon), and Windows with zero runtime dependencies.
+
+---
+
+## Quick Start & API Keys
 
 Set your preferred provider API keys in your environment (or inside a `.env` file):
 
@@ -81,7 +83,7 @@ xd
 
 ---
 
-## ⌨️ Shortcuts & Navigation
+## Shortcuts & Navigation
 
 | Key                              | Action                                             |
 | :------------------------------- | :------------------------------------------------- |
@@ -97,7 +99,7 @@ xd
 
 ---
 
-## 🧭 Slash Commands
+## Slash Commands
 
 | Command          | Description                                                        |
 | :--------------- | :----------------------------------------------------------------- |
@@ -110,7 +112,7 @@ xd
 
 ---
 
-## 🛠️ Architecture & Source Tree
+## Architecture & Source Tree
 
 ```
 src/
@@ -130,7 +132,7 @@ src/
 
 ---
 
-## 💻 Development & Build Scripts
+## Development & Build Scripts
 
 | Command              | Description                                     |
 | :------------------- | :---------------------------------------------- |
@@ -144,12 +146,12 @@ src/
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
-Contributions are very welcome! Please review [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) before submitting a pull request.
+Contributions are welcome. Please review [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) before submitting a pull request.
 
 ---
 
-## 📄 License
+## License
 
 MIT License © 2026 [sapirrior](https://github.com/sapirrior)
