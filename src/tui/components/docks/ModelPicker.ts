@@ -25,17 +25,17 @@ export default class ModelPicker extends SelectList<ModelDescriptor> {
       onCancel: props.onCancel,
       renderItem: (m, isSelected, maxCols) => {
         const theme = getTheme();
-        const infoColor = themeColor(theme.info);
+        const selColor = themeColor(theme.permission);
         const isCurrent =
           m.provider === props.currentModel.provider && m.model_id === props.currentModel.modelId;
 
-        const pointer = isSelected ? `${figures.pointer} ` : '  ';
+        const pointer = isSelected ? selColor(`${figures.pointer} `) : '  ';
         const activeBadge = isCurrent ? chalk.green(' (active)') : '';
         const badge = `[${m.provider.toUpperCase()}]`;
 
         return Box({ direction: 'row', justify: 'space-between', width: maxCols }, [
           Text(`${pointer}${m.model_id}${activeBadge}`, {
-            color: isSelected ? infoColor : chalk.dim,
+            color: isSelected ? selColor : chalk.white,
           }),
           Text(badge, { dim: true }),
         ]);

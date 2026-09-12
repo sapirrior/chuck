@@ -1,5 +1,6 @@
 import Component from '../../engine/Component.js';
 import { Box, Text, renderModalBox } from '../../primitives/index.js';
+import { chalk } from '../../utils/format.js';
 
 export interface HelpMenuProps {
   onClose: () => void;
@@ -35,27 +36,30 @@ export default class HelpMenu extends Component<HelpMenuProps> {
     const termWidth = width ?? process.stdout.columns ?? 80;
     const maxCols = Math.max(1, termWidth - 1);
 
-    const col1 = ['! for bash mode', '/ for commands', '@ for file paths', '/resume for sessions'];
-    const col2 = [
-      'double tap esc to clear',
-      'ctrl + c to cancel / exit',
-      'pgup / pgdn to scroll',
-      '\\ + enter for newline',
-    ];
-    const col3 = [
-      '/model to change model',
-      '/skills to list skills',
-      '/clear to clear context',
-      '? for shortcuts',
+    const leftCol = [
+      { key: '!', desc: 'Bash command' },
+      { key: '@', desc: 'Mention files' },
+      { key: '?', desc: 'Shortcuts menu' },
+      { key: 'Esc Esc', desc: 'Clear input' },
     ];
 
-    const rows = col1.map((_, i) =>
-      Box({ direction: 'row', gap: 2, width: maxCols }, [
-        Text(` ${col1[i] ?? ''}`, { dim: true }),
-        Text(col2[i] ?? '', { dim: true }),
-        Text(col3[i] ?? '', { dim: true }),
-      ]),
-    );
+    const rightCol = [
+      { key: 'Shift+Enter', desc: 'Newline' },
+      { key: 'Ctrl+C', desc: 'Abort / exit' },
+      { key: 'PgUp/PgDn', desc: 'Scroll history' },
+      { key: '↑ / ↓', desc: 'History navigation' },
+    ];
+
+    const rows = leftCol.map((left, i) => {
+      const right = rightCol[i]!;
+      const leftFormatted = `  ${chalk.white(left.key.padEnd(11))} ${chalk.dim(left.desc.padEnd(18))}`;
+      const rightFormatted = `${chalk.white(right.key.padEnd(13))} ${chalk.dim(right.desc)}`;
+
+      return Box({ direction: 'row', justify: 'flex-start', width: maxCols }, [
+        Text(leftFormatted),
+        Text(rightFormatted),
+      ]);
+    });
 
     return renderModalBox({
       title: 'Shortcuts',

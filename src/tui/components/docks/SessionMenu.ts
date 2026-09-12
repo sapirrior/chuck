@@ -15,32 +15,34 @@ export default class SessionMenu extends SelectList<SessionData> {
     super({
       items: props.sessions,
       title: 'Resume Session',
-      subtitle: `${props.sessions.length} session${props.sessions.length !== 1 ? 's' : ''}`,
-      placeholder: 'Type to filter sessions…',
-      emptyMessage: '  No saved sessions matching query.',
+      subtitle: `${props.sessions.length} saved`,
+      placeholder: 'Type to filter…',
+      emptyMessage: '  No saved sessions found.',
       maxVisible: 6,
       searchFilter: (s, q) => {
         const firstPrompt = s.turns?.[0]?.userPrompt?.toLowerCase() ?? '';
         const name = s.name?.toLowerCase() ?? '';
         const id = s.id?.toLowerCase() ?? '';
-        const date = s.date?.toLowerCase() ?? '';
-        return id.includes(q) || date.includes(q) || name.includes(q) || firstPrompt.includes(q);
+        return id.includes(q) || name.includes(q) || firstPrompt.includes(q);
       },
       onSelect: props.onSelect,
       onCancel: props.onCancel,
       renderItem: (s, isSelected, maxCols) => {
         const theme = getTheme();
-        const infoColor = themeColor(theme.info);
-        const shortId = s.id.slice(0, 8);
-        const firstMessage = s.name || s.turns?.[0]?.userPrompt || 'Untitled Session';
-        const metaInfo = `${s.date} · ${s.turns.length} turns`;
-        const pointer = isSelected ? `${figures.pointer} ` : '  ';
+        const selColor = themeColor(theme.permission);
+        const rawTitle = s.name || s.turns?.[0]?.userPrompt || 'Untitled Session';
+        const cleanTitle = rawTitle.replace(/\s+/g, ' ').trim();
+        const pointer = isSelected ? selColor(`${figures.pointer} `) : '  ';
+        const turnsCount = s.turns?.length ?? 0;
+        const meta = `${turnsCount} turn${turnsCount !== 1 ? 's' : ''}`;
 
         return Box({ direction: 'row', justify: 'space-between', width: maxCols }, [
-          Text(`${pointer}${firstMessage} (${shortId})`, {
-            color: isSelected ? infoColor : chalk.dim,
+          Text(`${pointer}${cleanTitle}`, {
+            color: isSelected ? selColor : chalk.white,
+            overflow: 'hidden',
+            truncation: 'ellipsis',
           }),
-          Text(metaInfo, { dim: true }),
+          Text(meta, { dim: true }),
         ]);
       },
     });
