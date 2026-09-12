@@ -30,9 +30,9 @@ export default class HelpMenu extends Component<HelpMenuProps> {
     }
   }
 
-  override render(): string[] {
+  override render(width?: number): string[] {
     const theme = getTheme();
-    const termWidth = process.stdout.columns || 80;
+    const termWidth = width ?? process.stdout.columns ?? 80;
     const dividerWidth = Math.max(10, termWidth - 4);
 
     const lines: string[] = [];

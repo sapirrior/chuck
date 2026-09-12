@@ -4,8 +4,6 @@ import type { SlashCommand } from '../../commands/types.js';
 import { searchWorkspaceFiles } from '../../utils/file-search.js';
 import { getTheme, figures } from '../../theme/index.js';
 import { themeColor, chalk } from '../utils/format.js';
-import { wrapVisualLine } from '../engine/cell-layout.js';
-import stringWidth from 'string-width';
 
 export interface PromptInputProps {
   onSubmit: (text: string, isBash?: boolean) => void;
@@ -453,21 +451,21 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
     }
   }
 
-  override getCursorPosition(): { line: number; column: number } | null {
+  override getLogicalCursor(): {
+    logicalLineIndex: number;
+    characterOffsetWithinLine: number;
+  } | null {
     if (this.state.disabled) return null;
 
-    let targetRow = 0;
-    if (this.state.escPending) targetRow += 1;
-    // Top border
-    targetRow += 1;
+    const prefixLen = 2; // "❯ " or "! " or "  " is always 2 characters
 
-    const termWidth = process.stdout.columns || 80;
-    const dividerWidth = Math.max(10, termWidth - 1);
-    const availableWidth = Math.max(10, dividerWidth - 2);
+    let baseLineIndex = 0;
+    if (this.state.escPending) baseLineIndex += 1;
+    // Top border
+    baseLineIndex += 1;
 
     const vLines = this.state.value.split('\n');
     let currentOffset = 0;
-    let targetCol = 3;
 
     for (let i = 0; i < vLines.length; i++) {
       const line = vLines[i] ?? '';
@@ -479,39 +477,24 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
         this.state.cursorPos >= currentOffset &&
         (this.state.cursorPos <= lineEndOffset || isLast)
       ) {
-        const textBeforeCursor = line.slice(0, Math.max(0, this.state.cursorPos - currentOffset));
-        const wrappedSegments = wrapVisualLine(line, availableWidth);
-
-        let remainingChars = textBeforeCursor.length;
-        let segIdx = 0;
-        while (
-          segIdx < wrappedSegments.length - 1 &&
-          remainingChars > (wrappedSegments[segIdx]?.length ?? 0)
-        ) {
-          remainingChars -= wrappedSegments[segIdx]!.length;
-          segIdx++;
-        }
-
-        targetRow += segIdx;
-        const segText = (wrappedSegments[segIdx] ?? '').slice(0, remainingChars);
-        targetCol = 3 + stringWidth(segText);
-        break;
-      } else {
-        const wrappedSegments = wrapVisualLine(line, availableWidth);
-        targetRow += Math.max(1, wrappedSegments.length);
-        currentOffset = lineEndOffset + 1; // +1 for '\n'
+        const charOffsetInLine = this.state.cursorPos - currentOffset;
+        return {
+          logicalLineIndex: baseLineIndex + i,
+          characterOffsetWithinLine: prefixLen + charOffsetInLine,
+        };
       }
+      currentOffset = lineEndOffset + 1; // +1 for '\n'
     }
 
     return {
-      line: targetRow,
-      column: targetCol,
+      logicalLineIndex: baseLineIndex,
+      characterOffsetWithinLine: prefixLen,
     };
   }
 
-  override render(): string[] {
+  override render(width?: number): string[] {
     const theme = getTheme();
-    const termWidth = process.stdout.columns || 80;
+    const termWidth = width ?? process.stdout.columns ?? 80;
     const dividerWidth = Math.max(10, termWidth - 1);
     const {
       value,

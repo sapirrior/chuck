@@ -6,11 +6,11 @@ export interface ComponentNode {
   kind: 'text' | 'spinner' | 'input' | 'select' | 'dock' | 'custom';
   getLines(width: number, forceAll?: boolean): string[];
   /**
-   * Optional: physical row and column relative to this node's own physical rows.
-   * line: 0-indexed physical row within this node's rendered physical rows.
-   * column: 1-indexed column.
+   * Optional: logical cursor location { logicalLineIndex, characterOffsetWithinLine }.
+   * logicalLineIndex: 0-indexed index into the lines returned by getLines(width).
+   * characterOffsetWithinLine: character offset within that rendered logical line.
    */
-  getCursorPosition?(): { line: number; column: number } | null;
+  getLogicalCursor?(): { logicalLineIndex: number; characterOffsetWithinLine: number } | null;
   onMount?(): void;
   onUnmount?(): void;
   onResize?(width: number, height: number): void;

@@ -1,6 +1,7 @@
 import type { LanguageModel, ModelMessage } from 'ai';
 import { createSession, recordSessionTurn, type SessionData } from '../session/index.js';
 import { runAgentTurn } from './agent-runner.js';
+import { SAFETY_STEP_CEILING } from './constants.js';
 import type { AgentEventListener } from './events.js';
 import { createModelInstance, resolveActiveModelSelection } from './model-provider.js';
 import { buildSystemPrompt } from './system-prompt.js';
@@ -40,18 +41,24 @@ export class AgentSession {
         provider: existingSession.model.provider,
         modelId: existingSession.model.modelId,
         temperature: initialConfig?.temperature,
-        maxSteps: initialConfig?.maxSteps ?? 10,
+        maxSteps: initialConfig?.maxSteps ?? SAFETY_STEP_CEILING,
       };
       this.model = createModelInstance(existingSession.model);
       this.accumulatedUsage = { ...existingSession.totalUsage };
 
       // Rehydrate message history from stored turns
       for (const turn of existingSession.turns) {
-        if (turn.userPrompt) {
-          this.messages.push({ role: 'user', content: turn.userPrompt });
-        }
-        if (turn.assistantText) {
-          this.messages.push({ role: 'assistant', content: turn.assistantText });
+        if (turn.rawMessages && turn.rawMessages.length > 0) {
+          for (const msg of turn.rawMessages) {
+            this.messages.push(msg);
+          }
+        } else {
+          if (turn.userPrompt) {
+            this.messages.push({ role: 'user', content: turn.userPrompt });
+          }
+          if (turn.assistantText) {
+            this.messages.push({ role: 'assistant', content: turn.assistantText });
+          }
         }
       }
     } else {
@@ -60,7 +67,7 @@ export class AgentSession {
         provider: selection.provider,
         modelId: selection.modelId,
         temperature: initialConfig?.temperature,
-        maxSteps: initialConfig?.maxSteps ?? 10,
+        maxSteps: initialConfig?.maxSteps ?? SAFETY_STEP_CEILING,
       };
       this.model = createModelInstance(selection);
       this.sessionData = createSession(selection);
@@ -142,12 +149,17 @@ export class AgentSession {
         instructions,
         tools: options.tools,
         maxSteps: this.config.maxSteps,
+        temperature: this.config.temperature,
         abortSignal: this.activeAbortController.signal,
         onEvent: options.onEvent,
       });
 
-      // 4. Append assistant response to history
-      if (summary.text) {
+      // 4. Append turn response messages to history
+      if (summary.rawMessages && summary.rawMessages.length > 0) {
+        for (const msg of summary.rawMessages) {
+          this.messages.push(msg);
+        }
+      } else if (summary.text) {
         this.messages.push({
           role: 'assistant',
           content: summary.text,
@@ -174,6 +186,7 @@ export class AgentSession {
         reasoning: summary.reasoning,
         toolCalls: summary.toolCalls,
         usage: summary.usage,
+        rawMessages: summary.rawMessages,
       });
 
       return summary;
@@ -186,6 +199,7 @@ export class AgentSession {
           reasoning: summary.reasoning,
           toolCalls: summary.toolCalls,
           usage: summary.usage,
+          rawMessages: summary.rawMessages,
         });
       }
       throw err;

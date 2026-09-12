@@ -12,6 +12,7 @@ export default class Component<
   state: State;
   engine: TerminalEngine | null = null;
   _dirty = true;
+  _lastWidth?: number;
   _cachedLines: string[] = [];
 
   constructor(props: Props = {} as Props) {
@@ -47,21 +48,23 @@ export default class Component<
   }
 
   /**
-   * Returns lines array, using cache if clean.
+   * Returns lines array, using cache if clean and width matches.
    */
-  _getLines(forceRedraw = false): string[] {
-    if (this._dirty || forceRedraw) {
-      this._cachedLines = this.render();
+  _getLines(width?: number, forceRedraw = false): string[] {
+    if (this._dirty || forceRedraw || (width !== undefined && width !== this._lastWidth)) {
+      this._cachedLines = this.render(width);
+      this._lastWidth = width;
       this._dirty = false;
     }
     return this._cachedLines;
   }
 
   /**
-   * Optional: return { line, column } for cursor placement.
+   * Optional: return { logicalLineIndex, characterOffsetWithinLine } for cursor placement.
    * null = no custom cursor for this component.
+   * Physical row/col coordinate translation is computed canonically by cell-layout.
    */
-  getCursorPosition(): { line: number; column: number } | null {
+  getLogicalCursor(): { logicalLineIndex: number; characterOffsetWithinLine: number } | null {
     return null;
   }
 
@@ -83,7 +86,7 @@ export default class Component<
     this.markDirty();
   }
 
-  render(): string[] {
+  render(_width?: number): string[] {
     return [];
   }
 }

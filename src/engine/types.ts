@@ -56,6 +56,11 @@ export interface SessionConfig {
 }
 
 /**
+ * Reason explaining why a turn completed.
+ */
+export type TurnStopReason = 'natural' | 'step-limit' | 'aborted' | 'error';
+
+/**
  * Summary returned upon completion of an agent turn.
  */
 export interface TurnSummary {
@@ -64,4 +69,6 @@ export interface TurnSummary {
   toolCalls: ToolResultInfo[];
   usage: TokenUsage;
   finishReason: string;
+  stopReason?: TurnStopReason;
+  rawMessages?: ModelMessage[];
 }

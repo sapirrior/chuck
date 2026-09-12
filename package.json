@@ -8,11 +8,11 @@
     "xd": "./dist/cli.js"
   },
   "scripts": {
-    "build": "tsc",
-    "dev": "tsc --watch",
-    "typecheck": "tsc --noEmit",
-    "format": "prettier --check .",
-    "format:fix": "prettier --write .",
+    "build": "node node_modules/.bin/tsc",
+    "dev": "node node_modules/.bin/tsc --watch",
+    "typecheck": "node node_modules/.bin/tsc --noEmit",
+    "format": "node node_modules/.bin/prettier --check \"**/*.{ts,js}\"",
+    "format:fix": "node node_modules/.bin/prettier --write \"**/*.{ts,js}\"",
     "test": "echo \"Error: no test specified yet (framework TBD)\" && exit 0"
   },
   "dependencies": {

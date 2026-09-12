@@ -1,3 +1,4 @@
+import type { ModelMessage } from 'ai';
 import type { ModelSelection, TokenUsage, ToolResultInfo } from '../engine/types.js';
 
 /**
@@ -11,6 +12,7 @@ export interface SessionTurn {
   reasoning?: string;
   toolCalls: ToolResultInfo[];
   usage: TokenUsage;
+  rawMessages?: ModelMessage[];
 }
 
 /**

@@ -15,12 +15,12 @@ class ComponentNodeAdapter implements ComponentNode {
   }
 
   getLines(width: number, forceAll?: boolean): string[] {
-    return this.comp._getLines(forceAll);
+    return this.comp._getLines(width, forceAll);
   }
 
-  getCursorPosition(): { line: number; column: number } | null {
-    if (typeof this.comp.getCursorPosition === 'function') {
-      return this.comp.getCursorPosition();
+  getLogicalCursor(): { logicalLineIndex: number; characterOffsetWithinLine: number } | null {
+    if (typeof this.comp.getLogicalCursor === 'function') {
+      return this.comp.getLogicalCursor();
     }
     return null;
   }

@@ -111,9 +111,9 @@ export default class SessionMenu extends Component<SessionMenuProps, SessionMenu
     }
   }
 
-  override render(): string[] {
+  override render(width?: number): string[] {
     const theme = getTheme();
-    const termWidth = process.stdout.columns || 80;
+    const termWidth = width ?? process.stdout.columns ?? 80;
     const dividerWidth = Math.max(10, termWidth - 4);
     const { selectedIdx, query } = this.state;
     const filtered = this.getFiltered();

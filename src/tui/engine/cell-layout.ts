@@ -118,13 +118,39 @@ function groupIntoChunks(tokens: AnsiToken[]): LayoutChunk[] {
   return chunks;
 }
 
+export interface WrapResultWithCursor {
+  segments: string[];
+  cursorInLine: { segmentIndex: number; column: number } | null;
+}
+
 /**
- * Wraps `text` into lines that do not exceed `maxCols` display columns using word-boundary wrapping.
+ * Wraps `text` into lines that do not exceed `maxCols` display columns using word-boundary wrapping,
+ * and simultaneously maps a logical character offset to its physical (segmentIndex, column).
  * Automatically preserves and applies hanging indentation across wrapped lines.
  */
-export function wrapVisualLine(text: string, maxCols: number): string[] {
-  if (text.length === 0) return [''];
-  if (maxCols <= 0) return [text];
+export function wrapVisualLineWithCursor(
+  text: string,
+  maxCols: number,
+  targetCharOffset: number | null,
+): WrapResultWithCursor {
+  if (text.length === 0) {
+    return {
+      segments: [''],
+      cursorInLine: targetCharOffset !== null ? { segmentIndex: 0, column: 1 } : null,
+    };
+  }
+  if (maxCols <= 0) {
+    return {
+      segments: [text],
+      cursorInLine:
+        targetCharOffset !== null
+          ? {
+              segmentIndex: 0,
+              column: 1 + stringWidth(stripAnsi(text).slice(0, targetCharOffset)),
+            }
+          : null,
+    };
+  }
 
   const plainText = stripAnsi(text);
   let continuationIndent = '';
@@ -146,7 +172,13 @@ export function wrapVisualLine(text: string, maxCols: number): string[] {
     continuationIndent = '    ';
   } else if (plainText.startsWith('   ')) {
     continuationIndent = '   ';
-  } else if (plainText.startsWith('  ')) {
+  } else if (
+    plainText.startsWith('  ') ||
+    plainText.startsWith('> ') ||
+    plainText.startsWith('❯ ') ||
+    plainText.startsWith('› ') ||
+    plainText.startsWith('! ')
+  ) {
     continuationIndent = '  ';
   }
 
@@ -159,6 +191,11 @@ export function wrapVisualLine(text: string, maxCols: number): string[] {
   let activeFg: string | null = null;
   let activeBg: string | null = null;
   const activeModifiers = new Set<string>();
+
+  let plainCharIndex = 0;
+  let cursorFound = false;
+  let cursorSegment = 0;
+  let cursorColumn = 1;
 
   function updateActiveStyles(token: AnsiToken) {
     if (token.type !== 'ansi') return;
@@ -202,7 +239,6 @@ export function wrapVisualLine(text: string, maxCols: number): string[] {
       } else if ((code >= 30 && code <= 37) || (code >= 90 && code <= 97)) {
         activeFg = `\x1b[${code}m`;
       } else if (code === 38) {
-        // 38;5;n or 38;2;r;g;b
         if (params[i + 1] === 5 && i + 2 < params.length) {
           activeFg = `\x1b[38;5;${params[i + 2]}m`;
           i += 2;
@@ -215,7 +251,6 @@ export function wrapVisualLine(text: string, maxCols: number): string[] {
       } else if ((code >= 40 && code <= 47) || (code >= 100 && code <= 107)) {
         activeBg = `\x1b[${code}m`;
       } else if (code === 48) {
-        // 48;5;n or 48;2;r;g;b
         if (params[i + 1] === 5 && i + 2 < params.length) {
           activeBg = `\x1b[48;5;${params[i + 2]}m`;
           i += 2;
@@ -269,6 +304,14 @@ export function wrapVisualLine(text: string, maxCols: number): string[] {
     }
   }
 
+  function checkCursorAtCurrentToken() {
+    if (targetCharOffset !== null && !cursorFound && plainCharIndex === targetCharOffset) {
+      cursorFound = true;
+      cursorSegment = lines.length;
+      cursorColumn = 1 + currentWidth;
+    }
+  }
+
   for (const chunk of chunks) {
     for (const t of chunk.tokens) {
       updateActiveStyles(t);
@@ -277,13 +320,31 @@ export function wrapVisualLine(text: string, maxCols: number): string[] {
     if (chunk.isSpace) {
       // Leading whitespace (indentation) is always preserved
       if (currentWidth === 0) {
-        currentTokens.push(...chunk.tokens);
-        currentWidth += chunk.width;
+        for (const token of chunk.tokens) {
+          if (token.type === 'char') {
+            checkCursorAtCurrentToken();
+            plainCharIndex++;
+          }
+          currentTokens.push(token);
+          currentWidth += token.width;
+        }
       } else if (currentWidth + chunk.width <= maxCols) {
-        currentTokens.push(...chunk.tokens);
-        currentWidth += chunk.width;
+        for (const token of chunk.tokens) {
+          if (token.type === 'char') {
+            checkCursorAtCurrentToken();
+            plainCharIndex++;
+          }
+          currentTokens.push(token);
+          currentWidth += token.width;
+        }
       } else {
         // Trailing whitespace at end of line: emit line and drop trailing space
+        for (const token of chunk.tokens) {
+          if (token.type === 'char') {
+            checkCursorAtCurrentToken();
+            plainCharIndex++;
+          }
+        }
         emitCurrentLine();
       }
       continue;
@@ -291,15 +352,27 @@ export function wrapVisualLine(text: string, maxCols: number): string[] {
 
     // Word chunk (non-space)
     if (currentWidth + chunk.width <= maxCols) {
-      currentTokens.push(...chunk.tokens);
-      currentWidth += chunk.width;
+      for (const token of chunk.tokens) {
+        if (token.type === 'char') {
+          checkCursorAtCurrentToken();
+          plainCharIndex++;
+        }
+        currentTokens.push(token);
+        currentWidth += token.width;
+      }
     } else if (currentWidth > 0) {
       // Word doesn't fit on current line: wrap to new line first
       emitCurrentLine();
 
       if (currentWidth + chunk.width <= maxCols) {
-        currentTokens.push(...chunk.tokens);
-        currentWidth += chunk.width;
+        for (const token of chunk.tokens) {
+          if (token.type === 'char') {
+            checkCursorAtCurrentToken();
+            plainCharIndex++;
+          }
+          currentTokens.push(token);
+          currentWidth += token.width;
+        }
       } else {
         // Super-long word that exceeds maxCols on an empty line: break character-by-character
         for (const token of chunk.tokens) {
@@ -310,6 +383,8 @@ export function wrapVisualLine(text: string, maxCols: number): string[] {
           if (currentWidth + token.width > maxCols && currentWidth > 0) {
             emitCurrentLine();
           }
+          checkCursorAtCurrentToken();
+          plainCharIndex++;
           currentTokens.push(token);
           currentWidth += token.width;
         }
@@ -324,6 +399,8 @@ export function wrapVisualLine(text: string, maxCols: number): string[] {
         if (currentWidth + token.width > maxCols && currentWidth > 0) {
           emitCurrentLine();
         }
+        checkCursorAtCurrentToken();
+        plainCharIndex++;
         currentTokens.push(token);
         currentWidth += token.width;
       }
@@ -339,7 +416,25 @@ export function wrapVisualLine(text: string, maxCols: number): string[] {
     lines.push(lineStr);
   }
 
-  return lines;
+  if (targetCharOffset !== null && !cursorFound) {
+    cursorSegment = Math.max(0, lines.length - 1);
+    cursorColumn = 1 + currentWidth;
+    cursorFound = true;
+  }
+
+  return {
+    segments: lines,
+    cursorInLine:
+      targetCharOffset !== null ? { segmentIndex: cursorSegment, column: cursorColumn } : null,
+  };
+}
+
+/**
+ * Wraps `text` into lines that do not exceed `maxCols` display columns using word-boundary wrapping.
+ * Automatically preserves and applies hanging indentation across wrapped lines.
+ */
+export function wrapVisualLine(text: string, maxCols: number): string[] {
+  return wrapVisualLineWithCursor(text, maxCols, null).segments;
 }
 
 /**
@@ -359,13 +454,32 @@ export function measureNode(
 ): { rows: PhysicalRow[]; cursorWithinNode: { row: number; column: number } | null } {
   const logicalLines = node.getLines(contentWidth, forceAll);
   const rows: PhysicalRow[] = [];
-  const wrapSegmentCounts: number[] = [];
   const isWrappable = 'wrappable' in node ? Boolean((node as any).wrappable) : true;
+  const logicalCursor = node.getLogicalCursor ? node.getLogicalCursor() : null;
+
+  let cursorWithinNode: { row: number; column: number } | null = null;
 
   for (let lIdx = 0; lIdx < logicalLines.length; lIdx++) {
     const line = logicalLines[lIdx] ?? '';
-    const segments = isWrappable ? wrapVisualLine(line, contentWidth) : [line];
-    wrapSegmentCounts.push(segments.length);
+    const targetCharOffset =
+      logicalCursor && logicalCursor.logicalLineIndex === lIdx
+        ? logicalCursor.characterOffsetWithinLine
+        : null;
+
+    const { segments, cursorInLine } = isWrappable
+      ? wrapVisualLineWithCursor(line, contentWidth, targetCharOffset)
+      : {
+          segments: [line],
+          cursorInLine:
+            targetCharOffset !== null
+              ? {
+                  segmentIndex: 0,
+                  column: 1 + stringWidth(stripAnsi(line).slice(0, targetCharOffset)),
+                }
+              : null,
+        };
+
+    const lineStartRow = rows.length;
     for (let sIdx = 0; sIdx < segments.length; sIdx++) {
       rows.push({
         text: segments[sIdx] ?? '',
@@ -373,15 +487,11 @@ export function measureNode(
         wrapSegmentIndex: sIdx,
       });
     }
-  }
 
-  let cursorWithinNode: { row: number; column: number } | null = null;
-  if (node.getCursorPosition) {
-    const pos = node.getCursorPosition();
-    if (pos) {
+    if (cursorInLine && cursorWithinNode === null) {
       cursorWithinNode = {
-        row: pos.line,
-        column: pos.column,
+        row: lineStartRow + cursorInLine.segmentIndex,
+        column: cursorInLine.column,
       };
     }
   }

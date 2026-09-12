@@ -463,6 +463,13 @@ export class TUIApp {
               this.statusBar.update({
                 usage: this.session.session.totalUsage,
               });
+
+              if (event.summary.stopReason === 'step-limit') {
+                this.engine.commit(
+                  'system',
+                  formatSystemMessage('Step budget reached. Generation stopped early.'),
+                );
+              }
               break;
             }
             case 'error': {

@@ -139,9 +139,9 @@ export default class PermissionDock extends Component<PermissionDockProps, Permi
     }
   }
 
-  override render(): string[] {
+  override render(width?: number): string[] {
     const theme = getTheme();
-    const termWidth = process.stdout.columns || 80;
+    const termWidth = width ?? process.stdout.columns ?? 80;
     const dividerWidth = Math.max(10, termWidth - 4);
     const { request } = this.props;
     const { selectedIdx, isReviewing, reviewOffset } = this.state;

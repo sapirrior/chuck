@@ -1,6 +1,7 @@
 import { isStepCount, streamText, type LanguageModel, type ModelMessage } from 'ai';
+import { SAFETY_STEP_CEILING } from './constants.js';
 import type { AgentEventListener } from './events.js';
-import type { TokenUsage, ToolResultInfo, TurnSummary } from './types.js';
+import type { TokenUsage, ToolResultInfo, TurnStopReason, TurnSummary } from './types.js';
 
 export interface RunAgentTurnOptions {
   model: LanguageModel;
@@ -8,17 +9,27 @@ export interface RunAgentTurnOptions {
   instructions?: string;
   tools?: Record<string, any>;
   maxSteps?: number;
+  temperature?: number;
   abortSignal?: AbortSignal;
   onEvent?: AgentEventListener;
 }
 
-const DEFAULT_MAX_STEPS = 10;
+export { SAFETY_STEP_CEILING };
+
+/**
+ * Classifies the stop reason based on finish reason, step count, and abort state.
+ */
+function classifyStopReason(hitStepCeiling: boolean, wasAborted: boolean): TurnStopReason {
+  if (wasAborted) return 'aborted';
+  if (hitStepCeiling) return 'step-limit';
+  return 'natural';
+}
 
 /**
  * Runs a single agent turn with multi-step tool support and event streaming.
  */
 export async function runAgentTurn(options: RunAgentTurnOptions): Promise<TurnSummary> {
-  const maxSteps = options.maxSteps ?? DEFAULT_MAX_STEPS;
+  const maxSteps = options.maxSteps ?? SAFETY_STEP_CEILING;
   const toolResults: ToolResultInfo[] = [];
 
   let accumulatedText = '';
@@ -33,6 +44,7 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<TurnSu
       tools: options.tools,
       abortSignal: options.abortSignal,
       stopWhen: isStepCount(maxSteps),
+      ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
     });
 
     for await (const chunk of result.stream) {
@@ -139,6 +151,11 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<TurnSu
 
     const rawUsage = await result.usage;
     const finishReason = await result.finishReason;
+    const rawTurnMessages = (await result.responseMessages) as ModelMessage[];
+
+    const hitStepCeiling = stepIndex >= maxSteps;
+    const wasAborted = Boolean(options.abortSignal?.aborted);
+    const stopReason = classifyStopReason(hitStepCeiling, wasAborted);
 
     const usage: TokenUsage = {
       inputTokens: rawUsage.inputTokens ?? 0,
@@ -155,6 +172,8 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<TurnSu
       toolCalls: toolResults,
       usage,
       finishReason,
+      stopReason,
+      rawMessages: rawTurnMessages,
     };
 
     options.onEvent?.({

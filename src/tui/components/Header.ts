@@ -12,7 +12,7 @@ export interface HeaderProps {
 }
 
 export default class Header extends Component<HeaderProps> {
-  override render(): string[] {
+  override render(_width?: number): string[] {
     const theme = getTheme();
     const version = this.props.version ?? '0.1.0';
     const brandColor = themeColor(theme.brand);
