@@ -22,7 +22,7 @@ export default class Header extends Component<HeaderProps> {
     const logoL1 = brandColor(LOGO_LINES[1] ?? '');
     const logoL2 = brandColor(LOGO_LINES[2] ?? '');
 
-    const line0 = `${logoL0}  ${brandColor.bold('xd')} ${permColor(`v${version}`)}`;
+    const line0 = `${logoL0}  ${chalk.white.bold('xd')} ${permColor(`v${version}`)}`;
     const line1 = `${logoL1}  ${chalk.dim('Type ')}${brandColor('/')}${chalk.dim(' for commands')}`;
     const line2 = `${logoL2}`;
 
