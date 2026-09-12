@@ -1,10 +1,11 @@
 import type { DocumentTree } from './DocumentTree.js';
 import { computeDocumentFrame, type DocumentFrame } from './FrameBuffer.js';
+import { ScreenBuffer } from '../layout/ScreenBuffer.js';
 
 export default class StateRenderer {
   private syncActive = false;
-  /** Last painted lines — used for diffing on the next frame. */
-  private previousLines: string[] = [];
+  /** Last painted ScreenBuffer — used for diffing on the next frame. */
+  private previousBuffer: ScreenBuffer | null = null;
 
   private beginSync(): string {
     if (this.syncActive) return '';
@@ -37,33 +38,32 @@ export default class StateRenderer {
     );
 
     const nextLines = nextFrame.lines;
+    const currentBuffer = new ScreenBuffer(termWidth, termHeight);
+    for (let y = 0; y < nextLines.length && y < termHeight; y++) {
+      const line = nextLines[y] ?? '';
+      currentBuffer.blitText(0, y, termWidth - 1, line);
+    }
+
     let output = this.beginSync();
 
-    if (forceFull || this.previousLines.length === 0) {
+    if (forceFull || !this.previousBuffer) {
       // Full repaint: clear screen then write all lines top-to-bottom
       output += '\x1b[H\x1b[J';
-      for (let i = 0; i < nextLines.length; i++) {
-        const line = nextLines[i] ?? '';
+      for (let i = 0; i < termHeight; i++) {
+        const line = currentBuffer.getRow(i);
         const resetSuffix = line.includes('\x1b') && !line.endsWith('\x1b[0m') ? '\x1b[0m' : '';
         output +=
-          i === nextLines.length - 1 ? '\r' + line + resetSuffix : '\r' + line + resetSuffix + '\n';
+          i === termHeight - 1 ? '\r' + line + resetSuffix : '\r' + line + resetSuffix + '\n';
       }
     } else {
-      // Line-diff: only rewrite lines that changed
-      const maxLen = Math.max(nextLines.length, this.previousLines.length);
-      for (let i = 0; i < maxLen; i++) {
-        const next = nextLines[i];
-        const prev = this.previousLines[i];
-
-        if (next !== prev) {
-          if (next !== undefined && next.length > 0) {
-            // Move to row i+1 col 1, clear entire row first, then write line with reset
-            const resetSuffix = next.includes('\x1b') && !next.endsWith('\x1b[0m') ? '\x1b[0m' : '';
-            output += `\x1b[${i + 1};1H\x1b[2K${next}${resetSuffix}`;
-          } else {
-            // Clear entire row if line was removed or empty
-            output += `\x1b[${i + 1};1H\x1b[2K\x1b[0m`;
-          }
+      // ScreenBuffer-based diff: only rewrite rows that changed
+      const diffs = currentBuffer.diff(this.previousBuffer);
+      for (const { row, text } of diffs) {
+        if (text.length > 0) {
+          const resetSuffix = text.includes('\x1b') && !text.endsWith('\x1b[0m') ? '\x1b[0m' : '';
+          output += `\x1b[${row + 1};1H\x1b[2K${text}${resetSuffix}`;
+        } else {
+          output += `\x1b[${row + 1};1H\x1b[2K\x1b[0m`;
         }
       }
     }
@@ -81,7 +81,7 @@ export default class StateRenderer {
       process.stdout.write(output);
     }
 
-    this.previousLines = nextLines.slice();
+    this.previousBuffer = currentBuffer;
     return nextFrame;
   }
 
@@ -90,6 +90,6 @@ export default class StateRenderer {
    * Called when the alternate screen is re-entered or history is flushed.
    */
   clearPreviousFrameRecord(): void {
-    this.previousLines = [];
+    this.previousBuffer = null;
   }
 }
