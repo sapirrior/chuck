@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 import { TUIApp } from './tui/index.js';
 import { AgentSession } from './engine/index.js';
 
