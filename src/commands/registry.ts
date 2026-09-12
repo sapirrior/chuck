@@ -2,6 +2,7 @@ import { clearCommand } from './clear/index.js';
 import { exitCommand, quitCommand } from './exit/index.js';
 import { modelCommand } from './model/index.js';
 import { resumeCommand } from './resume/index.js';
+import { skillsCommand } from './skills/index.js';
 import type { CommandContext, CommandResult, SlashCommand } from './types.js';
 
 export class CommandRegistry {
@@ -65,6 +66,7 @@ export const builtInCommands: SlashCommand[] = [
   exitCommand,
   quitCommand,
   resumeCommand,
+  skillsCommand,
 ];
 
 /**

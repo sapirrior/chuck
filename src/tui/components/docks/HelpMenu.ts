@@ -53,8 +53,8 @@ export default class HelpMenu extends Component<HelpMenuProps> {
 
     const col3 = [
       '/model to change model',
+      '/skills to list skills',
       '/clear to clear context',
-      '/new to start new session',
       '? for shortcuts',
     ];
 

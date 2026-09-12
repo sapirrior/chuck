@@ -2,6 +2,7 @@ export * from './config/index.js';
 export * from './models/index.js';
 export * from './engine/index.js';
 export * from './session/index.js';
+export * from './skills/index.js';
 export * from './tools/index.js';
 export * from './commands/index.js';
 export * from './utils/index.js';

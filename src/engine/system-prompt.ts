@@ -1,5 +1,8 @@
+import { discoverSkills, formatSkillsForSystemPrompt, type Skill } from '../skills/index.js';
+
 export interface SystemPromptOptions {
   cwd?: string;
+  skills?: Skill[];
   userRules?: string[];
   extraInstructions?: string;
 }
@@ -11,6 +14,7 @@ export function buildSystemPrompt(options: SystemPromptOptions = {}): string {
   const cwd = options.cwd ?? process.cwd();
   const year = new Date().getUTCFullYear();
   const platform = process.platform;
+  const skills = options.skills ?? discoverSkills(cwd);
 
   let prompt = `<role>
 You are xd, an interactive AI agent that lives in the terminal and helps users with software engineering and everyday technical tasks.
@@ -53,6 +57,7 @@ Users can run slash commands directly in the prompt box:
 - /model — switch the active AI model or provider
 - /clear — clear the current conversation context
 - /resume — resume a previous session
+- /skills — list available specialized skills
 - /exit or /quit — exit xd
 - /help — show available commands
 Users can also type ? in an empty prompt to open the keyboard shortcuts help panel.
@@ -75,6 +80,11 @@ cwd: ${cwd}
 platform: ${platform}
 year: ${year}
 </context>`;
+
+  const skillsPrompt = formatSkillsForSystemPrompt(skills);
+  if (skillsPrompt) {
+    prompt += `\n\n${skillsPrompt}`;
+  }
 
   if (options.userRules && options.userRules.length > 0) {
     prompt += `\n\n<user_defined_rules>\n${options.userRules.map((rule) => `- ${rule}`).join('\n')}\n</user_defined_rules>`;
