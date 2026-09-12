@@ -53,7 +53,7 @@ export const darkTheme: UITheme = {
   textMuted: 'rgb(110,110,110)', // #6E6E6E
   subtle: 'rgb(80,80,80)', // Dark gray (#505050)
   inactive: 'rgb(153,153,153)', // Muted gray
-  promptBorder: 'rgb(136,136,136)',
+  promptBorder: 'rgb(255,255,255)', // White
   userCardBg: 'rgb(38,38,38)', // #262626 shaded user message background
   userChevron: 'rgb(82,82,82)', // #525252
   toolHeaderBg: 'rgb(35,35,40)',
