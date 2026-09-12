@@ -1,154 +1,208 @@
 # xd
 
-An ultra-fast, lightweight general-purpose AI terminal agent built natively for [Bun](https://bun.sh) with TypeScript, Vercel AI SDK, and a high-performance declarative TUI engine.
+**The AI coding agent built for the terminal.**  
+Blazing fast, model-agnostic, and crafted natively for developers who live in their shell.
 
 ---
 
 > [!IMPORTANT]
-> **Active Development / Beta:** `xd` is currently under active development. APIs, commands, and interfaces may evolve rapidly. Feedback, bug reports, and pull requests are warmly welcomed.
+> **Active Development / Beta:** `xd` is currently in active development. Features and interfaces are evolving quickly. Feedback and contributions are warmly welcomed.
 
 ---
 
-## Installation
+## Why xd?
 
-### Unix / Linux / macOS / Termux
+Most AI coding assistants force you into heavy browser interfaces or slow Electron apps. `xd` brings autonomous pair programming straight to your command line:
 
-Run the following command in your terminal:
+- **Instant & Lightweight:** Starts in milliseconds natively with [Bun](https://bun.sh) — zero bloat, zero Electron memory footprint.
+- **Zero-Flicker Alternate Screen TUI:** Powered by Mode 2026 atomic updates and line-differential rendering for fluid terminal interactions.
+- **Any LLM Provider:** Switch seamlessly between Anthropic, Google Gemini, OpenAI, or your own local/custom OpenAI-compatible models.
+- **Safe & Autonomous:** Inspect code diffs, run commands with granular permission gates, search workspaces, and fetch live web intelligence.
+- **Built for Deep Flow:** Keyboard-driven navigation, multi-line editing, session resume, and `@` file mentions.
+
+---
+
+```text
+ ▛███▜   xd v0.1.1
+▀█████▀  AI can make mistakes. Verify important info.
+ ▘▘ ▝▝
+
+────────────────────────────────────────────────────────────────────────────────
+> Refactor the authentication loop and add token rotation
+────────────────────────────────────────────────────────────────────────────────
+? for shortcuts                                            claude-3-7-sonnet
+```
+
+---
+
+## Quick Install
+
+### Linux, macOS & Termux
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/sapirrior/xd/main/installer/install.sh | bash
 ```
 
-This script automatically detects your platform (Linux x64/ARM64, macOS Intel/Apple Silicon, Termux), downloads the pre-compiled binary, and installs it to `~/.local/bin` or `$PREFIX/bin`.
+_Automatically detects Linux (x64/ARM64), macOS (Apple Silicon/Intel), and Termux, installing `xd` directly into your path._
 
 ### Windows (PowerShell)
-
-Run the following command in PowerShell:
 
 ```powershell
 irm https://raw.githubusercontent.com/sapirrior/xd/main/installer/install.ps1 | iex
 ```
 
-### Run from Source with Bun
+### Install from Source
 
 ```bash
-# Clone the repository
 git clone https://github.com/sapirrior/xd.git
 cd xd
-
-# Install dependencies
 bun install
-
-# Run directly
 bun run start
 ```
 
 ---
 
-## Features
+## Connect Your Models
 
-- **Alternate-Screen TUI Engine:** Zero-flicker differential line-rendering engine utilizing Mode 2026 Synchronized Output and a 2D integer cell buffer.
-- **Declarative UI Primitives:** Composable layout primitives (`Box`, `Text`, `SelectList`, `ModalBox`, `KeyReader`) with full ANSI styling and strict overflow boundaries (`wrap`, `clip`, `ellipsis`).
-- **Multi-Provider LLM Orchestration:** Seamless support for Anthropic (Claude 3.5/3.7), OpenAI (GPT-4o, o1/o3), Google Gemini (2.0 Flash/Pro), Ollama, and OpenAI-compatible providers.
-- **Agentic Tool Calling:**
-  - File Operations: Safe diff-preview file editing, whole file creation, directory tree inspection, and fuzzy file search.
-  - Shell Execution: Interactive bash commands with permission gates, full diff review, and inline execution.
-  - Web Intelligence: Live web search and clean markdown web fetching.
-- **Session Continuity:** Instant resume of past conversation sessions with turn tracking and metadata search via `/resume`.
-- **Extensible Skills & Commands:** Discover and activate local skill documents and slash commands on the fly.
-- **Cross-Platform Standalone Binaries:** Single executable binaries for Linux (x64/ARM64), macOS (Intel/Apple Silicon), and Windows with zero runtime dependencies.
+`xd` works with leading cloud frontier models as well as local models and self-hosted endpoints.
 
----
+### 1. Cloud Providers
 
-## Quick Start & API Keys
-
-Set your preferred provider API keys in your environment (or inside a `.env` file):
+Add your API key to your environment or `.env` file:
 
 ```bash
-# Anthropic
-export ANTHROPIC_API_KEY="your-anthropic-key"
+# Anthropic (Claude 3.7 Sonnet, Claude 3.5 Sonnet)
+export ANTHROPIC_API_KEY="sk-ant-..."
 
-# OpenAI
-export OPENAI_API_KEY="your-openai-key"
+# Google Gemini (Gemini 2.5 Flash, Gemini 2.5 Pro)
+export GEMINI_API_KEY="AIzaSy..."
 
-# Google Gemini
-export GEMINI_API_KEY="your-gemini-key"
-```
-
-Launch `xd`:
-
-```bash
-xd
+# OpenAI (GPT-4o, o3-mini, o1)
+export OPENAI_API_KEY="sk-..."
 ```
 
 ---
 
-## Shortcuts & Navigation
+### 2. Custom Endpoints & Local Models (Ollama, DeepSeek, LM Studio, vLLM, OpenRouter, Groq)
 
-| Key                              | Action                                             |
-| :------------------------------- | :------------------------------------------------- |
-| `!`                              | Prefix to run a shell command directly (bash mode) |
-| `@`                              | Fuzzy-search and mention workspace files           |
-| `?`                              | Toggle shortcuts modal                             |
-| `/`                              | Open slash command palette                         |
-| `Esc Esc`                        | Double-tap to clear input prompt / cancel modal    |
-| `Shift + Enter` (or `\ + Enter`) | Insert a newline into the prompt                   |
-| `Ctrl + C`                       | Abort active model generation / exit               |
-| `PgUp / PgDn`                    | Scroll message scrollback history                  |
-| `↑ / ↓`                          | Navigate command history / select menu items       |
+Connect `xd` to any custom OpenAI-compatible server or local model runner using `CUSTOM_API_URL`, `CUSTOM_API_MODEL_NAME`, and `CUSTOM_API_KEY`:
+
+#### Local Ollama
+
+```bash
+export CUSTOM_API_URL="http://localhost:11434/v1"
+export CUSTOM_API_MODEL_NAME="qwen2.5-coder:32b"
+# Optional dummy key for local endpoints
+export CUSTOM_API_KEY="ollama"
+```
+
+#### LM Studio / vLLM / LocalAI
+
+```bash
+export CUSTOM_API_URL="http://localhost:1234/v1"
+export CUSTOM_API_MODEL_NAME="deepseek-r1-distill-qwen-32b"
+```
+
+#### DeepSeek API
+
+```bash
+export CUSTOM_API_URL="https://api.deepseek.com/v1"
+export CUSTOM_API_MODEL_NAME="deepseek-chat"
+export CUSTOM_API_KEY="your-deepseek-api-key"
+```
+
+#### OpenRouter / Groq / Together AI
+
+```bash
+# OpenRouter
+export CUSTOM_API_URL="https://openrouter.ai/api/v1"
+export CUSTOM_API_MODEL_NAME="anthropic/claude-3.7-sonnet"
+export CUSTOM_API_KEY="your-openrouter-key"
+
+# Groq
+export CUSTOM_API_URL="https://api.groq.com/openai/v1"
+export CUSTOM_API_MODEL_NAME="llama-3.3-70b-versatile"
+export CUSTOM_API_KEY="your-groq-key"
+```
+
+---
+
+## Interactive Workflow
+
+### Switch Models on the Fly (`/model`)
+
+Type `/model` inside `xd` to open the interactive model picker. Instantly switch between configured providers and models without restarting your session.
+
+### Mention Files with `@`
+
+Type `@` followed by any filename (e.g. `@app.ts` or `@auth/login`) to fuzzy-search and attach context files directly into your prompt.
+
+### Run Shell Commands with `!`
+
+Type `!` to switch to bash execution mode and run shell commands directly inside your session without leaving the agent.
+
+### Safe Diff Reviews
+
+Before `xd` modifies any file, it presents a side-by-side or unified colored diff preview:
+
+- `1` or `y`: Allow change once
+- `2` or `a`: Allow all edits for the session
+- `3` or `n`: Deny change
+- `f`: Open scrollable full-screen diff review
+
+---
+
+## Keyboard Shortcuts
+
+| Key             | Action                                 |
+| :-------------- | :------------------------------------- |
+| `!`             | Bash command execution mode            |
+| `@`             | Mention & fuzzy-search workspace files |
+| `?`             | Toggle shortcuts modal                 |
+| `/`             | Open slash commands menu               |
+| `Esc Esc`       | Clear input prompt / dismiss dialogs   |
+| `Shift + Enter` | Insert newline in multi-line prompts   |
+| `Ctrl + C`      | Abort current generation / exit        |
+| `PgUp / PgDn`   | Scroll through session history         |
+| `↑ / ↓`         | Navigate history and menu selections   |
 
 ---
 
 ## Slash Commands
 
-| Command          | Description                                                        |
-| :--------------- | :----------------------------------------------------------------- |
-| `/model`         | Open the interactive model picker to switch LLM providers & models |
-| `/resume`        | Browse and resume previous conversation sessions                   |
-| `/skills`        | List discovered agent skills and available capabilities            |
-| `/clear`         | Clear the active conversation context and start fresh              |
-| `/rename <name>` | Rename the current session                                         |
-| `/exit`          | Exit the interactive session                                       |
+| Command          | Action                                           |
+| :--------------- | :----------------------------------------------- |
+| `/model`         | Switch active LLM provider or model              |
+| `/resume`        | Browse and resume previous conversation sessions |
+| `/skills`        | Inspect discovered agent skills and capabilities |
+| `/clear`         | Clear conversation context and start fresh       |
+| `/rename <name>` | Rename current session                           |
+| `/exit`          | Exit `xd`                                        |
 
 ---
 
-## Architecture & Source Tree
+## Project Architecture
 
 ```
 src/
-├── engine/       # Agent loop, model orchestration, system prompts, events
-├── tools/        # Built-in tools (edit_file, read_file, run_command, web_search, etc.)
-├── tui/          # TUI engine, ScreenBuffer, StateRenderer, declarative primitives
+├── engine/       # Agent execution loop, multi-provider model routing, system prompt
+├── tools/        # File edits, terminal commands, directory tree, web search & fetch
+├── tui/          # Alternate-screen renderer, ScreenBuffer, declarative layout
 │   ├── primitives/   # Box, Text, SelectList, ModalBox, KeyReader
-│   ├── components/   # Header, PromptInput, StatusBar, StreamingView, docks
-│   └── engine/       # Component lifecycle, DocumentTree, cell layout, buffers
-├── commands/     # Slash command registry and command implementations
-├── models/       # Model discovery and provider initialization
-├── session/      # Persistent session store (JSON storage)
-├── skills/       # Dynamic skill discovery from .agents/skills/
-├── theme/        # Theme palette, Unicode figures, and logo glyphs
+│   ├── components/   # Header, PromptInput, StatusBar, StreamingView, Docks
+│   └── engine/       # DocumentTree, CellLayout, FrameBuffer
+├── commands/     # Slash commands (/model, /resume, /skills, /clear, etc.)
+├── session/      # Session persistence and conversation storage
+├── skills/       # Dynamic skill discovery
+├── theme/        # Theme palettes, TrueColor & ANSI fallbacks, figures
 └── utils/        # ANSI tokenizers, diffing, markdown renderers
 ```
 
 ---
 
-## Development & Build Scripts
-
-| Command              | Description                                     |
-| :------------------- | :---------------------------------------------- |
-| `bun run dev`        | Run directly from source in watch mode          |
-| `bun run start`      | Start interactive CLI session                   |
-| `bun run build`      | Bundle to `./dist/cli.js` (Node-compatible ESM) |
-| `bun run compile`    | Compile standalone binary to `./dist/xd`        |
-| `bun run format`     | Check formatting with Prettier                  |
-| `bun run format:fix` | Automatically fix formatting                    |
-| `bun test`           | Run test suite                                  |
-
----
-
 ## Contributing
 
-Contributions are welcome. Please review [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) before submitting a pull request.
+We love contributions! Check out [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) for guidelines on code style, conventional commits, and architecture boundaries.
 
 ---
 
