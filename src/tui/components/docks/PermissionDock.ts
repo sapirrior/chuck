@@ -3,8 +3,8 @@ import type { ConfirmationDecision, ConfirmationRequest } from '../../../tools/t
 import { getTheme, figures } from '../../../theme/index.js';
 import { themeColor, chalk } from '../../utils/format.js';
 import { computeLineDiff, type DiffLine } from '../../../utils/diff.js';
-import { Box } from '../../primitives/Box.js';
-import { Text } from '../../primitives/Text.js';
+import { Box, type BoxElement } from '../../primitives/Box.js';
+import { Text, type TextElement } from '../../primitives/Text.js';
 import { renderKeyHints } from '../../primitives/widgets/ModalBox.js';
 import { parseKeyInput } from '../../primitives/widgets/KeyReader.js';
 
@@ -153,24 +153,23 @@ export default class PermissionDock extends Component<PermissionDockProps, Permi
     const { request } = this.props;
     const { selectedIdx, isReviewing, reviewOffset } = this.state;
 
-    const lines: string[] = [];
+    const elements: (BoxElement | TextElement | string)[] = [];
     const lavLight = themeColor(theme.lavenderLight);
     const dashRule = themeColor(theme.dashedRule);
 
     // Title / Header
-    lines.push(
-      new Text({
-        content: `Permission Required: ${request.displayName}`,
+    elements.push(
+      Text(`Permission Required: ${request.displayName}`, {
         color: theme.lavenderLight,
         bold: true,
         overflow: 'hidden',
         truncation: 'clip',
-      }).render(maxCols)[0] ?? '',
+      }),
     );
 
     // Diff preview for file ops
     if (this.diffLines.length > 0) {
-      lines.push(dashRule(figures.horizontalLine.repeat(dividerWidth)));
+      elements.push(Text(dashRule(figures.horizontalLine.repeat(dividerWidth))));
       const maxPreview = 8;
       const reviewWindowSize = 10;
       let visibleLines: DiffLine[] = [];
@@ -207,22 +206,24 @@ export default class PermissionDock extends Component<PermissionDockProps, Permi
 
         const cursorStr = isCursorLine ? lavLight('> ') : '  ';
         if (line.kind === 'hunk') {
-          lines.push(`${cursorStr}   ${lineText}`);
+          elements.push(Text(`${cursorStr}   ${lineText}`));
         } else {
-          lines.push(`${cursorStr}${chalk.dim(`${lineNum} ${line.prefix} `)}${lineText}`);
+          elements.push(Text(`${cursorStr}${chalk.dim(`${lineNum} ${line.prefix} `)}${lineText}`));
         }
       }
 
       if (!isReviewing && this.diffLines.length > maxPreview) {
-        lines.push(
-          chalk.dim(
-            `  ... (${this.diffLines.length - maxPreview} more lines, press 'f' to review)`,
+        elements.push(
+          Text(
+            chalk.dim(
+              `  ... (${this.diffLines.length - maxPreview} more lines, press 'f' to review)`,
+            ),
           ),
         );
       }
-      lines.push(dashRule(figures.horizontalLine.repeat(dividerWidth)));
+      elements.push(Text(dashRule(figures.horizontalLine.repeat(dividerWidth))));
     } else if (request.toolName === 'run_command' && (request.args as any)?.command) {
-      lines.push(dashRule(figures.horizontalLine.repeat(dividerWidth)));
+      elements.push(Text(dashRule(figures.horizontalLine.repeat(dividerWidth))));
       const pink = themeColor(theme.bashPink);
       const cmdRaw: string = (request.args as any).command;
       const cmdLines = cmdRaw.split('\n');
@@ -243,17 +244,19 @@ export default class PermissionDock extends Component<PermissionDockProps, Permi
       for (let i = 0; i < visibleCmdLines.length; i++) {
         const cl = visibleCmdLines[i] ?? '';
         const p = i === 0 ? pink('$ ') : '  ';
-        lines.push(`  ${p}${chalk.white(cl)}`);
+        elements.push(Text(`  ${p}${chalk.white(cl)}`));
       }
 
       if (!isReviewing && cmdLines.length > maxPreview) {
-        lines.push(
-          chalk.dim(`  ... (${cmdLines.length - maxPreview} more lines, press 'f' to review)`),
+        elements.push(
+          Text(
+            chalk.dim(`  ... (${cmdLines.length - maxPreview} more lines, press 'f' to review)`),
+          ),
         );
       }
-      lines.push(dashRule(figures.horizontalLine.repeat(dividerWidth)));
+      elements.push(Text(dashRule(figures.horizontalLine.repeat(dividerWidth))));
     } else if (request.promptTitle) {
-      lines.push(chalk.dim(`  ${request.promptTitle}`));
+      elements.push(Text(chalk.dim(`  ${request.promptTitle}`)));
     }
 
     const options = [
@@ -269,26 +272,30 @@ export default class PermissionDock extends Component<PermissionDockProps, Permi
       const label = isSelected
         ? themeColor(theme.info)(`${opt.key}. ${opt.label}`)
         : chalk.dim(`${opt.key}. ${opt.label}`);
-      lines.push(`${pointer}${label}`);
+      elements.push(Text(`${pointer}${label}`));
     }
 
-    lines.push(
-      renderKeyHints([
-        { key: '1/2/3', label: 'choose' },
-        { key: '↑/↓', label: 'nav' },
-        { key: 'Enter', label: 'select' },
-        { key: 'Esc', label: 'deny' },
-      ]),
+    elements.push(
+      Text(
+        renderKeyHints([
+          { key: '1/2/3', label: 'choose' },
+          { key: '↑/↓', label: 'nav' },
+          { key: 'Enter', label: 'select' },
+          { key: 'Esc', label: 'deny' },
+        ]),
+      ),
     );
 
-    const box = new Box({
-      border: 'top-bottom',
-      borderColor: theme.lavenderHeader,
-      width: maxCols,
-      overflow: 'hidden',
-      truncation: 'clip',
-      children: lines,
-    });
+    const box = Box(
+      {
+        border: 'top-bottom',
+        borderColor: theme.lavenderHeader,
+        width: maxCols,
+        overflow: 'hidden',
+        truncation: 'clip',
+      },
+      elements,
+    );
 
     return box.render(maxCols);
   }
