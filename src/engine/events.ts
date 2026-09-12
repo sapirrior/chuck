@@ -2,7 +2,7 @@ import type { TokenUsage, ToolCallInfo, ToolResultInfo, TurnSummary } from './ty
 
 /**
  * Strongly-typed domain events emitted by the agent runner.
- * The Ink presentation layer (or any headless caller) subscribes to these.
+ * The TUI presentation layer (or any headless caller) subscribes to these.
  */
 export type AgentEvent =
   | {
