@@ -1,6 +1,6 @@
 import type TerminalEngine from './TerminalEngine.js';
 
-export type ComponentOverflow = 'wrap' | 'hidden';
+export type ComponentOverflow = 'wrap' | 'hidden' | 'visible';
 export type ComponentTruncation = 'clip' | 'ellipsis' | 'none';
 
 /**

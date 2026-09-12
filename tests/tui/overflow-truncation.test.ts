@@ -79,7 +79,7 @@ describe('Component Overflow and Truncation Invariants', () => {
     expect(status.truncation).toBe('clip');
 
     const header = new Header({ version: '1.0.0' });
-    expect(header.overflow).toBe('wrap');
+    expect(header.overflow).toBe('visible');
     expect(header.truncation).toBe('none');
 
     const cmdPalette = new CommandPalette({

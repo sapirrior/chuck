@@ -12,7 +12,7 @@ export interface HeaderProps {
 }
 
 export default class Header extends Component<HeaderProps> {
-  override overflow = 'wrap' as const;
+  override overflow = 'visible' as const;
   override truncation = 'none' as const;
 
   override render(_width?: number): string[] {
