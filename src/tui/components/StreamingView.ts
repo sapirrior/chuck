@@ -1,6 +1,6 @@
 import Component from '../engine/Component.js';
 import { getTheme, figures } from '../../theme/index.js';
-import { themeColor, chalk, formatMarkdown } from '../utils/format.js';
+import { themeColor, chalk, formatMarkdown, truncateToWidth } from '../utils/format.js';
 import { wrapVisualLine } from '../engine/cell-layout.js';
 
 export interface StreamingViewState {
@@ -27,9 +27,13 @@ export default class StreamingView extends Component<{}, StreamingViewState> {
     this.setState({ reasoning: '', text: '', isStreaming: false });
   }
 
-  override render(): string[] {
+  override render(width?: number): string[] {
     const { reasoning, text, isStreaming } = this.state;
     if (!isStreaming && !reasoning && !text) return [];
+
+    const termWidth = width ?? process.stdout.columns ?? 80;
+    const maxCols = Math.max(0, termWidth - 1);
+    const contentWidth = Math.max(10, Math.min(96, maxCols));
 
     const lines: string[] = [];
     const theme = getTheme();
@@ -38,7 +42,10 @@ export default class StreamingView extends Component<{}, StreamingViewState> {
       const ast = chalk.dim.italic(`${figures.teardropAsterisk} ${reasoning}`);
       const rLines = ast.split('\n');
       for (const rl of rLines) {
-        lines.push(`  ${rl}`);
+        const wrapped = wrapVisualLine(rl, contentWidth);
+        for (const wl of wrapped) {
+          lines.push(`  ${wl}`);
+        }
       }
     }
 
@@ -52,7 +59,7 @@ export default class StreamingView extends Component<{}, StreamingViewState> {
           if (!fl.trim()) {
             wrappedLines.push('');
           } else {
-            const wrapped = wrapVisualLine(fl, 96);
+            const wrapped = wrapVisualLine(fl, contentWidth);
             for (const wl of wrapped) {
               wrappedLines.push(wl);
             }
@@ -75,6 +82,6 @@ export default class StreamingView extends Component<{}, StreamingViewState> {
       }
     }
 
-    return lines;
+    return lines.map((l) => truncateToWidth(l, maxCols));
   }
 }

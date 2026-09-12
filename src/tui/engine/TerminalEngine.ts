@@ -175,7 +175,7 @@ export default class TerminalEngine {
 
   ensureAlternateScreen(): void {
     if (!this.inAlternateScreen) {
-      process.stdout.write('\x1b[?1049h\x1b[?1004h\x1b[H');
+      process.stdout.write('\x1b[?1049h\x1b[?1004h\x1b[?7l\x1b[H');
       this.inAlternateScreen = true;
       if (process.stdin.isTTY) {
         process.stdin.setRawMode(true);
@@ -189,7 +189,7 @@ export default class TerminalEngine {
   cleanupSync(): void {
     this.showCursor();
     if (this.inAlternateScreen) {
-      process.stdout.write('\x1b[?1004l\x1b[?1049l');
+      process.stdout.write('\x1b[?7h\x1b[?1004l\x1b[?1049l');
       this.inAlternateScreen = false;
       try {
         if (process.stdin.isTTY) process.stdin.setRawMode(false);
@@ -200,7 +200,7 @@ export default class TerminalEngine {
   async exitAlternateScreen(): Promise<void> {
     this.showCursor();
     if (this.inAlternateScreen) {
-      process.stdout.write('\x1b[?1004l\x1b[?1049l');
+      process.stdout.write('\x1b[?7h\x1b[?1004l\x1b[?1049l');
       this.inAlternateScreen = false;
       if (process.stdin.isTTY) {
         process.stdin.off('data', this.inputHandler);

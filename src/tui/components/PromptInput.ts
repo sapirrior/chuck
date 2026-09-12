@@ -3,7 +3,7 @@ import { defaultCommandRegistry } from '../../commands/registry.js';
 import type { SlashCommand } from '../../commands/types.js';
 import { searchWorkspaceFiles } from '../../utils/file-search.js';
 import { getTheme, figures } from '../../theme/index.js';
-import { themeColor, chalk } from '../utils/format.js';
+import { themeColor, chalk, truncateToWidth } from '../utils/format.js';
 
 export interface PromptInputProps {
   onSubmit: (text: string, isBash?: boolean) => void;
@@ -495,7 +495,8 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
   override render(width?: number): string[] {
     const theme = getTheme();
     const termWidth = width ?? process.stdout.columns ?? 80;
-    const dividerWidth = Math.max(10, termWidth - 1);
+    const maxCols = Math.max(0, termWidth - 1);
+    const dividerWidth = Math.max(1, maxCols);
     const {
       value,
       cursorPos,
@@ -553,7 +554,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
       lines.push(chalk.dim('Generating response… (Esc to stop)'));
       // Bottom Border
       lines.push(borderColor(figures.horizontalLine.repeat(dividerWidth)));
-      return lines;
+      return lines.map((l) => truncateToWidth(l, maxCols));
     }
 
     // Top Border
@@ -613,6 +614,6 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
       }
     }
 
-    return lines;
+    return lines.map((l) => truncateToWidth(l, maxCols));
   }
 }

@@ -1,8 +1,31 @@
 import stringWidth from 'string-width';
 import stripAnsi from 'strip-ansi';
+import { appendFileSync } from 'node:fs';
+import { truncateToWidth } from '../utils/format.js';
 import type { ComponentNode, DocumentTree } from './DocumentTree.js';
 
 export const MAX_READABLE_WIDTH = 100;
+
+export function assertRowWidth(row: string, maxCols: number): string {
+  if (maxCols <= 0) return '';
+  const visWidth = stringWidth(stripAnsi(row));
+  if (visWidth > maxCols) {
+    if (process.env.DEBUG_TUI_OVERFLOW) {
+      try {
+        const logPath =
+          process.env.DEBUG_TUI_OVERFLOW === '1'
+            ? 'tui-overflow.log'
+            : process.env.DEBUG_TUI_OVERFLOW;
+        appendFileSync(
+          logPath,
+          `[TUI OVERFLOW] width=${visWidth} maxCols=${maxCols} row=${JSON.stringify(row)}\n`,
+        );
+      } catch {}
+    }
+    return truncateToWidth(row, maxCols);
+  }
+  return row;
+}
 
 export interface PhysicalRow {
   /** The literal string to draw for this row (may contain ANSI SGR codes). */
@@ -486,7 +509,7 @@ export function measureNode(
     const lineStartRow = rows.length;
     for (let sIdx = 0; sIdx < segments.length; sIdx++) {
       rows.push({
-        text: segments[sIdx] ?? '',
+        text: assertRowWidth(segments[sIdx] ?? '', contentWidth),
         sourceLineIndex: lIdx,
         wrapSegmentIndex: sIdx,
       });

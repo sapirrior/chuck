@@ -1,7 +1,7 @@
 import Component from '../../engine/Component.js';
 import type { SessionData } from '../../../session/types.js';
 import { getTheme, figures } from '../../../theme/index.js';
-import { themeColor, chalk } from '../../utils/format.js';
+import { themeColor, chalk, stripAnsi, truncateToWidth } from '../../utils/format.js';
 import stringWidth from 'string-width';
 
 export interface SessionMenuProps {
@@ -114,7 +114,8 @@ export default class SessionMenu extends Component<SessionMenuProps, SessionMenu
   override render(width?: number): string[] {
     const theme = getTheme();
     const termWidth = width ?? process.stdout.columns ?? 80;
-    const dividerWidth = Math.max(10, termWidth - 4);
+    const maxCols = Math.max(0, termWidth - 1);
+    const dividerWidth = Math.max(1, Math.min(termWidth - 4, maxCols));
     const { selectedIdx, query } = this.state;
     const filtered = this.getFiltered();
 
@@ -129,7 +130,7 @@ export default class SessionMenu extends Component<SessionMenuProps, SessionMenu
     const titleRight = chalk.dim(`${filtered.length} session${filtered.length !== 1 ? 's' : ''}`);
     const spCount = Math.max(
       1,
-      termWidth - stringWidth('Resume Session') - stringWidth(titleRight) - 4,
+      maxCols - stringWidth(stripAnsi(titleLeft)) - stringWidth(stripAnsi(titleRight)),
     );
     lines.push(`${titleLeft}${' '.repeat(spCount)}${titleRight}`);
 
@@ -161,7 +162,7 @@ export default class SessionMenu extends Component<SessionMenuProps, SessionMenu
         const firstMessage = s.name || s.turns?.[0]?.userPrompt || 'Untitled Session';
 
         const metaInfo = `${s.date} · ${s.turns.length} turns`;
-        const maxTitleLen = Math.max(20, termWidth - metaInfo.length - 20);
+        const maxTitleLen = Math.max(10, maxCols - metaInfo.length - 15);
         const displayTitle =
           firstMessage.length > maxTitleLen
             ? `${firstMessage.slice(0, maxTitleLen - 1)}…`
@@ -174,13 +175,13 @@ export default class SessionMenu extends Component<SessionMenuProps, SessionMenu
 
         const pad = Math.max(
           1,
-          termWidth - stringWidth(displayTitle) - stringWidth(shortId) - stringWidth(metaInfo) - 10,
+          maxCols - stringWidth(stripAnsi(leftStr)) - stringWidth(stripAnsi(rightStr)),
         );
         lines.push(`${leftStr}${' '.repeat(pad)}${rightStr}`);
       }
     }
 
     lines.push(chalk.dim.italic('↑/↓ scroll · Enter to resume · Esc to cancel'));
-    return lines;
+    return lines.map((l) => truncateToWidth(l, maxCols));
   }
 }

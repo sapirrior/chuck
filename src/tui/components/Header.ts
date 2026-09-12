@@ -1,6 +1,6 @@
 import Component from '../engine/Component.js';
 import { getTheme, LOGO_LINES } from '../../theme/index.js';
-import { themeColor, chalk } from '../utils/format.js';
+import { themeColor, chalk, truncateToWidth } from '../utils/format.js';
 
 export interface HeaderProps {
   version?: string;
@@ -12,11 +12,13 @@ export interface HeaderProps {
 }
 
 export default class Header extends Component<HeaderProps> {
-  override render(_width?: number): string[] {
+  override render(width?: number): string[] {
     const theme = getTheme();
     const version = this.props.version ?? '0.1.0';
     const brandColor = themeColor(theme.brand);
     const permColor = themeColor(theme.permission);
+    const termWidth = width ?? process.stdout.columns ?? 80;
+    const maxCols = Math.max(0, termWidth - 1);
 
     const logoL0 = brandColor(LOGO_LINES[0] ?? '');
     const logoL1 = brandColor(LOGO_LINES[1] ?? '');
@@ -26,6 +28,6 @@ export default class Header extends Component<HeaderProps> {
     const line1 = `${logoL1}  ${chalk.dim('Type ')}${brandColor('/')}${chalk.dim(' for commands')}`;
     const line2 = `${logoL2}`;
 
-    return [line0, line1, line2, ''];
+    return [line0, line1, line2, ''].map((l) => truncateToWidth(l, maxCols));
   }
 }

@@ -1,7 +1,7 @@
 import Component from '../../engine/Component.js';
 import type { ConfirmationDecision, ConfirmationRequest } from '../../../tools/types.js';
 import { getTheme, figures } from '../../../theme/index.js';
-import { themeColor, chalk } from '../../utils/format.js';
+import { themeColor, chalk, truncateToWidth } from '../../utils/format.js';
 import { computeLineDiff, type DiffLine } from '../../../utils/diff.js';
 
 export interface PermissionDockProps {
@@ -142,7 +142,8 @@ export default class PermissionDock extends Component<PermissionDockProps, Permi
   override render(width?: number): string[] {
     const theme = getTheme();
     const termWidth = width ?? process.stdout.columns ?? 80;
-    const dividerWidth = Math.max(10, termWidth - 4);
+    const maxCols = Math.max(0, termWidth - 1);
+    const dividerWidth = Math.max(1, Math.min(termWidth - 4, maxCols));
     const { request } = this.props;
     const { selectedIdx, isReviewing, reviewOffset } = this.state;
 
@@ -261,6 +262,6 @@ export default class PermissionDock extends Component<PermissionDockProps, Permi
     lines.push(
       chalk.dim.italic('1/2/3 or y/a/n to choose · ↑/↓ navigate · Enter select · Esc deny'),
     );
-    return lines;
+    return lines.map((l) => truncateToWidth(l, maxCols));
   }
 }

@@ -1,7 +1,7 @@
 import Component from '../../engine/Component.js';
 import type { ModelDescriptor } from '../../../models/discovery.js';
 import { getTheme, figures } from '../../../theme/index.js';
-import { themeColor, chalk } from '../../utils/format.js';
+import { themeColor, chalk, stripAnsi, truncateToWidth } from '../../utils/format.js';
 import stringWidth from 'string-width';
 
 export interface ModelPickerProps {
@@ -111,7 +111,8 @@ export default class ModelPicker extends Component<ModelPickerProps, ModelPicker
   override render(width?: number): string[] {
     const theme = getTheme();
     const termWidth = width ?? process.stdout.columns ?? 80;
-    const dividerWidth = Math.max(10, termWidth - 4);
+    const maxCols = Math.max(0, termWidth - 1);
+    const dividerWidth = Math.max(1, Math.min(termWidth - 4, maxCols));
     const { currentModel } = this.props;
     const { selectedIdx, query } = this.state;
     const filtered = this.getFiltered();
@@ -127,7 +128,7 @@ export default class ModelPicker extends Component<ModelPickerProps, ModelPicker
     const titleRight = chalk.dim(`Current: ${currentModel.provider}/${currentModel.modelId}`);
     const spCount = Math.max(
       1,
-      termWidth - stringWidth('Select Model') - stringWidth(titleRight) - 4,
+      maxCols - stringWidth(stripAnsi(titleLeft)) - stringWidth(stripAnsi(titleRight)),
     );
     lines.push(`${titleLeft}${' '.repeat(spCount)}${titleRight}`);
 
@@ -169,7 +170,10 @@ export default class ModelPicker extends Component<ModelPickerProps, ModelPicker
 
         const leftStr = `${p}${modelText}${activeBadge}`;
         const rightStr = chalk.dim(badge);
-        const pad = Math.max(1, termWidth - stringWidth(m.model_id) - stringWidth(badge) - 10);
+        const pad = Math.max(
+          1,
+          maxCols - stringWidth(stripAnsi(leftStr)) - stringWidth(stripAnsi(rightStr)),
+        );
         lines.push(`${leftStr}${' '.repeat(pad)}${rightStr}`);
       }
     }
@@ -178,6 +182,6 @@ export default class ModelPicker extends Component<ModelPickerProps, ModelPicker
       `${chalk.dim.italic('↑/↓ navigate · Enter select · Esc cancel')}  ${chalk.dim(`${filtered.length} models available`)}`,
     );
 
-    return lines;
+    return lines.map((l) => truncateToWidth(l, maxCols));
   }
 }
