@@ -1,6 +1,7 @@
 import Component from '../engine/Component.js';
 import { getTheme, LOGO_LINES } from '../../theme/index.js';
-import { themeColor, chalk, truncateToWidth } from '../utils/format.js';
+import { themeColor, chalk } from '../utils/format.js';
+import { Box, Text } from '../primitives/index.js';
 
 export interface HeaderProps {
   version?: string;
@@ -25,10 +26,17 @@ export default class Header extends Component<HeaderProps> {
     const logoL1 = brandColor(LOGO_LINES[1] ?? '');
     const logoL2 = brandColor(LOGO_LINES[2] ?? '');
 
-    const line0 = `${logoL0}  ${chalk.white.bold('xd')} ${permColor(`v${version}`)}`;
-    const line1 = `${logoL1}  ${chalk.dim('Type ')}${brandColor('/')}${chalk.dim(' for commands')}`;
-    const line2 = `${logoL2}`;
-
-    return [line0, line1, line2, ''];
+    return Box({ direction: 'column', overflow: 'visible', truncation: 'none' }, [
+      Text(`${logoL0}  ${chalk.white.bold('xd')} ${permColor(`v${version}`)}`, {
+        overflow: 'visible',
+        truncation: 'none',
+      }),
+      Text(`${logoL1}  ${chalk.dim('Type ')}${brandColor('/')}${chalk.dim(' for commands')}`, {
+        overflow: 'visible',
+        truncation: 'none',
+      }),
+      Text(logoL2, { overflow: 'visible', truncation: 'none' }),
+      Text('', { overflow: 'visible', truncation: 'none' }),
+    ]).render(80);
   }
 }

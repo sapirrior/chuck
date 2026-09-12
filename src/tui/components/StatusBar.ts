@@ -1,10 +1,8 @@
 import Component from '../engine/Component.js';
 import type { TokenUsage } from '../../engine/types.js';
 import { getTheme, figures } from '../../theme/index.js';
-import { themeColor, chalk, stripAnsi, truncateToWidth } from '../utils/format.js';
-import { MAX_READABLE_WIDTH } from '../engine/cell-layout.js';
-import { box, text, Justify, type LayoutNode } from '../layout/index.js';
-import stringWidth from 'string-width';
+import { themeColor, chalk } from '../utils/format.js';
+import { Box, Text } from '../primitives/index.js';
 
 export interface StatusBarProps {
   model: {
@@ -55,6 +53,7 @@ export default class StatusBar extends Component<StatusBarProps, StatusBarState>
   override render(width?: number): string[] {
     const theme = getTheme();
     const termWidth = width ?? process.stdout.columns ?? 80;
+    const maxCols = Math.max(1, termWidth - 1);
     const { model, usage, exitPending } = this.state;
 
     let left = '';
@@ -72,25 +71,9 @@ export default class StatusBar extends Component<StatusBarProps, StatusBarState>
       right += `${bullet}${tokStr}`;
     }
 
-    const leftWidth = stringWidth(stripAnsi(left));
-    let rightWidth = stringWidth(stripAnsi(right));
-    const minGap = 1;
-    const maxRightWidth = Math.max(0, termWidth - 1 - leftWidth - minGap);
-    if (rightWidth > maxRightWidth) {
-      // drop the token-count segment first, then hard-truncate the model id
-      right = chalk.dim(model.modelId || `${model.provider}/${model.modelId}`);
-      rightWidth = stringWidth(stripAnsi(right));
-      if (rightWidth > maxRightWidth) {
-        right = truncateToWidth(right, maxRightWidth);
-        rightWidth = stringWidth(stripAnsi(right));
-      }
-    }
-    const spaceCount = Math.max(1, termWidth - 1 - leftWidth - rightWidth);
-    const line = truncateToWidth(
-      `${left}${' '.repeat(spaceCount)}${right}`,
-      Math.max(0, termWidth - 1),
-    );
-
-    return [line];
+    return Box({ direction: 'row', justify: 'space-between', width: maxCols, overflow: 'hidden' }, [
+      Text(left, { overflow: 'hidden' }),
+      Text(right, { overflow: 'hidden' }),
+    ]).render(maxCols);
   }
 }

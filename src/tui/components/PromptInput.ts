@@ -4,6 +4,7 @@ import type { SlashCommand } from '../../commands/types.js';
 import { searchWorkspaceFiles } from '../../utils/file-search.js';
 import { getTheme, figures } from '../../theme/index.js';
 import { themeColor, chalk, truncateToWidth } from '../utils/format.js';
+import { parseKeyInput } from '../primitives/index.js';
 
 export interface PromptInputProps {
   onSubmit: (text: string, isBash?: boolean) => void;
@@ -91,19 +92,19 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
     if (!this.engine) return;
 
     this.removeInputListener = this.engine.addInputListener((chunk) => {
-      const str = chunk.toString();
+      const action = parseKeyInput(chunk);
 
-      // 1. If currently generating (disabled), Escape stops generation immediately
+      // 1. Generation in progress: Escape aborts
       if (this.state.disabled) {
-        if (str === '\x1b') {
+        if (action.type === 'escape') {
           this.props.onAbort?.();
           return true;
         }
         return false;
       }
 
-      // 2. Escape: dismiss popovers or double-press to clear
-      if (str === '\x1b') {
+      // 2. Escape: dismiss completions or double-tap to clear
+      if (action.type === 'escape') {
         if (this.state.fileMatches.length > 0) {
           this.setState({ fileMatches: [] });
           return true;
@@ -125,8 +126,8 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
         return false;
       }
 
-      // 3. Question mark '?' when prompt is empty opens Help Dock
-      if (str === '?' && this.state.value.length === 0) {
+      // 3. Question mark when empty opens Help
+      if (action.type === 'insert' && action.char === '?' && this.state.value.length === 0) {
         this.props.onToggleHelp?.();
         return true;
       }
@@ -138,26 +139,16 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
             .filter((c) => `/${c.name}`.toLowerCase().startsWith(this.state.value.toLowerCase()))
         : [];
 
-      // 4. Multiline newline insertion (Shift+Enter, Alt+Enter, Ctrl+Enter)
-      const isShiftOrAltEnter =
-        str === '\x1b\r' ||
-        str === '\x1b\n' ||
-        str === '\x1b[13;2u' ||
-        str === '\x1b[27;2;13~' ||
-        str === '\x1b[13;5u' ||
-        str === '\x1b[13;6u' ||
-        str === '\x1bOM';
-
-      if (isShiftOrAltEnter) {
+      // 4. Multiline Newline insertion
+      if (action.type === 'newline') {
         const before = this.state.value.slice(0, this.state.cursorPos);
         const after = this.state.value.slice(this.state.cursorPos);
         this.updateValueAndCheckCompletions(`${before}\n${after}`, this.state.cursorPos + 1);
         return true;
       }
 
-      // 5. Return (Submit or multiline with \)
-      if (str === '\r' || str === '\n') {
-        // File selection
+      // 5. Submit or \+Enter
+      if (action.type === 'submit') {
         if (this.state.fileMatches.length > 0) {
           const atData = this.getAtData();
           if (atData) {
@@ -165,9 +156,8 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
             if (chosen) {
               const before = this.state.value.slice(0, atData.atIndex);
               const after = this.state.value.slice(this.state.cursorPos);
-              const inserted = `${before}@${chosen} ${after}`;
               this.setState({
-                value: inserted,
+                value: `${before}@${chosen} ${after}`,
                 cursorPos: atData.atIndex + 1 + chosen.length + 1,
                 fileMatches: [],
               });
@@ -176,7 +166,6 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
           }
         }
 
-        // Slash command execution
         if (isSlashMode && matchingCommands.length > 0) {
           const chosen = matchingCommands[this.state.paletteIdx] ?? matchingCommands[0];
           if (chosen) {
@@ -188,7 +177,6 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
           }
         }
 
-        // Multiline insertion with \ + Enter
         if (this.state.cursorPos > 0 && this.state.value[this.state.cursorPos - 1] === '\\') {
           const before = this.state.value.slice(0, this.state.cursorPos - 1);
           const after = this.state.value.slice(this.state.cursorPos);
@@ -201,17 +189,13 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
           const isBash = trimmed.startsWith('!');
           this.addHistory(trimmed);
           this.setState({ value: '', cursorPos: 0, fileMatches: [] });
-          if (isBash) {
-            this.props.onSubmit(trimmed.slice(1).trim(), true);
-          } else {
-            this.props.onSubmit(trimmed, false);
-          }
+          this.props.onSubmit(isBash ? trimmed.slice(1).trim() : trimmed, isBash);
         }
         return true;
       }
 
       // 6. Tab Completion
-      if (str === '\t') {
+      if (action.type === 'tab') {
         if (this.state.fileMatches.length > 0) {
           const atData = this.getAtData();
           if (atData) {
@@ -219,9 +203,8 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
             if (chosen) {
               const before = this.state.value.slice(0, atData.atIndex);
               const after = this.state.value.slice(this.state.cursorPos);
-              const inserted = `${before}@${chosen} ${after}`;
               this.setState({
-                value: inserted,
+                value: `${before}@${chosen} ${after}`,
                 cursorPos: atData.atIndex + 1 + chosen.length + 1,
                 fileMatches: [],
               });
@@ -229,15 +212,11 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
             }
           }
         }
-
         if (isSlashMode && matchingCommands.length > 0) {
           const chosen = matchingCommands[this.state.paletteIdx] ?? matchingCommands[0];
           if (chosen) {
             const completed = `/${chosen.name} `;
-            this.setState({
-              value: completed,
-              cursorPos: completed.length,
-            });
+            this.setState({ value: completed, cursorPos: completed.length });
             return true;
           }
         }
@@ -245,7 +224,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
       }
 
       // 7. Arrow Up
-      if (str === '\x1b[A') {
+      if (action.type === 'cursor-up') {
         if (this.state.fileMatches.length > 0) {
           this.setState({
             fileSelectIdx:
@@ -263,7 +242,6 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
           return true;
         }
 
-        // Multiline cursor navigation (Up)
         const beforeCursor = this.state.value.slice(0, this.state.cursorPos);
         const lastNewline = beforeCursor.lastIndexOf('\n');
         if (lastNewline !== -1) {
@@ -271,16 +249,12 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
           const prevNewline = beforeCursor.slice(0, lastNewline).lastIndexOf('\n');
           const prevLineStart = prevNewline === -1 ? 0 : prevNewline + 1;
           const prevLineLen = lastNewline - prevLineStart;
-          const targetPos = prevLineStart + Math.min(colOnCurLine, prevLineLen);
-          this.setState({ cursorPos: targetPos });
+          this.setState({ cursorPos: prevLineStart + Math.min(colOnCurLine, prevLineLen) });
           return true;
         }
 
-        // History traversal (Up = older)
         if (this.history.length > 0) {
-          if (this.state.historyIndex === -1) {
-            this.draft = this.state.value;
-          }
+          if (this.state.historyIndex === -1) this.draft = this.state.value;
           const nextIndex =
             this.state.historyIndex === -1
               ? this.history.length - 1
@@ -296,7 +270,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
       }
 
       // 8. Arrow Down
-      if (str === '\x1b[B') {
+      if (action.type === 'cursor-down') {
         if (this.state.fileMatches.length > 0) {
           this.setState({
             fileSelectIdx:
@@ -314,7 +288,6 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
           return true;
         }
 
-        // Multiline cursor navigation (Down)
         const nextNewline = this.state.value.indexOf('\n', this.state.cursorPos);
         if (nextNewline !== -1) {
           const beforeCursor = this.state.value.slice(0, this.state.cursorPos);
@@ -324,21 +297,16 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
           const nextLineStart = nextNewline + 1;
           const nextNextNewline = this.state.value.indexOf('\n', nextLineStart);
           const nextLineEnd = nextNextNewline === -1 ? this.state.value.length : nextNextNewline;
-          const nextLineLen = nextLineEnd - nextLineStart;
-          const targetPos = nextLineStart + Math.min(colOnCurLine, nextLineLen);
-          this.setState({ cursorPos: targetPos });
+          this.setState({
+            cursorPos: nextLineStart + Math.min(colOnCurLine, nextLineEnd - nextLineStart),
+          });
           return true;
         }
 
-        // History traversal (Down = newer)
         if (this.state.historyIndex !== -1) {
           const nextIndex = this.state.historyIndex + 1;
           if (nextIndex >= this.history.length) {
-            this.setState({
-              historyIndex: -1,
-              value: this.draft,
-              cursorPos: this.draft.length,
-            });
+            this.setState({ historyIndex: -1, value: this.draft, cursorPos: this.draft.length });
             this.draft = '';
           } else {
             const historical = this.history[nextIndex] ?? '';
@@ -352,46 +320,66 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
         return true;
       }
 
-      // 8. Backspace
-      if (str === '\x7f' || str === '\x08') {
+      // 9. Backspace & Deletion
+      if (action.type === 'backspace') {
         if (this.state.cursorPos > 0) {
           const before = this.state.value.slice(0, this.state.cursorPos - 1);
           const after = this.state.value.slice(this.state.cursorPos);
-          const nextVal = before + after;
-          const nextPos = this.state.cursorPos - 1;
-          this.updateValueAndCheckCompletions(nextVal, nextPos);
+          this.updateValueAndCheckCompletions(before + after, this.state.cursorPos - 1);
         }
         return true;
       }
+      if (action.type === 'delete') {
+        if (this.state.cursorPos < this.state.value.length) {
+          const before = this.state.value.slice(0, this.state.cursorPos);
+          const after = this.state.value.slice(this.state.cursorPos + 1);
+          this.updateValueAndCheckCompletions(before + after, this.state.cursorPos);
+        }
+        return true;
+      }
+      if (action.type === 'delete-word') {
+        const before = this.state.value.slice(0, this.state.cursorPos);
+        const match = before.match(/(\s*\S+)\s*$/);
+        const deleteCount = match ? match[0].length : 1;
+        const newPos = Math.max(0, this.state.cursorPos - deleteCount);
+        this.updateValueAndCheckCompletions(
+          this.state.value.slice(0, newPos) + this.state.value.slice(this.state.cursorPos),
+          newPos,
+        );
+        return true;
+      }
+      if (action.type === 'clear-line') {
+        this.updateValueAndCheckCompletions('', 0);
+        return true;
+      }
 
-      // 9. Arrow Left / Right
-      if (str === '\x1b[D') {
+      // 10. Navigation Left/Right/Home/End
+      if (action.type === 'cursor-left') {
         this.setState({ cursorPos: Math.max(0, this.state.cursorPos - 1) });
         return true;
       }
-      if (str === '\x1b[C') {
+      if (action.type === 'cursor-right') {
         this.setState({ cursorPos: Math.min(this.state.value.length, this.state.cursorPos + 1) });
         return true;
       }
-
-      // 10. Home / End
-      if (str === '\x1b[H' || str === '\x1b[1~') {
+      if (action.type === 'cursor-home') {
         this.setState({ cursorPos: 0 });
         return true;
       }
-      if (str === '\x1b[F' || str === '\x1b[4~') {
+      if (action.type === 'cursor-end') {
         this.setState({ cursorPos: this.state.value.length });
         return true;
       }
 
-      // 11. Regular text / paste input
-      if (str.length > 0 && !str.startsWith('\x1b')) {
-        const cleanInput = str.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+      // 11. Text insertion
+      if (action.type === 'insert' && action.char) {
+        const clean = action.char.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
         const before = this.state.value.slice(0, this.state.cursorPos);
         const after = this.state.value.slice(this.state.cursorPos);
-        const nextVal = before + cleanInput + after;
-        const nextPos = this.state.cursorPos + cleanInput.length;
-        this.updateValueAndCheckCompletions(nextVal, nextPos);
+        this.updateValueAndCheckCompletions(
+          before + clean + after,
+          this.state.cursorPos + clean.length,
+        );
         return true;
       }
 
@@ -416,8 +404,6 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
 
   private updateValueAndCheckCompletions(nextVal: string, nextPos: number): void {
     this.setState({ value: nextVal, cursorPos: nextPos });
-
-    // Check @ file autocompletion
     const prefix = nextVal.slice(0, nextPos);
     const lastAt = prefix.lastIndexOf('@');
     if (
@@ -460,12 +446,10 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
   } | null {
     if (this.state.disabled) return null;
 
-    const prefixLen = 2; // "❯ " or "! " or "  " is always 2 characters
-
+    const prefixLen = 2;
     let baseLineIndex = 0;
     if (this.state.escPending) baseLineIndex += 1;
-    // Top border
-    baseLineIndex += 1;
+    baseLineIndex += 1; // Top border
 
     const vLines = this.state.value.split('\n');
     let currentOffset = 0;
@@ -480,43 +464,29 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
         this.state.cursorPos >= currentOffset &&
         (this.state.cursorPos <= lineEndOffset || isLast)
       ) {
-        const charOffsetInLine = this.state.cursorPos - currentOffset;
         return {
           logicalLineIndex: baseLineIndex + i,
-          characterOffsetWithinLine: prefixLen + charOffsetInLine,
+          characterOffsetWithinLine: prefixLen + (this.state.cursorPos - currentOffset),
         };
       }
-      currentOffset = lineEndOffset + 1; // +1 for '\n'
+      currentOffset = lineEndOffset + 1;
     }
 
-    return {
-      logicalLineIndex: baseLineIndex,
-      characterOffsetWithinLine: prefixLen,
-    };
+    return { logicalLineIndex: baseLineIndex, characterOffsetWithinLine: prefixLen };
   }
 
   override render(width?: number): string[] {
     const theme = getTheme();
     const termWidth = width ?? process.stdout.columns ?? 80;
-    const maxCols = Math.max(0, termWidth - 1);
-    const dividerWidth = Math.max(1, maxCols);
-    const {
-      value,
-      cursorPos,
-      disabled,
-      escPending,
-      spinnerFrame,
-      fileMatches,
-      fileSelectIdx,
-      paletteIdx,
-    } = this.state;
+    const maxCols = Math.max(1, termWidth - 1);
+    const dividerWidth = maxCols;
+    const { value, disabled, escPending, spinnerFrame, fileMatches, fileSelectIdx, paletteIdx } =
+      this.state;
 
     const lines: string[] = [];
 
-    // Double-Esc Notice
     if (escPending) {
-      const permColor = themeColor(theme.permission);
-      lines.push(permColor('Press Esc again to clear'));
+      lines.push(themeColor(theme.permission)('Press Esc again to clear'));
     }
 
     const isBash = value.startsWith('!');
@@ -526,7 +496,6 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
         ? themeColor(theme.bashPink)
         : themeColor(theme.promptBorder);
 
-    // Above-Border Thinking / Busy status wave
     if (disabled) {
       const brand = themeColor(theme.brand);
       const shimmer = themeColor(theme.brandShimmer);
@@ -551,11 +520,8 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
       }
 
       lines.push(`${glyph} ${chalk.italic(waveText)}`);
-      // Top Border
       lines.push(borderColor(figures.horizontalLine.repeat(dividerWidth)));
-      // Inside box message
       lines.push(chalk.dim('Generating response… (Esc to stop)'));
-      // Bottom Border
       lines.push(borderColor(figures.horizontalLine.repeat(dividerWidth)));
       return lines;
     }

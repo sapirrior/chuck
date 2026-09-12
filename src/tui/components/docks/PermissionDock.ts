@@ -1,8 +1,12 @@
 import Component from '../../engine/Component.js';
 import type { ConfirmationDecision, ConfirmationRequest } from '../../../tools/types.js';
 import { getTheme, figures } from '../../../theme/index.js';
-import { themeColor, chalk, truncateToWidth } from '../../utils/format.js';
+import { themeColor, chalk } from '../../utils/format.js';
 import { computeLineDiff, type DiffLine } from '../../../utils/diff.js';
+import { Box } from '../../primitives/Box.js';
+import { Text } from '../../primitives/Text.js';
+import { renderKeyHints } from '../../primitives/widgets/ModalBox.js';
+import { parseKeyInput } from '../../primitives/widgets/KeyReader.js';
 
 export interface PermissionDockProps {
   request: ConfirmationRequest;
@@ -46,7 +50,8 @@ export default class PermissionDock extends Component<PermissionDockProps, Permi
     if (!this.engine) return;
 
     this.removeInputListener = this.engine.addInputListener((chunk) => {
-      const str = chunk.toString();
+      const action = parseKeyInput(chunk);
+      const str = action.raw;
       const options: Array<{ decision: ConfirmationDecision }> = [
         { decision: 'allow_once' },
         { decision: 'allow_session' },
@@ -54,7 +59,7 @@ export default class PermissionDock extends Component<PermissionDockProps, Permi
       ];
 
       // Escape -> deny or exit review
-      if (str === '\x1b') {
+      if (action.type === 'escape') {
         if (this.state.isReviewing) {
           this.setState({ isReviewing: false });
         } else {
@@ -80,13 +85,11 @@ export default class PermissionDock extends Component<PermissionDockProps, Permi
             ? this.diffLines.length
             : ((this.props.request.args as any)?.command ?? '').split('\n').length;
 
-        if (str === '\x1b[A') {
-          // Up arrow
+        if (action.type === 'cursor-up') {
           this.setState({ reviewOffset: Math.max(0, this.state.reviewOffset - 1) });
           return true;
         }
-        if (str === '\x1b[B') {
-          // Down arrow
+        if (action.type === 'cursor-down') {
           this.setState({
             reviewOffset: Math.min(Math.max(0, totalItems - 1), this.state.reviewOffset + 1),
           });
@@ -109,13 +112,13 @@ export default class PermissionDock extends Component<PermissionDockProps, Permi
       }
 
       // Arrow navigation
-      if (str === '\x1b[A') {
+      if (action.type === 'cursor-up') {
         this.setState({
           selectedIdx: this.state.selectedIdx > 0 ? this.state.selectedIdx - 1 : options.length - 1,
         });
         return true;
       }
-      if (str === '\x1b[B') {
+      if (action.type === 'cursor-down') {
         this.setState({
           selectedIdx: this.state.selectedIdx < options.length - 1 ? this.state.selectedIdx + 1 : 0,
         });
@@ -123,7 +126,7 @@ export default class PermissionDock extends Component<PermissionDockProps, Permi
       }
 
       // Enter
-      if (str === '\r' || str === '\n') {
+      if (action.type === 'submit') {
         const selected = options[this.state.selectedIdx];
         if (selected) {
           this.props.onDecision(selected.decision);
@@ -151,12 +154,19 @@ export default class PermissionDock extends Component<PermissionDockProps, Permi
     const { selectedIdx, isReviewing, reviewOffset } = this.state;
 
     const lines: string[] = [];
-    const lavHeader = themeColor(theme.lavenderHeader);
     const lavLight = themeColor(theme.lavenderLight);
     const dashRule = themeColor(theme.dashedRule);
 
-    lines.push(lavHeader(figures.horizontalLine.repeat(dividerWidth)));
-    lines.push(lavLight(`Permission Required: ${request.displayName}`));
+    // Title / Header
+    lines.push(
+      new Text({
+        content: `Permission Required: ${request.displayName}`,
+        color: theme.lavenderLight,
+        bold: true,
+        overflow: 'hidden',
+        truncation: 'clip',
+      }).render(maxCols)[0] ?? '',
+    );
 
     // Diff preview for file ops
     if (this.diffLines.length > 0) {
@@ -263,8 +273,23 @@ export default class PermissionDock extends Component<PermissionDockProps, Permi
     }
 
     lines.push(
-      chalk.dim.italic('1/2/3 or y/a/n to choose · ↑/↓ navigate · Enter select · Esc deny'),
+      renderKeyHints([
+        { key: '1/2/3', label: 'choose' },
+        { key: '↑/↓', label: 'nav' },
+        { key: 'Enter', label: 'select' },
+        { key: 'Esc', label: 'deny' },
+      ]),
     );
-    return lines.map((l) => truncateToWidth(l, maxCols));
+
+    const box = new Box({
+      border: 'top-bottom',
+      borderColor: theme.lavenderHeader,
+      width: maxCols,
+      overflow: 'hidden',
+      truncation: 'clip',
+      children: lines,
+    });
+
+    return box.render(maxCols);
   }
 }
