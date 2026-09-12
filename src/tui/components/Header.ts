@@ -12,16 +12,14 @@ export interface HeaderProps {
 }
 
 export default class Header extends Component<HeaderProps> {
-  override overflow = 'hidden' as const;
-  override truncation = 'clip' as const;
+  override overflow = 'wrap' as const;
+  override truncation = 'none' as const;
 
-  override render(width?: number): string[] {
+  override render(_width?: number): string[] {
     const theme = getTheme();
     const version = this.props.version ?? '0.1.0';
     const brandColor = themeColor(theme.brand);
     const permColor = themeColor(theme.permission);
-    const termWidth = width ?? process.stdout.columns ?? 80;
-    const maxCols = Math.max(0, termWidth - 1);
 
     const logoL0 = brandColor(LOGO_LINES[0] ?? '');
     const logoL1 = brandColor(LOGO_LINES[1] ?? '');
@@ -31,6 +29,6 @@ export default class Header extends Component<HeaderProps> {
     const line1 = `${logoL1}  ${chalk.dim('Type ')}${brandColor('/')}${chalk.dim(' for commands')}`;
     const line2 = `${logoL2}`;
 
-    return [line0, line1, line2, ''].map((l) => truncateToWidth(l, maxCols));
+    return [line0, line1, line2, ''];
   }
 }

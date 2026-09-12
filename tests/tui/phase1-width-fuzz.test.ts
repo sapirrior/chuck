@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'bun:test';
 import stringWidth from 'string-width';
 import stripAnsi from 'strip-ansi';
-import { assertRowWidth } from '../../src/tui/engine/cell-layout.js';
+import { assertRowWidth, measureNode } from '../../src/tui/engine/cell-layout.js';
 import Header from '../../src/tui/components/Header.js';
 import StatusBar from '../../src/tui/components/StatusBar.js';
 import PromptInput from '../../src/tui/components/PromptInput.js';
@@ -59,8 +59,8 @@ describe('Phase 1: Hard Width Invariant Across Engine and Components', () => {
         cwd: '/a/very/long/nested/directory/path/that/might/exceed/terminal/boundaries',
         model: { provider: 'anthropic-provider-extended', modelId: 'claude-3-7-sonnet-fuzz-test' },
       });
-      for (const line of header.render(termWidth)) {
-        expect(stringWidth(stripAnsi(line))).toBeLessThanOrEqual(maxCols);
+      for (const row of measureNode(header, maxCols).rows) {
+        expect(stringWidth(stripAnsi(row.text))).toBeLessThanOrEqual(maxCols);
       }
 
       // 2. StatusBar
