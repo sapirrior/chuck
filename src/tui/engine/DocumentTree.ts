@@ -1,4 +1,4 @@
-import { wrapVisualLine } from './cell-layout.js';
+import { wrapVisualLine, measureNode, type PhysicalRow } from './cell-layout.js';
 import { formatUserMessage } from '../utils/message-formatter.js';
 
 export interface ComponentNode {
@@ -90,16 +90,30 @@ export class DocumentTree {
   private historyNodes: (TextNode | UserMessageNode | ComponentNode)[] = [];
   private liveNodes: ComponentNode[] = [];
   private idCounter = 0;
+  private cachedHistoryRows: PhysicalRow[] = [];
+  private lastHistoryWidth = -1;
 
   addText(lines: string[], wrappable = true, maxReadableWidth?: number): TextNode {
     const node = new TextNode(`node-${this.idCounter++}`, lines, wrappable, maxReadableWidth);
     this.historyNodes.push(node);
+    if (this.lastHistoryWidth > 0) {
+      const { rows } = measureNode(node, this.lastHistoryWidth);
+      for (const r of rows) {
+        this.cachedHistoryRows.push(r);
+      }
+    }
     return node;
   }
 
   addUserMessage(content: string, isBash = false): UserMessageNode {
     const node = new UserMessageNode(`user-node-${this.idCounter++}`, content, isBash);
     this.historyNodes.push(node);
+    if (this.lastHistoryWidth > 0) {
+      const { rows } = measureNode(node, this.lastHistoryWidth);
+      for (const r of rows) {
+        this.cachedHistoryRows.push(r);
+      }
+    }
     return node;
   }
 
@@ -119,11 +133,37 @@ export class DocumentTree {
     this.liveNodes = this.liveNodes.filter((n) => n !== node);
   }
 
+  getLiveNodes(): ComponentNode[] {
+    return this.liveNodes;
+  }
+
+  getHistoryNodes(): ComponentNode[] {
+    return this.historyNodes;
+  }
+
   getNodes(): ComponentNode[] {
     return [...this.historyNodes, ...this.liveNodes];
   }
 
+  getHistoryRows(contentWidth: number, forceAll = false): PhysicalRow[] {
+    if (!forceAll && contentWidth === this.lastHistoryWidth && this.cachedHistoryRows.length > 0) {
+      return this.cachedHistoryRows;
+    }
+
+    this.lastHistoryWidth = contentWidth;
+    this.cachedHistoryRows = [];
+    for (const node of this.historyNodes) {
+      const { rows } = measureNode(node, contentWidth, forceAll);
+      for (const r of rows) {
+        this.cachedHistoryRows.push(r);
+      }
+    }
+    return this.cachedHistoryRows;
+  }
+
   invalidateCache(): void {
+    this.lastHistoryWidth = -1;
+    this.cachedHistoryRows = [];
     for (const node of this.historyNodes) {
       if ('invalidateCache' in node && typeof (node as any).invalidateCache === 'function') {
         (node as any).invalidateCache();
@@ -133,6 +173,8 @@ export class DocumentTree {
 
   clearHistory(): void {
     this.historyNodes = [];
+    this.cachedHistoryRows = [];
+    this.lastHistoryWidth = -1;
   }
 
   clearAll(): void {
@@ -143,5 +185,7 @@ export class DocumentTree {
     }
     this.historyNodes = [];
     this.liveNodes = [];
+    this.cachedHistoryRows = [];
+    this.lastHistoryWidth = -1;
   }
 }

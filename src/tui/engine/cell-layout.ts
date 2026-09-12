@@ -528,17 +528,32 @@ export function measureNode(
 
 /**
  * Lays out the complete DocumentTree into flat physical rows and absolute CellCursor.
+ * Uses persistent immutable history row caching for sub-millisecond live updates.
  */
 export function layoutDocument(
   tree: DocumentTree,
   contentWidth: number,
   forceAll = false,
-  lineWidthCache: Map<string, number> = new Map(),
+  _lineWidthCache: Map<string, number> = new Map(),
 ): CellLayoutResult {
-  const physicalRows: PhysicalRow[] = [];
+  const hasHistoryCache =
+    typeof tree.getHistoryRows === 'function' && typeof tree.getLiveNodes === 'function';
+
+  let physicalRows: PhysicalRow[];
+  let nodesToMeasure: ComponentNode[];
+
+  if (hasHistoryCache) {
+    const historyRows = tree.getHistoryRows(contentWidth, forceAll);
+    physicalRows = [...historyRows];
+    nodesToMeasure = tree.getLiveNodes();
+  } else {
+    physicalRows = [];
+    nodesToMeasure = typeof tree.getNodes === 'function' ? tree.getNodes() : [];
+  }
+
   let absoluteCursor: CellCursor | null = null;
 
-  for (const node of tree.getNodes()) {
+  for (const node of nodesToMeasure) {
     const nodeStartRow = physicalRows.length;
     const { rows, cursorWithinNode } = measureNode(node, contentWidth, forceAll);
 
