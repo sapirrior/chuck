@@ -103,11 +103,11 @@ export class CodeShowcase {
           const numPrefix = k === 0 ? lineNumStr : ' '.repeat(padWidth);
 
           if (dl.kind === 'delete') {
-            const lineStr = `    ${numPrefix} -${seg}`;
-            rendered.push(delBg(delFg(lineStr)));
+            const lineStr = `${numPrefix} -${seg}`;
+            rendered.push(`    ${delBg(delFg(lineStr))}`);
           } else if (dl.kind === 'add') {
-            const lineStr = `    ${numPrefix} +${seg}`;
-            rendered.push(addBg(addFg(lineStr)));
+            const lineStr = `${numPrefix} +${seg}`;
+            rendered.push(`    ${addBg(addFg(lineStr))}`);
           } else {
             rendered.push(`    ${chalk.dim(`${numPrefix}  `)}${chalk.white(seg)}`);
           }
