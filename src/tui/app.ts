@@ -23,10 +23,12 @@ import {
   formatSystemMessage,
   formatAssistantMessage,
   formatToolStatus,
+  formatErrorBadge,
+  formatTurnStatus,
 } from './utils/message-formatter.js';
 import { formatToolOutputSummary, rehydrateSessionHistory } from '../utils/history-helpers.js';
-
-const execAsync = promisify(exec);
+import { classifyError } from '../errors/index.js';
+import { executeShellCommand } from '../shell/index.js';
 
 export interface TUIAppOptions {
   initialSession?: AgentSession;
@@ -210,6 +212,7 @@ export class TUIApp {
           },
         });
         const updated = this.session.getModel();
+        this.header.props.model = updated;
         this.statusBar.update({ model: updated });
         this.engine.commit(
           'system',
@@ -228,6 +231,7 @@ export class TUIApp {
   private switchToSession(selected: SessionData): void {
     this.session = AgentSession.resume(selected);
     const model = this.session.getModel();
+    this.header.props.model = model;
     this.statusBar.update({ model, usage: this.session.session.totalUsage });
 
     // Clear engine and rehydrate
@@ -321,18 +325,22 @@ export class TUIApp {
       this.setBusy(true);
 
       try {
-        const { stdout, stderr } = await execAsync(text, {
+        const result = await executeShellCommand({
+          command: text,
           cwd: this.cwd,
-          maxBuffer: 10 * 1024 * 1024,
+          onLine: (_line, recent) => {
+            this.streamingView.setStream('', recent.join('\n'), true);
+          },
         });
-        const raw = stdout || stderr || '';
+        this.streamingView.reset();
+
+        const raw = result.output || result.stdout || result.stderr || '';
         const output = raw.trim() || '(no content)';
         this.engine.commit('assistant-message', formatAssistantMessage(output));
       } catch (err) {
-        this.engine.commit(
-          'system',
-          formatSystemMessage(`Command error: ${err instanceof Error ? err.message : String(err)}`),
-        );
+        this.streamingView.reset();
+        const structured = classifyError(err);
+        this.engine.commit('system', formatErrorBadge(structured));
       } finally {
         this.setBusy(false);
       }
@@ -391,6 +399,7 @@ export class TUIApp {
     this.engine.commitPrompt(text);
     this.setBusy(true);
 
+    const turnStartTime = performance.now();
     let accumulatedReasoning = '';
     let accumulatedText = '';
     const activeToolStartTimes = new Map<string, number>();
@@ -399,6 +408,9 @@ export class TUIApp {
       cwd: this.cwd,
       requestConfirmation: (req) => this.requestConfirmation(req),
       sessionAllowlist: this.sessionAllowlist,
+      onToolProgress: (_chunk, recentLines) => {
+        this.streamingView.updateToolOutput(recentLines);
+      },
     };
 
     const tools = defaultToolCatalog.toAISDKTools(toolContext);
@@ -419,8 +431,8 @@ export class TUIApp {
               break;
             }
             case 'tool-call': {
-              // Flush any prior accumulated assistant text before tool execution log
-              if (accumulatedText.trim()) {
+              // Flush any prior accumulated assistant text or thinking before tool execution log
+              if (accumulatedText.trim() || accumulatedReasoning.trim()) {
                 this.engine.commit(
                   'assistant-message',
                   formatAssistantMessage(accumulatedText, accumulatedReasoning),
@@ -431,9 +443,17 @@ export class TUIApp {
               }
 
               activeToolStartTimes.set(event.toolCall.id, performance.now());
+              // Set live active tool indicator in StreamingView with pulsing white bullet
+              this.streamingView.setActiveTool({
+                id: event.toolCall.id,
+                name: event.toolCall.name,
+                args: event.toolCall.args,
+                startTime: performance.now(),
+              });
               break;
             }
             case 'tool-result': {
+              this.streamingView.setActiveTool(null);
               const start = activeToolStartTimes.get(event.toolResult.id);
               const durationMs = start ? Math.round(performance.now() - start) : undefined;
               activeToolStartTimes.delete(event.toolResult.id);
@@ -443,6 +463,10 @@ export class TUIApp {
                 event.toolResult.result,
                 event.toolResult.isError,
               );
+
+              const previewLines = Array.isArray((event.toolResult.result as any)?.recentLines)
+                ? (event.toolResult.result as any).recentLines
+                : undefined;
 
               this.engine.commit(
                 'tool-result',
@@ -461,11 +485,13 @@ export class TUIApp {
                       : String(event.toolResult.result)
                     : undefined,
                   toolOutput: outputSummary,
+                  previewLines,
                 }),
               );
               break;
             }
             case 'turn-complete': {
+              this.streamingView.setActiveTool(null);
               if (accumulatedText.trim() || accumulatedReasoning.trim()) {
                 this.engine.commit(
                   'assistant-message',
@@ -475,6 +501,11 @@ export class TUIApp {
               accumulatedText = '';
               accumulatedReasoning = '';
               this.streamingView.reset();
+
+              // Commit turn finished badge with leading empty line (e.g. * Baked for 20s · done 7:31 AM)
+              const totalDurationMs = Math.round(performance.now() - turnStartTime);
+              this.engine.commit('system', ['', formatTurnStatus(totalDurationMs)]);
+
               this.statusBar.update({
                 usage: this.session.session.totalUsage,
               });
@@ -488,18 +519,17 @@ export class TUIApp {
               break;
             }
             case 'error': {
-              this.engine.commit('system', formatSystemMessage(`Error: ${event.error.message}`));
+              const structured = classifyError(event.error);
+              this.engine.commit('system', formatErrorBadge(structured));
               break;
             }
           }
         },
       });
     } catch (err: any) {
-      if (
-        err?.message?.includes('aborted') ||
-        err?.name === 'AbortError' ||
-        err?.message?.includes('AbortError')
-      ) {
+      this.streamingView.setActiveTool(null);
+      const structured = classifyError(err);
+      if (structured.category === 'aborted') {
         if (accumulatedText.trim() || accumulatedReasoning.trim()) {
           this.engine.commit(
             'assistant-message',
@@ -509,14 +539,9 @@ export class TUIApp {
         accumulatedText = '';
         accumulatedReasoning = '';
         this.streamingView.reset();
-        this.engine.commit('system', formatSystemMessage('Interrupted by user.'));
+        this.engine.commit('system', formatErrorBadge(structured));
       } else {
-        this.engine.commit(
-          'system',
-          formatSystemMessage(
-            `Generation error: ${err instanceof Error ? err.message : String(err)}`,
-          ),
-        );
+        this.engine.commit('system', formatErrorBadge(structured));
       }
     } finally {
       this.setBusy(false);

@@ -42,6 +42,10 @@ export interface ToolContext {
    * Callback invoked when a user declines/denies a tool permission request.
    */
   onDeny?: () => void;
+  /**
+   * Real-time progress callback for streaming tool outputs (such as bash output lines).
+   */
+  onToolProgress?: (chunk: string, recentLines: string[]) => void;
 }
 
 /**

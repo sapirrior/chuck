@@ -3,8 +3,9 @@ import { getTheme, figures } from '../../theme/index.js';
 import { themeColor, themeBgColor, chalk, formatMarkdown } from './format.js';
 import { wrapVisualLine } from '../engine/cell-layout.js';
 import type { ToolExecutionStatus } from '../types.js';
+import type { StructuredError } from '../../errors/index.js';
 
-function truncateMiddle(text: string, maxLength = 36): string {
+function truncateMiddle(text: string, maxLength = 48): string {
   if (!text || text.length <= maxLength) return text;
   const leftChars = Math.floor((maxLength - 1) / 2);
   const rightChars = Math.ceil((maxLength - 1) / 2);
@@ -58,9 +59,16 @@ export function formatAssistantMessage(content: string, reasoning?: string): str
   const theme = getTheme();
 
   if (reasoning) {
-    const ast = chalk.dim.italic(`${figures.teardropAsterisk} ${reasoning}`);
-    for (const l of ast.split('\n')) {
-      lines.push(`  ${l}`);
+    const firstLine = reasoning.split('\n')[0] ?? '';
+    const brandColor = themeColor(theme.brand);
+    lines.push(
+      `${chalk.white(figures.blackCircle)} ${brandColor('Thought')} ${chalk.dim('(ctrl+o to expand)')}`,
+    );
+    if (firstLine.trim()) {
+      lines.push(`  ${chalk.dim('└ ')}${chalk.dim.italic(firstLine.slice(0, 80))}`);
+    }
+    if (content) {
+      lines.push('');
     }
   }
 
@@ -103,9 +111,11 @@ export function formatToolStatus(options: {
   durationMs?: number;
   error?: string;
   toolOutput?: string;
+  previewLines?: string[];
 }): string[] {
   const theme = getTheme();
-  const { toolName, displayName, icon, argsSummary, status, error, toolOutput } = options;
+  const { toolName, displayName, icon, argsSummary, status, error, toolOutput, previewLines } =
+    options;
   const dispName =
     displayName ||
     (toolName.length > 0 ? toolName[0]!.toUpperCase() + toolName.slice(1) : toolName);
@@ -151,7 +161,7 @@ export function formatToolStatus(options: {
   }
 
   const cleanFirstLine = rawArg.split('\n')[0] ?? '';
-  const truncatedArg = truncateMiddle(cleanFirstLine, 36);
+  const truncatedArg = truncateMiddle(cleanFirstLine, 48);
 
   let mainLine = `${bullet} ${dispName}`;
   if (truncatedArg) {
@@ -169,9 +179,76 @@ export function formatToolStatus(options: {
     const errText = isInterrupted ? 'Interrupted · What should xd do instead?' : error;
     const errColor = isInterrupted ? chalk.dim : themeColor(theme.error);
     lines.push(`  ${chalk.dim('└ ')}${errColor(errText)}`);
+  } else if (previewLines && previewLines.length > 0) {
+    const maxPreview = 10;
+    const toShow = previewLines.slice(-maxPreview);
+    const hiddenCount = previewLines.length - toShow.length;
+    if (hiddenCount > 0) {
+      lines.push(`  ${chalk.dim(`... +${hiddenCount} lines (ctrl+o to expand)`)}`);
+    }
+    for (let i = 0; i < toShow.length; i++) {
+      const pLine = toShow[i] ?? '';
+      const lineNum = hiddenCount + i + 1;
+      lines.push(`    ${chalk.dim(`${lineNum}`.padStart(3))} ${chalk.dim(pLine)}`);
+    }
   } else if (toolOutput) {
-    lines.push(`  ${chalk.dim('└ ')}${chalk.dim(truncateMiddle(toolOutput, 60))}`);
+    const outLines = toolOutput.split('\n').filter(Boolean);
+    const maxPreview = 10;
+    if (outLines.length <= 1) {
+      lines.push(
+        `  ${chalk.dim('└ ')}${chalk.dim(truncateMiddle(outLines[0] ?? '(no content)', 80))}`,
+      );
+    } else {
+      const toShow = outLines.slice(-maxPreview);
+      const hiddenCount = outLines.length - toShow.length;
+      if (hiddenCount > 0) {
+        lines.push(`  ${chalk.dim(`... +${hiddenCount} lines (ctrl+o to expand)`)}`);
+      }
+      for (let i = 0; i < toShow.length; i++) {
+        const p = i === 0 && hiddenCount === 0 ? `  ${chalk.dim('└ ')}` : '    ';
+        lines.push(`${p}${chalk.dim(toShow[i]!)}`);
+      }
+    }
   }
 
   return lines;
+}
+
+export function formatErrorBadge(
+  error: StructuredError,
+  retryInfo?: { attempt: number; maxAttempts: number; countdownSec: number },
+): string[] {
+  const theme = getTheme();
+  const errColor = themeColor(theme.error);
+  const ast = errColor(figures.asterisk);
+  const midDot = chalk.dim(` ${figures.bullet} `);
+
+  let msg = error.shortMessage;
+  if (retryInfo) {
+    const retryStr = chalk.dim(
+      `Retrying in ${retryInfo.countdownSec}s · attempt ${retryInfo.attempt}/${retryInfo.maxAttempts}`,
+    );
+    msg = `${errColor(error.shortMessage)}${midDot}${retryStr}`;
+  } else {
+    msg = errColor(error.shortMessage);
+  }
+
+  const lines: string[] = [`${ast} ${msg}`];
+
+  if (error.suggestedAction) {
+    lines.push(`  ${chalk.dim('└ ')}${chalk.dim(error.suggestedAction)}`);
+  }
+
+  return lines;
+}
+
+const STATUS_VERBS = ['Baked', 'Brewed', 'Churned', 'Swooped', 'Crafted', 'Cooked'];
+
+export function formatTurnStatus(durationMs: number, timestamp = new Date()): string {
+  const verb = STATUS_VERBS[Math.floor(Math.random() * STATUS_VERBS.length)] ?? 'Baked';
+  const sec = Math.max(1, Math.round(durationMs / 1000));
+  const timeStr = timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const midDot = chalk.dim(` ${figures.bullet} `);
+
+  return `${chalk.dim(`${figures.asterisk} ${verb} for ${sec}s`)}${midDot}${chalk.dim(`done ${timeStr}`)}`;
 }

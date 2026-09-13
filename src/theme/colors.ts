@@ -46,9 +46,9 @@ export const darkTheme: UITheme = {
   error: 'rgb(255,107,128)', // Red (#FF6B80)
   warning: 'rgb(255,193,7)', // Amber (#FFC107)
   info: 'rgb(123,165,218)', // Info sky blue (#7BA5DA)
-  bulletSuccess: 'rgb(75,185,99)', // #4BB963
-  bulletError: 'rgb(159,82,92)', // #9F525C
-  bulletRunning: 'rgb(123,165,218)', // #7BA5DA
+  bulletSuccess: 'rgb(75,185,99)', // #4BB963 (green for completed)
+  bulletError: 'rgb(255,107,128)', // #FF6B80 (red for error/interrupted)
+  bulletRunning: 'rgb(255,255,255)', // #FFFFFF (white for in-progress)
   text: 'rgb(255,255,255)', // White
   textMuted: 'rgb(110,110,110)', // #6E6E6E
   subtle: 'rgb(80,80,80)', // Dark gray (#505050)
@@ -80,7 +80,7 @@ export const lightTheme: UITheme = {
   info: 'rgb(40,100,180)',
   bulletSuccess: 'rgb(44,122,57)',
   bulletError: 'rgb(171,43,63)',
-  bulletRunning: 'rgb(87,105,247)',
+  bulletRunning: 'rgb(20,20,20)',
   text: 'rgb(0,0,0)',
   textMuted: 'rgb(120,120,120)',
   subtle: 'rgb(175,175,175)',

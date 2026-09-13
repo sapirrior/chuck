@@ -7,9 +7,14 @@ const isDarwin = platform() === 'darwin';
  */
 export const figures = {
   // Main markers
-  blackCircle: isDarwin ? '⏺' : '●',
-  bullet: '∙',
+  blackCircle: '●',
+  bullet: '·',
+  bulletSmall: '∙',
   teardropAsterisk: '✻', // For reasoning / thinking indicator
+  asterisk: '*',
+  threeDots: '∴', // Reasoning glyph
+  treeBranch: '└', // Tree connector
+  treeVertical: '│',
   pointer: '>',
   pointerBold: '❯',
   pointerSmall: '›',
@@ -31,6 +36,7 @@ export const figures = {
   blockquoteBar: '▎', // \u258e - left 1/4 block
   horizontalLine: '─',
   heavyHorizontal: '━',
+  dashedLine: '╌',
 
   // Effort level circles
   effortLow: '○',

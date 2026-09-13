@@ -1,7 +1,8 @@
+import stringWidth from 'string-width';
 import Component from '../../engine/Component.js';
 import type { ConfirmationDecision, ConfirmationRequest } from '../../../tools/types.js';
 import { getTheme, figures } from '../../../theme/index.js';
-import { themeColor, chalk } from '../../utils/format.js';
+import { themeColor, themeBgColor, chalk } from '../../utils/format.js';
 import { computeLineDiff, type DiffLine } from '../../../utils/diff.js';
 import { Box, type BoxElement } from '../../primitives/Box.js';
 import { Text, type TextElement } from '../../primitives/Text.js';
@@ -25,6 +26,7 @@ export default class PermissionDock extends Component<PermissionDockProps, Permi
 
   private removeInputListener: (() => void) | null = null;
   private diffLines: DiffLine[] = [];
+  private targetFile = '';
 
   constructor(props: PermissionDockProps) {
     super(props);
@@ -36,6 +38,12 @@ export default class PermissionDock extends Component<PermissionDockProps, Permi
 
     const isFileOp =
       props.request.toolName === 'edit_file' || props.request.toolName === 'write_file';
+    this.targetFile =
+      (props.request.args as any)?.path ??
+      (props.request.args as any)?.file_path ??
+      (props.request.args as any)?.target_file ??
+      '';
+
     if (isFileOp) {
       const oldContent = (props.request.args as any)?.oldContent ?? '';
       const newContent =
@@ -156,16 +164,29 @@ export default class PermissionDock extends Component<PermissionDockProps, Permi
     const elements: (BoxElement | TextElement | string)[] = [];
     const lavLight = themeColor(theme.lavenderLight);
     const dashRule = themeColor(theme.dashedRule);
+    const cyan = themeColor(theme.info);
+    const addBg = themeBgColor(theme.diffAddBG);
+    const addFg = themeColor(theme.diffAddFG);
+    const delBg = themeBgColor(theme.diffDeleteBG);
+    const delFg = themeColor(theme.diffDeleteFG);
 
     // Title / Header
+    const actionTitle =
+      request.toolName === 'edit_file'
+        ? 'Edit file'
+        : request.toolName === 'write_file'
+          ? 'Write file'
+          : `Execute ${request.displayName}`;
     elements.push(
-      Text(`Permission Required: ${request.displayName}`, {
-        color: theme.lavenderLight,
+      Text(cyan(actionTitle), {
         bold: true,
         overflow: 'hidden',
         truncation: 'clip',
       }),
     );
+    if (this.targetFile) {
+      elements.push(Text(chalk.dim(this.targetFile)));
+    }
 
     // Diff preview for file ops
     if (this.diffLines.length > 0) {
@@ -186,29 +207,20 @@ export default class PermissionDock extends Component<PermissionDockProps, Permi
 
       for (let idx = 0; idx < visibleLines.length; idx++) {
         const line = visibleLines[idx]!;
-        const actualIdx = isReviewing
-          ? Math.max(
-              0,
-              Math.min(reviewOffset, Math.max(0, this.diffLines.length - reviewWindowSize)),
-            ) + idx
-          : idx;
-        const isCursorLine = isReviewing && actualIdx === reviewOffset;
         const lineNum = line.lineNumber ? `${line.lineNumber}`.padStart(3) : '   ';
 
-        let lineText = line.text;
         if (line.kind === 'add') {
-          lineText = chalk.green(line.text);
+          const content = `${lineNum} +${line.text}`;
+          const pad = Math.max(0, maxCols - stringWidth(content));
+          elements.push(Text(addBg(`${addFg(content)}${' '.repeat(pad)}`)));
         } else if (line.kind === 'delete') {
-          lineText = chalk.red(line.text);
+          const content = `${lineNum} -${line.text}`;
+          const pad = Math.max(0, maxCols - stringWidth(content));
+          elements.push(Text(delBg(`${delFg(content)}${' '.repeat(pad)}`)));
         } else if (line.kind === 'hunk') {
-          lineText = chalk.cyan.bold(line.text);
-        }
-
-        const cursorStr = isCursorLine ? lavLight('> ') : '  ';
-        if (line.kind === 'hunk') {
-          elements.push(Text(`${cursorStr}   ${lineText}`));
+          elements.push(Text(chalk.cyan.bold(`    ${line.text}`)));
         } else {
-          elements.push(Text(`${cursorStr}${chalk.dim(`${lineNum} ${line.prefix} `)}${lineText}`));
+          elements.push(Text(`${chalk.dim(`${lineNum}  `)}${chalk.white(line.text)}`));
         }
       }
 
@@ -255,41 +267,36 @@ export default class PermissionDock extends Component<PermissionDockProps, Permi
         );
       }
       elements.push(Text(dashRule(figures.horizontalLine.repeat(dividerWidth))));
-    } else if (request.promptTitle) {
-      elements.push(Text(chalk.dim(`  ${request.promptTitle}`)));
     }
+
+    // Question Prompt
+    const promptQ = this.targetFile
+      ? `Do you want to make this edit to ${this.targetFile}?`
+      : `Do you want to execute ${request.displayName}?`;
+    elements.push(Text(chalk.white(promptQ)));
 
     const options = [
       { key: '1', label: 'Yes', decision: 'allow_once' },
-      { key: '2', label: 'Yes, allow for session', decision: 'allow_session' },
+      { key: '2', label: 'Yes, allow for this session', decision: 'allow_session' },
       { key: '3', label: 'No', decision: 'deny' },
     ];
 
     for (let i = 0; i < options.length; i++) {
       const opt = options[i]!;
       const isSelected = i === selectedIdx;
-      const pointer = isSelected ? themeColor(theme.info)(`${figures.pointer} `) : '  ';
+      const pointer = isSelected ? themeColor(theme.info)(`${figures.pointerBold} `) : '  ';
       const label = isSelected
         ? themeColor(theme.info)(`${opt.key}. ${opt.label}`)
         : chalk.dim(`${opt.key}. ${opt.label}`);
       elements.push(Text(`${pointer}${label}`));
     }
 
-    elements.push(
-      Text(
-        renderKeyHints([
-          { key: '1/2/3', label: 'choose' },
-          { key: '↑/↓', label: 'nav' },
-          { key: 'Enter', label: 'select' },
-          { key: 'Esc', label: 'deny' },
-        ]),
-      ),
-    );
+    elements.push(Text(chalk.dim('Esc to cancel · Tab to amend · 1/2/3 to choose')));
 
     const box = Box(
       {
         border: 'top-bottom',
-        borderColor: theme.lavenderHeader,
+        borderColor: theme.info,
         width: maxCols,
         overflow: 'hidden',
         truncation: 'clip',

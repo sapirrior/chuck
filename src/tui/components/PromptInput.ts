@@ -480,8 +480,16 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
     const termWidth = width ?? process.stdout.columns ?? 80;
     const maxCols = Math.max(1, termWidth);
     const dividerWidth = maxCols;
-    const { value, disabled, escPending, spinnerFrame, fileMatches, fileSelectIdx, paletteIdx } =
-      this.state;
+    const {
+      value,
+      disabled,
+      escPending,
+      spinnerFrame,
+      fileMatches,
+      fileSelectIdx,
+      paletteIdx,
+      historyIndex,
+    } = this.state;
 
     const lines: string[] = [];
 
@@ -526,12 +534,20 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
       return lines;
     }
 
-    // Top Border
-    lines.push(borderColor(figures.horizontalLine.repeat(dividerWidth)));
+    // Top Border (embeds History text in white on the border without extra lines)
+    if (historyIndex !== -1 && this.history.length > 0) {
+      const histText = ` History ${historyIndex + 1}/${this.history.length} `;
+      const leftDashes = borderColor(figures.horizontalLine.repeat(4));
+      const rightLen = Math.max(0, maxCols - (4 + histText.length));
+      const rightDashes = borderColor(figures.horizontalLine.repeat(rightLen));
+      lines.push(`${leftDashes}${chalk.white(histText)}${rightDashes}`);
+    } else {
+      lines.push(borderColor(figures.horizontalLine.repeat(dividerWidth)));
+    }
 
     // Input prompt line
     const chevColor = isBash ? themeColor(theme.bashPink) : themeColor(theme.userChevron);
-    const pointer = chevColor(`${figures.pointer} `);
+    const pointer = chevColor(`${figures.pointerBold} `);
 
     if (value.length === 0) {
       lines.push(truncateToWidth(`${pointer}${chalk.dim('Type your message...')}`, maxCols));
@@ -547,7 +563,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
     // Bottom Border
     lines.push(borderColor(figures.horizontalLine.repeat(dividerWidth)));
 
-    // Inline CommandPalette
+    // Inline CommandPalette (Screenshot 135447)
     const isSlashMode = value.startsWith('/') && !value.includes(' ');
     const matchingCommands: SlashCommand[] = isSlashMode
       ? defaultCommandRegistry
@@ -556,17 +572,22 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
       : [];
 
     if (isSlashMode && matchingCommands.length > 0 && value !== `/${matchingCommands[0]?.name} `) {
-      const selColor = themeColor(theme.permission);
-      lines.push(selColor('Commands'));
       for (let i = 0; i < matchingCommands.length; i++) {
         const cmd = matchingCommands[i]!;
         const isSelected = i === paletteIdx;
-        const p = isSelected ? selColor(`${figures.pointer} `) : '  ';
-        const name = isSelected
-          ? selColor(`/${cmd.name}`.padEnd(16))
-          : chalk.white(`/${cmd.name}`.padEnd(16));
-        const desc = isSelected ? chalk.white(cmd.description) : chalk.dim(cmd.description);
-        lines.push(truncateToWidth(`${p}${name}${desc}`, maxCols));
+        const namePadded = `/${cmd.name}`.padEnd(18);
+        if (isSelected) {
+          lines.push(
+            truncateToWidth(
+              `${chalk.white.bold(namePadded)}${chalk.white.bold(cmd.description)}`,
+              maxCols,
+            ),
+          );
+        } else {
+          lines.push(
+            truncateToWidth(`${chalk.dim(namePadded)}${chalk.dim(cmd.description)}`, maxCols),
+          );
+        }
       }
     }
 
@@ -577,7 +598,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
       for (let i = 0; i < fileMatches.length; i++) {
         const f = fileMatches[i]!;
         const isSelected = i === fileSelectIdx;
-        const p = isSelected ? infoColor(`${figures.pointer} `) : '  ';
+        const p = isSelected ? infoColor(`${figures.pointerBold} `) : '  ';
         const fileText = isSelected ? infoColor(f) : chalk.dim(f);
         lines.push(truncateToWidth(`${p}${fileText}`, maxCols));
       }

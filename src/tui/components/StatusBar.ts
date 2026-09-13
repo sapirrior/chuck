@@ -54,21 +54,21 @@ export default class StatusBar extends Component<StatusBarProps, StatusBarState>
     const theme = getTheme();
     const termWidth = width ?? process.stdout.columns ?? 80;
     const maxCols = Math.max(1, termWidth);
-    const { model, usage, exitPending } = this.state;
+    const { model, usage, isBusy, exitPending } = this.state;
 
     let left = '';
     if (exitPending) {
       const errColor = themeColor(theme.error);
       left = `${errColor('▸ ')}${chalk.dim('Press ')}${errColor('Ctrl+C')}${chalk.dim(' again to exit')}`;
+    } else if (isBusy) {
+      left = chalk.dim('esc to interrupt');
     } else {
-      left = themeColor(theme.textMuted)('? for shortcuts');
+      left = chalk.dim('? for shortcuts');
     }
 
-    let right = chalk.dim(model.modelId || `${model.provider}/${model.modelId}`);
+    let right = '';
     if (usage && usage.totalTokens > 0) {
-      const bullet = themeColor(theme.subtle)(` ${figures.bullet} `);
-      const tokStr = themeColor(theme.textMuted)(`${formatTokens(usage.totalTokens)} tokens`);
-      right += `${bullet}${tokStr}`;
+      right = themeColor(theme.textMuted)(`${formatTokens(usage.totalTokens)} tokens`);
     }
 
     return Box({ direction: 'row', justify: 'space-between', width: maxCols, overflow: 'hidden' }, [

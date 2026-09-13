@@ -3,7 +3,7 @@ import type { UIHistoryItem } from '../tui/types.js';
 import type { SessionData } from '../session/types.js';
 
 /**
- * Extracts human-friendly one-line summary from tool execution outputs.
+ * Extracts full output or summary from tool execution outputs for terminal rendering.
  */
 export function formatToolOutputSummary(res: unknown, isError = false): string | undefined {
   if (isError || res === undefined || res === null) {
@@ -12,12 +12,13 @@ export function formatToolOutputSummary(res: unknown, isError = false): string |
 
   if (typeof res === 'object') {
     const obj = res as Record<string, any>;
+    if (obj.output !== undefined && typeof obj.output === 'string') {
+      const trimmed = obj.output.trim();
+      return trimmed || '(no content)';
+    }
     if (obj.stdout !== undefined || obj.stderr !== undefined) {
-      const combined = ((obj.stdout ?? '') + (obj.stderr ? ` ${obj.stderr}` : '')).trim();
-      if (!combined) {
-        return '(no content)';
-      }
-      return combined.split('\n')[0];
+      const combined = [obj.stdout, obj.stderr].filter(Boolean).join('\n').trim();
+      return combined || '(no content)';
     }
     if (obj.message && typeof obj.message === 'string') {
       return obj.message;
@@ -31,7 +32,7 @@ export function formatToolOutputSummary(res: unknown, isError = false): string |
     if (obj.content !== undefined) {
       if (typeof obj.content === 'string') {
         const trimmed = obj.content.trim();
-        return trimmed ? trimmed.split('\n')[0] : '(no content)';
+        return trimmed || '(no content)';
       }
       return JSON.stringify(obj.content);
     }
@@ -39,7 +40,7 @@ export function formatToolOutputSummary(res: unknown, isError = false): string |
 
   if (typeof res === 'string') {
     const trimmed = res.trim();
-    return trimmed ? trimmed.split('\n')[0] : '(no content)';
+    return trimmed || '(no content)';
   }
 
   return undefined;
@@ -94,12 +95,6 @@ export function rehydrateSessionHistory(sessionData: SessionData): UIHistoryItem
       });
     }
   }
-
-  restoredItems.push({
-    id: `sys-resume-${randomUUID()}`,
-    type: 'system',
-    content: `Resumed session ${sessionData.id.slice(0, 8)} (${sessionData.turns.length} turns, ${sessionData.totalUsage?.totalTokens ?? 0} tokens)`,
-  });
 
   return restoredItems;
 }
