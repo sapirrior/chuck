@@ -4,6 +4,8 @@ import { themeColor, themeBgColor, chalk, formatMarkdown } from './format.js';
 import { wrapVisualLine } from '../engine/cell-layout.js';
 import type { ToolExecutionStatus } from '../types.js';
 import type { StructuredError } from '../../errors/index.js';
+import { CodeShowcase } from '../primitives/CodeShowcase.js';
+import type { DiffLine } from '../../utils/diff.js';
 
 function truncateMiddle(text: string, maxLength = 48): string {
   if (!text || text.length <= maxLength) return text;
@@ -112,21 +114,36 @@ export function formatToolStatus(options: {
   error?: string;
   toolOutput?: string;
   previewLines?: string[];
+  diffLines?: DiffLine[];
+  highlightLineIndex?: number;
+  highlightCount?: number;
+  totalLines?: number;
 }): string[] {
+  const {
+    toolName,
+    displayName,
+    icon,
+    argsSummary,
+    status,
+    error,
+    toolOutput,
+    previewLines,
+    diffLines,
+    highlightLineIndex,
+    highlightCount,
+    totalLines,
+  } = options;
   const theme = getTheme();
-  const { toolName, displayName, icon, argsSummary, status, error, toolOutput, previewLines } =
-    options;
-  const dispName =
-    displayName ||
-    (toolName.length > 0 ? toolName[0]!.toUpperCase() + toolName.slice(1) : toolName);
-  const bulletGlyph = icon || figures.blackCircle;
 
-  let bullet = themeColor(theme.bulletRunning)(bulletGlyph);
+  // Completed tool bullet is green ●, error/failed is red ●, running is dim/white ●
+  let bullet = chalk.dim(figures.blackCircle);
   if (status === 'completed') {
-    bullet = themeColor(theme.bulletSuccess)(bulletGlyph);
+    bullet = themeColor(theme.success)(figures.blackCircle);
   } else if (status === 'failed') {
-    bullet = themeColor(theme.bulletError)(bulletGlyph);
+    bullet = themeColor(theme.error)(figures.blackCircle);
   }
+
+  const dispName = displayName ?? icon ?? toolName;
 
   // Extract primary single-line argument
   let rawArg = '';
@@ -135,8 +152,8 @@ export function formatToolStatus(options: {
       const parsed = JSON.parse(argsSummary);
       const primaryKeys = [
         'path',
-        'file_path',
-        'target_file',
+        'file',
+        'cmd',
         'command',
         'url',
         'query',
@@ -179,35 +196,34 @@ export function formatToolStatus(options: {
     const errText = isInterrupted ? 'Interrupted · What should xd do instead?' : error;
     const errColor = isInterrupted ? chalk.dim : themeColor(theme.error);
     lines.push(`  ${chalk.dim('└ ')}${errColor(errText)}`);
-  } else if (previewLines && previewLines.length > 0) {
-    const maxPreview = 10;
-    const toShow = previewLines.slice(-maxPreview);
-    const hiddenCount = previewLines.length - toShow.length;
-    if (hiddenCount > 0) {
-      lines.push(`  ${chalk.dim(`... +${hiddenCount} lines (ctrl+o to expand)`)}`);
-    }
-    for (let i = 0; i < toShow.length; i++) {
-      const pLine = toShow[i] ?? '';
-      const lineNum = hiddenCount + i + 1;
-      lines.push(`    ${chalk.dim(`${lineNum}`.padStart(3))} ${chalk.dim(pLine)}`);
-    }
+  } else if ((diffLines && diffLines.length > 0) || (previewLines && previewLines.length > 0)) {
+    const isWrite = toolName === 'write_file';
+    const isEdit = toolName === 'edit_file';
+    const mode = isEdit ? 'highlight' : isWrite ? 'start' : 'end';
+
+    const showcase = CodeShowcase.render({
+      lines: previewLines,
+      diffLines,
+      mode,
+      highlightLineIndex,
+      highlightCount,
+      totalLines,
+      headerMessage: toolOutput && (isWrite || isEdit) ? toolOutput : undefined,
+    });
+
+    lines.push(...showcase);
   } else if (toolOutput) {
     const outLines = toolOutput.split('\n').filter(Boolean);
-    const maxPreview = 10;
     if (outLines.length <= 1) {
       lines.push(
         `  ${chalk.dim('└ ')}${chalk.dim(truncateMiddle(outLines[0] ?? '(no content)', 80))}`,
       );
     } else {
-      const toShow = outLines.slice(-maxPreview);
-      const hiddenCount = outLines.length - toShow.length;
-      if (hiddenCount > 0) {
-        lines.push(`  ${chalk.dim(`... +${hiddenCount} lines (ctrl+o to expand)`)}`);
-      }
-      for (let i = 0; i < toShow.length; i++) {
-        const p = i === 0 && hiddenCount === 0 ? `  ${chalk.dim('└ ')}` : '    ';
-        lines.push(`${p}${chalk.dim(toShow[i]!)}`);
-      }
+      const showcase = CodeShowcase.render({
+        lines: outLines,
+        mode: 'end',
+      });
+      lines.push(...showcase);
     }
   }
 

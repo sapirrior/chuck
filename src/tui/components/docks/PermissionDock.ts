@@ -36,20 +36,31 @@ export default class PermissionDock extends Component<PermissionDockProps, Permi
       reviewOffset: 0,
     };
 
-    const isFileOp =
-      props.request.toolName === 'edit_file' || props.request.toolName === 'write_file';
+    const isEditOp = props.request.toolName === 'edit_file';
+    const isWriteOp = props.request.toolName === 'write_file';
     this.targetFile =
       (props.request.args as any)?.path ??
       (props.request.args as any)?.file_path ??
       (props.request.args as any)?.target_file ??
       '';
 
-    if (isFileOp) {
+    if (isEditOp) {
       const oldContent = (props.request.args as any)?.oldContent ?? '';
       const newContent =
         (props.request.args as any)?.newContent ?? (props.request.args as any)?.content ?? '';
       if (oldContent || newContent) {
         this.diffLines = computeLineDiff(oldContent, newContent);
+      }
+    } else if (isWriteOp) {
+      const content = (props.request.args as any)?.content ?? '';
+      if (content) {
+        const lines = String(content).split(/\r?\n/);
+        this.diffLines = lines.map((l, i) => ({
+          kind: 'neutral' as const,
+          prefix: ' ',
+          lineNumber: i + 1,
+          text: l,
+        }));
       }
     }
   }
@@ -222,16 +233,6 @@ export default class PermissionDock extends Component<PermissionDockProps, Permi
         } else {
           elements.push(Text(`${chalk.dim(`${lineNum}  `)}${chalk.white(line.text)}`));
         }
-      }
-
-      if (!isReviewing && this.diffLines.length > maxPreview) {
-        elements.push(
-          Text(
-            chalk.dim(
-              `  ... (${this.diffLines.length - maxPreview} more lines, press 'f' to review)`,
-            ),
-          ),
-        );
       }
       elements.push(Text(dashRule(figures.horizontalLine.repeat(dividerWidth))));
     } else if (request.toolName === 'run_command' && (request.args as any)?.command) {

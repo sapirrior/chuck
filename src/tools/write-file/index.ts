@@ -18,6 +18,8 @@ export interface WriteFileOutput {
   bytesWritten: number;
   linesWritten: number;
   message: string;
+  previewLines?: string[];
+  totalLines?: number;
 }
 
 /**
@@ -36,20 +38,8 @@ export const writeFileTool: ToolDefinition<typeof writeFileInputSchema, WriteFil
   confirmationPolicy: 'session',
 
   getConfirmationRequest: (args: WriteFileInput): ConfirmationRequest => {
-    let oldContent = '';
     const targetPath = isAbsolute(args.path) ? args.path : resolve(process.cwd(), args.path);
     const exists = existsSync(targetPath);
-
-    if (exists) {
-      try {
-        const stat = lstatSync(targetPath);
-        if (!stat.isDirectory()) {
-          oldContent = readFileSync(targetPath, 'utf-8');
-        }
-      } catch {
-        // Ignore read errors for preview
-      }
-    }
 
     return {
       toolName: 'write_file',
@@ -60,8 +50,6 @@ export const writeFileTool: ToolDefinition<typeof writeFileInputSchema, WriteFil
       args: {
         path: args.path,
         content: args.content,
-        oldContent,
-        newContent: args.content,
       },
     };
   },
@@ -89,16 +77,17 @@ export const writeFileTool: ToolDefinition<typeof writeFileInputSchema, WriteFil
     writeFileSync(targetPath, args.content, 'utf-8');
 
     const bytesWritten = Buffer.byteLength(args.content, 'utf-8');
-    const linesWritten = args.content.split(/\r?\n/).length;
+    const allLines = args.content.split(/\r?\n/);
+    const linesWritten = allLines.length;
 
     return {
       type: exists ? 'update' : 'create',
       path: args.path,
       bytesWritten,
       linesWritten,
-      message: exists
-        ? `The file ${args.path} has been updated successfully (${bytesWritten} bytes, ${linesWritten} lines).`
-        : `File created successfully at: ${args.path} (${bytesWritten} bytes, ${linesWritten} lines).`,
+      message: `Wrote ${linesWritten} lines to ${args.path}`,
+      previewLines: allLines,
+      totalLines: linesWritten,
     };
   },
 };

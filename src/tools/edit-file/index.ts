@@ -3,6 +3,8 @@ import { isAbsolute, resolve } from 'node:path';
 import { z } from 'zod';
 import type { ConfirmationRequest, ToolDefinition } from '../types.js';
 
+import { computeLineDiff, type DiffLine } from '../../utils/diff.js';
+
 export const editFileInputSchema = z.object({
   path: z
     .string()
@@ -22,6 +24,12 @@ export interface EditFileOutput {
   bytesWritten: number;
   replacements: number;
   message: string;
+  diffLines?: DiffLine[];
+  allLines?: string[];
+  previewLines?: string[];
+  highlightLineIndex?: number;
+  highlightCount?: number;
+  totalLines?: number;
 }
 
 /**
@@ -104,11 +112,27 @@ export const editFileTool: ToolDefinition<typeof editFileInputSchema, EditFileOu
     writeFileSync(targetPath, updated, 'utf-8');
     const bytesWritten = Buffer.byteLength(updated, 'utf-8');
 
+    // Compute unified line diff for colorized preview with full 10-line window context
+    const diffLines = computeLineDiff(content, updated, 10);
+
+    // Create full updated lines and calculate edit highlight indices
+    const updatedLines = updated.split(/\r?\n/);
+    const charOffset = updated.indexOf(args.new_string);
+    const editLineIndex =
+      charOffset >= 0 ? updated.slice(0, charOffset).split(/\r?\n/).length - 1 : 0;
+    const replacementLinesCount = args.new_string.split(/\r?\n/).length;
+
     return {
       path: args.path,
       bytesWritten,
       replacements: args.replace_all ? occurrences : 1,
-      message: `The file ${args.path} has been updated successfully (${args.replace_all ? occurrences : 1} replacement(s)).`,
+      message: `Updated ${args.path}`,
+      diffLines,
+      allLines: updatedLines,
+      previewLines: updatedLines,
+      highlightLineIndex: editLineIndex,
+      highlightCount: replacementLinesCount,
+      totalLines: updatedLines.length,
     };
   },
 };

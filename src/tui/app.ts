@@ -258,6 +258,11 @@ export class TUIApp {
             durationMs: item.toolData.durationMs,
             error: item.toolData.error,
             toolOutput: item.toolData.toolOutput,
+            previewLines: item.toolData.previewLines,
+            diffLines: item.toolData.diffLines,
+            highlightLineIndex: item.toolData.highlightLineIndex,
+            highlightCount: item.toolData.highlightCount,
+            totalLines: item.toolData.totalLines,
           }),
         );
       } else if (item.type === 'assistant') {
@@ -464,9 +469,31 @@ export class TUIApp {
                 event.toolResult.isError,
               );
 
-              const previewLines = Array.isArray((event.toolResult.result as any)?.recentLines)
-                ? (event.toolResult.result as any).recentLines
-                : undefined;
+              const resObj =
+                typeof event.toolResult.result === 'object' && event.toolResult.result !== null
+                  ? (event.toolResult.result as any)
+                  : undefined;
+
+              let previewLines: string[] | undefined = undefined;
+              let totalLines: number | undefined = resObj?.totalLines;
+
+              if (Array.isArray(resObj?.previewLines)) {
+                previewLines = resObj.previewLines;
+                totalLines = totalLines ?? resObj?.previewLines.length;
+              } else if (resObj?.output || resObj?.stdout || resObj?.stderr) {
+                const combined = [resObj.output, resObj.stdout, resObj.stderr]
+                  .filter(Boolean)
+                  .join('\n')
+                  .trim();
+                if (combined) {
+                  const outLines = combined.split(/\r?\n/);
+                  previewLines = outLines;
+                  totalLines = totalLines ?? outLines.length;
+                }
+              } else if (Array.isArray(resObj?.recentLines)) {
+                previewLines = resObj.recentLines;
+                totalLines = totalLines ?? resObj?.recentLines.length;
+              }
 
               this.engine.commit(
                 'tool-result',
@@ -486,6 +513,10 @@ export class TUIApp {
                     : undefined,
                   toolOutput: outputSummary,
                   previewLines,
+                  diffLines: Array.isArray(resObj?.diffLines) ? resObj.diffLines : undefined,
+                  highlightLineIndex: resObj?.highlightLineIndex,
+                  highlightCount: resObj?.highlightCount,
+                  totalLines: resObj?.totalLines,
                 }),
               );
               break;

@@ -1,6 +1,7 @@
 import type { ConfirmationDecision, ConfirmationRequest } from '../tools/types.js';
 import type { ModelDescriptor } from '../models/index.js';
 import type { SessionData } from '../session/types.js';
+import type { DiffLine } from '../utils/diff.js';
 
 export type ToolExecutionStatus = 'running' | 'completed' | 'failed';
 
@@ -17,6 +18,11 @@ export interface UIHistoryItem {
     durationMs?: number;
     error?: string;
     toolOutput?: string;
+    previewLines?: string[];
+    diffLines?: DiffLine[];
+    highlightLineIndex?: number;
+    highlightCount?: number;
+    totalLines?: number;
   };
 }
 
