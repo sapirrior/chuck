@@ -69,6 +69,11 @@ export class ToolCatalog {
                     displayName: def.displayName,
                     args,
                     promptTitle: `Approve execution of ${def.displayName}?`,
+                    preview: {
+                      kind: 'custom',
+                      details: typeof args === 'string' ? args : JSON.stringify(args ?? {}),
+                    },
+                    reviewToken: '',
                   };
 
               const decision = await context.requestConfirmation(request);

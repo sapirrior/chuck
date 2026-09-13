@@ -1,6 +1,7 @@
 import { z } from 'zod';
-import type { ConfirmationRequest, ToolDefinition } from '../types.js';
 import { executeShellCommand } from '../../shell/index.js';
+import { reviewTokenCache } from '../review-cache.js';
+import type { ConfirmationRequest, ToolDefinition } from '../types.js';
 
 export const runCommandInputSchema = z.object({
   command: z.string().describe('The command to execute in the system shell.'),
@@ -26,12 +27,6 @@ export interface RunCommandOutput {
   durationMs: number;
 }
 
-/**
- * Bash Execution Tool:
- * - Executes shell commands via real-time stream runner in the project directory.
- * - Requires user confirmation unless pre-allowed for the session.
- * - Streams execution time and returns exitCode, stdout, and stderr.
- */
 export const runCommandTool: ToolDefinition<typeof runCommandInputSchema, RunCommandOutput> = {
   name: 'run_command',
   displayName: 'Bash',
@@ -40,11 +35,24 @@ export const runCommandTool: ToolDefinition<typeof runCommandInputSchema, RunCom
   parameters: runCommandInputSchema,
   confirmationPolicy: 'session',
 
+  summarizeArgs: (args) => (args.command.length > 80 ? args.command.slice(0, 80) + '...' : args.command),
+
   getConfirmationRequest: (args: RunCommandInput): ConfirmationRequest => {
+    const lines = args.command.split(/\r?\n/);
+    const reviewToken = reviewTokenCache.register({
+      command: args.command,
+    });
+
     return {
       toolName: 'run_command',
       displayName: 'Bash',
-      promptTitle: `Execute command: ${args.command}`,
+      promptTitle: `Execute command: ${lines[0] || args.command}`,
+      preview: {
+        kind: 'command',
+        command: args.command,
+        totalLines: lines.length,
+      },
+      reviewToken,
       args: {
         command: args.command,
       },

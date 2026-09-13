@@ -1,14 +1,36 @@
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  closeSync,
+  existsSync,
+  fsyncSync,
+  mkdirSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  unlinkSync,
+  writeFileSync,
+  writeSync,
+} from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import type { ModelSelection } from '../engine/types.js';
-import type { SessionData, SessionSummary, SessionTurn } from './types.js';
+import {
+  SESSION_SCHEMA_VERSION,
+  type SessionData,
+  type SessionSummary,
+  type SessionTurn,
+} from './types.js';
+import { parseSessionDocument } from './validate.js';
 
 /**
- * Resolves the base root directory for sessions: ~/.xd/sessions
+ * Resolves the base root directory for sessions: ~/.xd/sessions (or overridden by XD_SESSIONS_DIR)
  */
 export function getSessionsRootDir(): string {
+  if (process.env.XD_SESSIONS_DIR) {
+    return process.env.XD_SESSIONS_DIR;
+  }
   return join(homedir(), '.xd', 'sessions');
 }
 
@@ -46,6 +68,7 @@ export function createSession(model: ModelSelection, customId?: string): Session
   const date = getCurrentDateString();
 
   return {
+    schemaVersion: SESSION_SCHEMA_VERSION,
     id,
     name: 'New Session',
     date,
@@ -65,10 +88,37 @@ export function createSession(model: ModelSelection, customId?: string): Session
 }
 
 /**
- * Persists or updates a session JSON file at ~/.xd/sessions/<date>/<sessionId>.json.
- * Does not write system prompts, and preserves all tool calls and outputs.
+ * Quarantines a corrupted or malformed session file into ~/.xd/sessions/<date>/.quarantine/<id>.json
+ */
+export function quarantineSessionFile(
+  filePath: string,
+  dateDir: string,
+  fileName: string,
+): string {
+  const quarantineDir = join(dateDir, '.quarantine');
+  if (!existsSync(quarantineDir)) {
+    mkdirSync(quarantineDir, { recursive: true });
+  }
+  const quarantinedPath = join(quarantineDir, fileName);
+  try {
+    renameSync(filePath, quarantinedPath);
+  } catch {
+    // If rename fails (e.g. cross-device), try copy + remove
+    try {
+      const content = readFileSync(filePath);
+      writeFileSync(quarantinedPath, content);
+      unlinkSync(filePath);
+    } catch {}
+  }
+  return quarantinedPath;
+}
+
+/**
+ * Persists or updates a session JSON file atomically at ~/.xd/sessions/<date>/<sessionId>.json.
+ * Uses temp-file + fsync + atomic rename to prevent file corruption.
  */
 export function saveSession(session: SessionData): string {
+  session.schemaVersion = SESSION_SCHEMA_VERSION;
   session.date = session.date || getCurrentDateString();
   const dateDir = join(getSessionsRootDir(), session.date);
   if (!existsSync(dateDir)) {
@@ -77,9 +127,33 @@ export function saveSession(session: SessionData): string {
 
   session.updatedAt = new Date().toISOString();
 
-  const filePath = getSessionFilePath(session.date, session.id);
-  writeFileSync(filePath, JSON.stringify(session, null, 2) + '\n', 'utf-8');
-  return filePath;
+  const targetPath = getSessionFilePath(session.date, session.id);
+  const tmpPath = `${targetPath}.tmp-${randomUUID().slice(0, 8)}`;
+  const payload = JSON.stringify(session, null, 2) + '\n';
+
+  let fd: number | null = null;
+  try {
+    fd = openSync(tmpPath, 'w', 0o600);
+    writeSync(fd, payload, 0, 'utf-8');
+    fsyncSync(fd);
+    closeSync(fd);
+    fd = null;
+
+    renameSync(tmpPath, targetPath);
+    return targetPath;
+  } catch (err) {
+    if (fd !== null) {
+      try {
+        closeSync(fd);
+      } catch {}
+    }
+    if (existsSync(tmpPath)) {
+      try {
+        unlinkSync(tmpPath);
+      } catch {}
+    }
+    throw err;
+  }
 }
 
 /**
@@ -139,17 +213,22 @@ export function renameSession(session: SessionData, newName: string): SessionDat
 
 /**
  * Loads a session document by session ID (searching all date folders) or by absolute path.
+ * Invalid or corrupted files are quarantined and reported rather than silently ignored.
  */
 export function loadSession(sessionIdOrPath: string): SessionData | null {
   // If it's an existing absolute/relative path
   if (existsSync(sessionIdOrPath) && sessionIdOrPath.endsWith('.json')) {
     try {
       const raw = readFileSync(sessionIdOrPath, 'utf-8');
-      const doc = JSON.parse(raw) as SessionData;
-      if (!doc.date) {
-        doc.date = getCurrentDateString();
+      const parseRes = parseSessionDocument(raw);
+      if (parseRes.ok) {
+        return parseRes.doc;
       }
-      return doc;
+      // Quarantine corrupted file
+      const dir = dirname(sessionIdOrPath);
+      const fileName = sessionIdOrPath.split('/').pop() || 'unknown.json';
+      quarantineSessionFile(sessionIdOrPath, dir, fileName);
+      return null;
     } catch {
       return null;
     }
@@ -162,7 +241,7 @@ export function loadSession(sessionIdOrPath: string): SessionData | null {
   }
 
   const dateDirs = readdirSync(rootDir, { withFileTypes: true })
-    .filter((d) => d.isDirectory())
+    .filter((d) => d.isDirectory() && !d.name.startsWith('.'))
     .map((d) => d.name);
 
   for (const date of dateDirs) {
@@ -170,11 +249,17 @@ export function loadSession(sessionIdOrPath: string): SessionData | null {
     if (existsSync(filePath)) {
       try {
         const raw = readFileSync(filePath, 'utf-8');
-        const doc = JSON.parse(raw) as SessionData;
-        if (!doc.date) {
-          doc.date = date;
+        const parseRes = parseSessionDocument(raw);
+        if (parseRes.ok) {
+          const doc = parseRes.doc;
+          if (!doc.date) {
+            doc.date = date;
+          }
+          return doc;
         }
-        return doc;
+        // Quarantine invalid/corrupted file
+        quarantineSessionFile(filePath, join(rootDir, date), `${sessionIdOrPath}.json`);
+        return null;
       } catch {
         return null;
       }
@@ -194,7 +279,7 @@ export function listSessions(limit = 50): SessionSummary[] {
   }
 
   const dateDirs = readdirSync(rootDir, { withFileTypes: true })
-    .filter((d) => d.isDirectory())
+    .filter((d) => d.isDirectory() && !d.name.startsWith('.'))
     .map((d) => d.name);
 
   const summaries: SessionSummary[] = [];
@@ -203,7 +288,7 @@ export function listSessions(limit = 50): SessionSummary[] {
     const datePath = join(rootDir, date);
     let files: string[] = [];
     try {
-      files = readdirSync(datePath).filter((f) => f.endsWith('.json'));
+      files = readdirSync(datePath).filter((f) => f.endsWith('.json') && !f.startsWith('.'));
     } catch {
       continue;
     }
@@ -212,9 +297,10 @@ export function listSessions(limit = 50): SessionSummary[] {
       const fullPath = join(datePath, file);
       try {
         const raw = readFileSync(fullPath, 'utf-8');
-        const doc = JSON.parse(raw) as Partial<SessionData>;
+        const parseRes = parseSessionDocument(raw);
 
-        if (doc.id && doc.model) {
+        if (parseRes.ok) {
+          const doc = parseRes.doc;
           summaries.push({
             id: doc.id,
             name: doc.name || 'Untitled Session',
@@ -226,9 +312,12 @@ export function listSessions(limit = 50): SessionSummary[] {
             turnCount: doc.turns?.length ?? 0,
             filePath: fullPath,
           });
+        } else {
+          // Quarantine invalid/corrupted file
+          quarantineSessionFile(fullPath, datePath, file);
         }
       } catch {
-        // Skip unparseable files
+        // Skip inaccessible files
       }
     }
   }
@@ -249,7 +338,7 @@ export function deleteSession(sessionId: string): boolean {
   }
 
   const dateDirs = readdirSync(rootDir, { withFileTypes: true })
-    .filter((d) => d.isDirectory())
+    .filter((d) => d.isDirectory() && !d.name.startsWith('.'))
     .map((d) => d.name);
 
   for (const date of dateDirs) {

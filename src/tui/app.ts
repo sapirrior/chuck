@@ -103,17 +103,23 @@ export class TUIApp {
         } else if (item.type === 'system') {
           this.engine.commit('system', formatSystemMessage(item.content));
         } else if (item.type === 'tool' && item.toolData) {
+          const toolDef = defaultToolCatalog.get(item.toolData.toolName);
           this.engine.commit(
             'tool-result',
             formatToolStatus({
               toolName: item.toolData.toolName,
-              displayName: item.toolData.displayName,
-              icon: item.toolData.icon,
+              displayName: item.toolData.displayName ?? toolDef?.displayName,
+              icon: item.toolData.icon ?? toolDef?.icon,
               argsSummary: item.toolData.argsSummary,
               status: item.toolData.status,
               durationMs: item.toolData.durationMs,
               error: item.toolData.error,
               toolOutput: item.toolData.toolOutput,
+              previewLines: item.toolData.previewLines,
+              diffLines: item.toolData.diffLines,
+              highlightLineIndex: item.toolData.highlightLineIndex,
+              highlightCount: item.toolData.highlightCount,
+              totalLines: item.toolData.totalLines,
             }),
           );
         } else if (item.type === 'assistant') {
@@ -474,25 +480,25 @@ export class TUIApp {
                   ? (event.toolResult.result as any)
                   : undefined;
 
-              let previewLines: string[] | undefined = undefined;
-              let totalLines: number | undefined = resObj?.totalLines;
+              const isMutatingTool =
+                event.toolResult.name === 'edit_file' ||
+                event.toolResult.name === 'write_file' ||
+                event.toolResult.name === 'run_command';
 
-              if (Array.isArray(resObj?.previewLines)) {
-                previewLines = resObj.previewLines;
-                totalLines = totalLines ?? resObj?.previewLines.length;
-              } else if (resObj?.output || resObj?.stdout || resObj?.stderr) {
-                const combined = [resObj.output, resObj.stdout, resObj.stderr]
-                  .filter(Boolean)
-                  .join('\n')
-                  .trim();
-                if (combined) {
-                  const outLines = combined.split(/\r?\n/);
-                  previewLines = outLines;
-                  totalLines = totalLines ?? outLines.length;
+              let previewLines: string[] | undefined = undefined;
+              let totalLines: number | undefined = undefined;
+
+              if (isMutatingTool) {
+                if (Array.isArray(resObj?.previewLines)) {
+                  previewLines = resObj.previewLines;
+                  totalLines = resObj?.totalLines ?? previewLines.length;
+                } else if (resObj?.stdout || resObj?.stderr) {
+                  const combined = [resObj.stdout, resObj.stderr].filter(Boolean).join('\n').trim();
+                  if (combined) {
+                    previewLines = combined.split(/\r?\n/);
+                    totalLines = previewLines.length;
+                  }
                 }
-              } else if (Array.isArray(resObj?.recentLines)) {
-                previewLines = resObj.recentLines;
-                totalLines = totalLines ?? resObj?.recentLines.length;
               }
 
               this.engine.commit(

@@ -1,12 +1,12 @@
 import stringWidth from 'string-width';
 import Component from '../../engine/Component.js';
 import type { ConfirmationDecision, ConfirmationRequest } from '../../../tools/types.js';
+import { reviewTokenCache } from '../../../tools/review-cache.js';
 import { getTheme, figures } from '../../../theme/index.js';
 import { themeColor, themeBgColor, chalk } from '../../utils/format.js';
 import { computeLineDiff, type DiffLine } from '../../../utils/diff.js';
 import { Box, type BoxElement } from '../../primitives/Box.js';
 import { Text, type TextElement } from '../../primitives/Text.js';
-import { renderKeyHints } from '../../primitives/widgets/ModalBox.js';
 import { parseKeyInput } from '../../primitives/widgets/KeyReader.js';
 
 export interface PermissionDockProps {
@@ -27,6 +27,7 @@ export default class PermissionDock extends Component<PermissionDockProps, Permi
   private removeInputListener: (() => void) | null = null;
   private diffLines: DiffLine[] = [];
   private targetFile = '';
+  private fullLoaded = false;
 
   constructor(props: PermissionDockProps) {
     super(props);
@@ -36,32 +37,71 @@ export default class PermissionDock extends Component<PermissionDockProps, Permi
       reviewOffset: 0,
     };
 
-    const isEditOp = props.request.toolName === 'edit_file';
-    const isWriteOp = props.request.toolName === 'write_file';
-    this.targetFile =
-      (props.request.args as any)?.path ??
-      (props.request.args as any)?.file_path ??
-      (props.request.args as any)?.target_file ??
-      '';
-
-    if (isEditOp) {
-      const oldContent = (props.request.args as any)?.oldContent ?? '';
-      const newContent =
-        (props.request.args as any)?.newContent ?? (props.request.args as any)?.content ?? '';
-      if (oldContent || newContent) {
-        this.diffLines = computeLineDiff(oldContent, newContent);
-      }
-    } else if (isWriteOp) {
-      const content = (props.request.args as any)?.content ?? '';
-      if (content) {
-        const lines = String(content).split(/\r?\n/);
-        this.diffLines = lines.map((l, i) => ({
+    const preview = props.request.preview;
+    if (preview) {
+      if (preview.kind === 'edit') {
+        this.targetFile = preview.path;
+        this.diffLines = preview.smallPreviewDiffLines ? [...preview.smallPreviewDiffLines] : [];
+      } else if (preview.kind === 'write') {
+        this.targetFile = preview.path;
+        this.diffLines = (preview.smallPreviewLines ?? []).map((l, i) => ({
           kind: 'neutral' as const,
           prefix: ' ',
           lineNumber: i + 1,
           text: l,
         }));
       }
+    } else {
+      // Fallback for untyped legacy requests
+      const isEditOp = props.request.toolName === 'edit_file';
+      const isWriteOp = props.request.toolName === 'write_file';
+      this.targetFile =
+        (props.request.args as any)?.path ??
+        (props.request.args as any)?.file_path ??
+        (props.request.args as any)?.target_file ??
+        '';
+
+      if (isEditOp) {
+        const oldContent = (props.request.args as any)?.oldContent ?? '';
+        const newContent =
+          (props.request.args as any)?.newContent ?? (props.request.args as any)?.content ?? '';
+        if (oldContent || newContent) {
+          this.diffLines = computeLineDiff(oldContent, newContent);
+        }
+      } else if (isWriteOp) {
+        const content = (props.request.args as any)?.content ?? '';
+        if (content) {
+          const lines = String(content).split(/\r?\n/);
+          this.diffLines = lines.map((l, i) => ({
+            kind: 'neutral' as const,
+            prefix: ' ',
+            lineNumber: i + 1,
+            text: l,
+          }));
+        }
+      }
+    }
+  }
+
+  private loadFullReviewContent(): void {
+    if (this.fullLoaded) return;
+    this.fullLoaded = true;
+
+    const token = this.props.request.reviewToken;
+    if (!token) return;
+
+    const entry = reviewTokenCache.get(token);
+    if (!entry) return;
+
+    if (entry.oldContent !== undefined && entry.newContent !== undefined) {
+      this.diffLines = computeLineDiff(entry.oldContent, entry.newContent, 3);
+    } else if (entry.fullText !== undefined) {
+      this.diffLines = entry.fullText.split(/\r?\n/).map((l, i) => ({
+        kind: 'neutral' as const,
+        prefix: ' ',
+        lineNumber: i + 1,
+        text: l,
+      }));
     }
   }
 
@@ -90,19 +130,29 @@ export default class PermissionDock extends Component<PermissionDockProps, Permi
       // 'f' toggles review mode
       const hasReviewableContent =
         this.diffLines.length > 0 ||
+        Boolean(this.props.request.reviewToken) ||
+        (this.props.request.preview?.kind === 'command' &&
+          this.props.request.preview.command.split('\n').length > 5) ||
         (this.props.request.toolName === 'run_command' &&
           ((this.props.request.args as any)?.command ?? '').split('\n').length > 5);
 
       if (str.toLowerCase() === 'f' && hasReviewableContent) {
-        this.setState({ isReviewing: !this.state.isReviewing });
+        const nextReviewing = !this.state.isReviewing;
+        if (nextReviewing) {
+          this.loadFullReviewContent();
+        }
+        this.setState({ isReviewing: nextReviewing });
         return true;
       }
 
+      // Scrolling within review mode
       if (this.state.isReviewing) {
-        const totalItems =
-          this.diffLines.length > 0
-            ? this.diffLines.length
-            : ((this.props.request.args as any)?.command ?? '').split('\n').length;
+        let totalItems = this.diffLines.length;
+        if (this.props.request.preview?.kind === 'command') {
+          totalItems = this.props.request.preview.command.split('\n').length;
+        } else if ((this.props.request.args as any)?.command) {
+          totalItems = ((this.props.request.args as any).command as string).split('\n').length;
+        }
 
         if (action.type === 'cursor-up') {
           this.setState({ reviewOffset: Math.max(0, this.state.reviewOffset - 1) });
@@ -173,7 +223,6 @@ export default class PermissionDock extends Component<PermissionDockProps, Permi
     const { selectedIdx, isReviewing, reviewOffset } = this.state;
 
     const elements: (BoxElement | TextElement | string)[] = [];
-    const lavLight = themeColor(theme.lavenderLight);
     const dashRule = themeColor(theme.dashedRule);
     const cyan = themeColor(theme.info);
     const addBg = themeBgColor(theme.diffAddBG);
@@ -235,10 +284,16 @@ export default class PermissionDock extends Component<PermissionDockProps, Permi
         }
       }
       elements.push(Text(dashRule(figures.horizontalLine.repeat(dividerWidth))));
-    } else if (request.toolName === 'run_command' && (request.args as any)?.command) {
+    } else if (
+      request.preview?.kind === 'command' ||
+      (request.toolName === 'run_command' && (request.args as any)?.command)
+    ) {
       elements.push(Text(dashRule(figures.horizontalLine.repeat(dividerWidth))));
       const pink = themeColor(theme.bashPink);
-      const cmdRaw: string = (request.args as any).command;
+      const cmdRaw: string =
+        request.preview?.kind === 'command'
+          ? request.preview.command
+          : (request.args as any).command;
       const cmdLines = cmdRaw.split('\n');
       const maxPreview = 5;
       const reviewWindowSize = 10;

@@ -1,4 +1,5 @@
 import type { z } from 'zod';
+import type { DiffLine } from '../utils/diff.js';
 
 /**
  * Confirmation policy indicating how user approval is requested:
@@ -14,13 +15,44 @@ export type ConfirmationPolicy = 'never' | 'session' | 'always';
 export type ConfirmationDecision = 'allow_once' | 'allow_session' | 'deny';
 
 /**
+ * Bounded, type-safe confirmation preview structure.
+ */
+export type ConfirmationPreview =
+  | {
+      kind: 'edit';
+      path: string;
+      statsOnly: { addedLines: number; removedLines: number };
+      smallPreviewDiffLines?: DiffLine[];
+    }
+  | {
+      kind: 'write';
+      path: string;
+      isNewFile: boolean;
+      totalLines: number;
+      bytesWritten: number;
+      smallPreviewLines?: string[];
+    }
+  | {
+      kind: 'command';
+      command: string;
+      totalLines: number;
+    }
+  | {
+      kind: 'custom';
+      details: string;
+    };
+
+/**
  * Information presented to the user when requesting approval for a tool execution.
  */
 export interface ConfirmationRequest {
   toolName: string;
   displayName: string;
-  args: Record<string, unknown>;
   promptTitle: string;
+  preview: ConfirmationPreview;
+  reviewToken: string;
+  /** Legacy/generic arguments bag for backwards-compatibility */
+  args?: Record<string, unknown>;
   previewDetails?: string;
 }
 
@@ -72,6 +104,11 @@ export interface ToolDefinition<TParams extends z.ZodTypeAny = z.ZodTypeAny, TRe
    * Generates a human-friendly confirmation preview for the UI.
    */
   getConfirmationRequest?: (args: z.infer<TParams>) => ConfirmationRequest;
+
+  /**
+   * Bounded summary of arguments for logging and session records.
+   */
+  summarizeArgs?: (args: z.infer<TParams>) => string;
 
   /**
    * Main tool execution function.

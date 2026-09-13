@@ -1,519 +1,533 @@
-# xd TUI — Layout Engine & Reconciler Overhaul
+# xd — Production-Grade Hardening Plan
 
-Target repo: `xd` (bun/TypeScript terminal agent). This plan is written for an
-AI coding agent to execute autonomously, file by file. Every claim about the
-current bug is backed by an exact file/line reference from the uploaded
-codebase (`xd_wit.xml`). Every terminal/ANSI fact is verified against
-primary sources (linked). Do not skip Phase 0 — it is the actual fix for the
-`/skills` bug and ships independently of the bigger rebuild.
+Snapshot: `xd_wit.xml`, 108 files, ~9.8k LOC TypeScript/Bun. `ai@7.0.97` + `@ai-sdk/{anthropic,google,openai,openai-compatible}`, `zod@4`. This plan is built entirely from the actual source (`src/**`), `package.json`, `.agents/skills/ai-sdk/SKILL.md`, `.agents/skills/migrate-ai-sdk-v6-to-v7/SKILL.md`, and current AI SDK 7 semantics. The prior `plan.md` in the snapshot was not read and is not referenced anywhere below.
 
 ---
 
-## 0. Root cause analysis (verified against the actual source)
+## 1. Executive Summary
 
-### Bug A — `/skills` (and any multi-line command result) corrupts the frame
+xd's runtime loop (`agent-runner.ts` → `streamText`) is already correctly written against AI SDK 7 (`instructions`, `stopWhen: isStepCount(...)`, `result.responseMessages`) — **do not migrate to `ToolLoopAgent`** (reasoning in §7). The real production-readiness gaps are architectural, not API-version gaps:
 
-Call chain:
+1. **Session storage duplicates every large payload three ways** (`SessionTurn.toolCalls[].result`, `SessionTurn.rawMessages`, and tool-output preview fields), is rewritten wholesale with a single `writeFileSync` per turn, has no schema version, and cannot survive a crash mid-write or a hand-edited/corrupted file.
+2. **Full file contents and full diffs flow untruncated through tool execute → confirmation UI → session file**, three separate times, with no size limit anywhere in the chain.
+3. **The diff engine is O(M·N) time *and* memory** (`utils/diff.ts::computeLineDiff`, LCS dynamic-programming matrix) and is invoked eagerly and unconditionally in `PermissionDock`'s constructor — before the user ever presses `f` — on every `edit_file` confirmation, regardless of file size.
+4. **The TUI re-lays out the entire document history on every frame** (`FrameBuffer.ts::computeDocumentFrame` → `cell-layout.ts::layoutDocument` walks the whole `DocumentTree`), even though the terminal-write path (`StateRenderer`) already does correct row-level diffing. History is immutable once committed but is not treated as such by layout.
+5. **Session resume silently degrades**: if a persisted turn has no `rawMessages` (interrupted turn, or old-format file), `AgentSession` reconstructs it as a single user/assistant string pair and **drops every tool call**, corrupting the model's view of its own history on resume.
+6. Test surface is a single 111-line file (`tests/showcase.test.ts`); there is no coverage for sessions, tool execution, diffing, or the TUI.
 
-1. `src/commands/skills/index.ts` builds a multi-line report and joins it
-   with **literal `\n`** into a single string:
-   ```ts
-   return { handled: true, message: lines.join('\n') };
-   ```
-2. `src/tui/app.ts` (`handleSubmit`, slash-command branch) does:
-   ```ts
-   this.engine.commit('system', formatSystemMessage(cmdResult.message));
-   ```
-3. `src/tui/utils/message-formatter.ts` → `formatSystemMessage()`:
-   ```ts
-   export function formatSystemMessage(content: string): string[] {
-     const infoColor = themeColor(theme.permission);
-     return [`${infoColor(`${figures.info} ${content}`)}`];
-   }
-   ```
-   This returns an **array of exactly one string**, and that one string
-   still contains the raw `\n` bytes from step 1. It never splits on `\n`.
-4. `TerminalEngine.commit()` → `DocumentTree.addText(lines, isWrappable=true)`
-   wraps that single (multi-line!) string in a `TextNode`.
-5. `TextNode.getLines()` (`src/tui/engine/DocumentTree.ts`) calls
-   `wrapVisualLine(line, width)` from `src/tui/engine/cell-layout.ts` on it.
-   **`wrapVisualLine`/`tokenizeAnsi` has no case for `\n` or `\r`.** It
-   iterates the string with `for (const char of plainSegment)`, and a
-   `\n` character is not `' '` or `'\t'`, so it is folded into a "word"
-   chunk like any other printable character (its display width from
-   `string-width` is 0, so it never triggers a wrap — it just rides along
-   inside whatever chunk it landed in).
-6. The result: one entry of `TextNode.getLines()` — which the entire
-   engine treats as **exactly one physical terminal row** — actually
-   contains a raw, un-escaped newline byte in the middle of it.
-7. `StateRenderer.render()` (`src/tui/engine/StateRenderer.ts`) writes each
-   row with `\x1b[${i+1};1H\x1b[2K${next}` — i.e. it moves the cursor to
-   row `i+1`, clears it, and writes `next`. If `next` itself contains a
-   `\n`, the terminal performs its own linefeed *in the middle of that
-   write*, silently consuming one extra on-screen row that the renderer's
-   row-index math (`FrameBuffer.ts` → `computeDocumentFrame`) never
-   accounted for.
-
-This breaks the one invariant the whole renderer depends on:
-**1 array entry === 1 terminal row**. Once it's violated, every row index
-computed after that point (including the mounted `PromptInput`'s cursor
-position, which is placed by absolute row/column via
-`\x1b[${line+1};${column}H` in `StateRenderer`) is off — which is exactly
-the "breaks the input box" symptom. It "recovers" on resume/prompt-submit
-only because those code paths call `engine.clearAll()` /
-`requestFrame(true)`, which does a **full clear + repaint** (`\x1b[H\x1b[J`)
-and rebuilds `previousLines` from scratch — that resets the diff baseline,
-it does not fix the underlying corrupted row.
-
-**This is a two-line-of-blame bug**, but it exposes a structural gap: the
-layout layer trusts every string handed to it to already be a single
-visual row, and nothing enforces that.
-
-### Bug B — fixed single-line components overflow and trigger terminal auto-wrap
-
-`src/tui/components/StatusBar.ts`:
-```ts
-const leftWidth = stringWidth(stripAnsi(left));
-const rightWidth = stringWidth(stripAnsi(right));
-const spaceCount = Math.max(1, termWidth - 1 - leftWidth - rightWidth);
-const line = `${left}${' '.repeat(spaceCount)}${right}`;
-```
-When `leftWidth + rightWidth + 1 > termWidth - 1` (narrow terminal, long
-model id, or a large token count string), `spaceCount` clamps to `1`
-instead of shrinking `right` — so `line`'s true display width **exceeds**
-`termWidth`. The same shape of bug (`Math.max(1, ...)` padding with no
-truncation, no check against the full line width) appears in
-`src/tui/components/docks/HelpMenu.ts` (`pad1`/`pad2` for the 3-column
-shortcut grid) and `CommandPalette.render()` in
-`src/tui/components/docks/CommandPalette.ts` doesn't even receive/use
-`width` at all, so long command descriptions are never constrained.
-
-Every other layout width in the codebase is computed as `termWidth - 1`
-(see `FrameBuffer.ts`: `const safeWidth = Math.max(20, termWidth - 1);`),
-specifically to leave one column of headroom so a full-width line doesn't
-trip the terminal's own line-wrap. `StatusBar`/`HelpMenu`/`CommandPalette`
-don't respect that margin, so on narrow terminals (or long model names /
-token counts) they can legitimately hit `termWidth` exactly or exceed it.
-
-By default terminals run with **DECAWM (Auto Wrap Mode) permanently on**
-(`CSI ? 7 h`, VT100/xterm default) — a character emitted past the last
-column forces a wrap to the next line
-([man7 console_codes(4)](https://man7.org/linux/man-pages/man4/console_codes.4.html),
-[vt100.net DECAWM](https://vt100.net/docs/vt510-rm/DECAWM.html)). That
-silently consumes an extra on-screen row that `computeDocumentFrame`
-never counted, which desyncs every row index below it — the diff-based
-`StateRenderer` then believes an unrelated row is unchanged and skips
-repainting it, which is what reads to the user as "text vanishing at the
-bottom/left/right." Widening the terminal ("zooming out") increases
-`termWidth` past the overflow threshold, which is exactly why that
-"fixes" it — it's the direct symptom of an unclamped line, not a rendering
-fluke.
-
-### Bug C (structural, not a single bug) — no real layout engine, only ad hoc string math
-
-There is no box model, no clipping, and no single source of truth for
-"how wide is this component allowed to be." Every component
-(`Header`, `StatusBar`, `HelpMenu`, `CommandPalette`, `ModelPicker`,
-`SessionMenu`, `PermissionDock`) independently re-derives padding/columns
-from `process.stdout.columns` or a passed `width`, with its own rounding
-and its own (inconsistent) safety margins. `cell-layout.ts` is a solid,
-correct ANSI-aware **word-wrapper**, but word-wrapping is only one half of
-a layout system — there is no equivalent for **fixed-width/fixed-height
-boxes, clipping, alignment, or z-ordering** (docks currently work by
-literally unmounting `PromptInput`/`StatusBar` and mounting a dock in
-their place — there's no concept of an overlay).
-
-### Bug D (performance) — full-document relayout on every keystroke
-
-`TerminalEngine.requestFrame()` → `StateRenderer.render()` →
-`computeDocumentFrame()` → `layoutDocument()` iterates
-**`tree.getNodes()`, i.e. every historical message plus every live
-component**, on *every single frame* — including every keystroke typed
-into `PromptInput`. `TextNode`/`UserMessageNode` cache their own wrapped
-output keyed by `width`, so this is cheap only as long as the terminal
-isn't resized and nothing needs to change — the moment anything does
-(new message, resize, cursor blink inside the prompt), the entire
-scrollback is re-walked and re-concatenated into `physicalRows` from
-scratch. For a long session this is the "not blazing fast" part of the
-request. This is addressed in Phase 4 below.
+None of this requires new frameworks, a database, or a rewrite of the custom TUI. The plan below is a bounded set of surgical changes to `session/`, `tools/`, `utils/diff.ts`, `tui/components/docks/PermissionDock.ts`, and `tui/engine/`.
 
 ---
 
-## 1. Verified terminal facts (used by this plan)
+## 2. Verified Findings
 
-All confirmed against primary/authoritative sources, current as of 2026:
+Each finding: file → symbol → root cause → consequence → correction → verification.
 
-| Mechanism | Sequence | Source |
-|---|---|---|
-| Alternate screen buffer | `CSI ?1049h` / `CSI ?1049l` | already used correctly in `TerminalEngine.ensureAlternateScreen/exitAlternateScreen` |
-| Focus tracking | enable `CSI ?1004h`, events `CSI I` / `CSI O` | already filtered correctly in `TerminalEngine.inputHandler`; xd already does what [anthropics/claude-code#10375](https://github.com/anthropics/claude-code/issues/10375) recommends |
-| Synchronized output (batch a frame atomically) | begin `CSI ?2026h` (BSU), end `CSI ?2026l` (ESU) | [xterm.js PR #5453](https://github.com/xtermjs/xterm.js/pull/5453); spec gist ([christianparpart](https://gist.github.com/christianparpart/d8a62cc1ab659194337d73e399004036)). Already used in `StateRenderer`. **Caveat**: most terminals apply a spec-mandated ~1s safety timeout that force-flushes if `ESU` never arrives — never leave a `?2026h` unmatched across an `await`/async boundary. `StateRenderer.render()` currently opens+closes it synchronously within one call, which is correct; preserve that when refactoring. |
-| Auto-wrap mode (DECAWM) | disable `CSI ?7l`, enable `CSI ?7h` | on by default in every terminal tested ([man7 console_codes(4)](https://man7.org/linux/man-pages/man4/console_codes.4.html), [vt100.net](https://vt100.net/docs/vt510-rm/DECAWM.html)) |
-| Cursor visibility | `CSI ?25l` / `CSI ?25h` | already used correctly |
-| Cursor position | `CSI {row};{col}H` (1-indexed) | already used correctly |
-| Erase in line / display | `CSI 2K` (line), `CSI H CSI J` (full clear) | already used correctly. **Do not** call raw `\x1b[2J` while inside an open `?2026h` sync block — some terminals reset viewport scroll position when ED2 runs mid-sync ([xterm.js #5801](https://github.com/xtermjs/xterm.js/issues/5801)). Current code never does this inside a sync block (good) — keep it that way. |
+### F1 — Session document stores the same content three times
+`src/session/types.ts::SessionTurn` has `toolCalls: ToolResultInfo[]` (each with a full, untruncated `result: unknown` — see `engine/types.ts::ToolResultInfo`) **and** `rawMessages?: ModelMessage[]` (the AI SDK's own tool-call/tool-result messages, which already contain the same tool outputs). `agent-session.ts::submitPrompt` step 6 passes both to `recordSessionTurn`. For an `edit_file` call this means the full pre-image, full post-image, and full diff-line array (`EditFileOutput.allLines`, `.previewLines`, `.diffLines`) are serialized once inside `toolCalls[].result` and the tool-result content is serialized *again* inside `rawMessages`.
+- Consequence: session files grow multiplicatively with edit size; a single 2000-line file edit can add >100KB to the JSON for information that's already recoverable from `rawMessages` alone.
+- Correction: `rawMessages` (or its replacement, see §6) becomes the single source of truth for "what must be resent to the model." `toolCalls` becomes a bounded, UI-facing summary (id, name, args-summary, status, duration, small preview) — never the full `result`.
+- Verification: a fixture turn with a 5000-line `write_file` call produces a session file under a fixed byte budget (test in §13).
 
-Action: add `CSI ?7l` right after entering the alternate screen in
-`ensureAlternateScreen()`, and `CSI ?7h` in `exitAlternateScreen()` /
-`cleanupSync()`, as **defense in depth** on top of the width-clamping fix
-in Phase 1. This makes an unclamped line fail safe (content gets
-truncated/overwritten instead of silently eating a phantom row), instead
-of being the difference between "renders fine" and "corrupts everything
-below it."
+### F2 — `saveSession` is a full non-atomic rewrite on every turn
+`src/session/store.ts::saveSession` calls `writeFileSync(filePath, JSON.stringify(session, null, 2) + '\n', 'utf-8')` directly against the live path. `recordSessionTurn` calls this after every single turn.
+- Consequence: a process kill, OOM, or disk-full error during `writeFileSync` truncates or corrupts the on-disk file in place — the previous valid turn history is destroyed, not just the new turn. There is no journal, no backup, no partial-write protection.
+- Correction: temp-file + atomic rename (§6).
+- Verification: kill the process (SIGKILL) mid-write in a test harness that stalls the write; assert the original file is untouched or the new file is complete — never partial.
 
-## 2. Reference architecture (how the industry actually solves this)
+### F3 — No schema version, no corruption handling, silent data loss on parse failure
+`store.ts::loadSession` and `listSessions` wrap `JSON.parse` in bare `try { } catch { return null }` / `catch { /* skip */ }`. A corrupted or partially-written file is silently treated as "does not exist" (`loadSession`) or silently omitted from the list (`listSessions`) — the user gets no diagnostic that a session was lost. `SessionData` has no `schemaVersion` field at all, so there is no way to distinguish "corrupt" from "old format" from "not yet migrated."
+- Correction: versioned schema + explicit corrupted-session quarantine path (§3, §6).
+- Verification: load a truncated JSON file and a valid-JSON-wrong-shape file; both must surface a diagnostic, not disappear silently.
 
-Verified via multiple independent sources describing Ink (the
-Yoga+React terminal renderer) and Claude Code's own custom
-Ink-derived renderer:
+### F4 — Resume reconstruction drops tool calls when `rawMessages` is absent
+`agent-session.ts` constructor, lines 54–67: for each stored turn, if `turn.rawMessages` is missing or empty, it falls back to pushing only `{role:'user', content: turn.userPrompt}` and `{role:'assistant', content: turn.assistantText}` — **all tool-call/tool-result messages for that turn are discarded**. This happens for: (a) any turn recorded before `rawMessages` existed in the schema, (b) any turn where the catch block in `submitPrompt` (lines 210–221) persisted a partial `summary` from an aborted/errored turn where `rawMessages` may be empty.
+- Consequence: on `/resume`, the model can be resent a conversation where it "remembers" saying it called a tool (via `assistantText`, if that even captured it) but the tool-call/result messages proving it don't exist — this is exactly the "tool call without result" / "invalid message ordering" hazard called out as a hard failure mode.
+- Correction: canonical turn schema always derives replay messages from a single normalized message log (§6); no dual-path reconstruction.
+- Verification: interrupted-turn resume test in §13.
 
-> React commit → mutate terminal host nodes → run layout with Yoga →
-> paint into a screen buffer → diff against the previous frame → compile
-> terminal patches → flush a single buffered terminal write.
-> ("How Claude Code Uses React in the Terminal", dev.to; corroborated by
-> claude-code-architecture ch13 and claude-harness.dev's Ink pipeline
-> writeup: `JSX → React Reconcile → Ink DOM → Yoga Layout → Screen Buffer
-> → ANSI diff → stdout`.)
+### F5 — Full file content and diff duplicated through the confirmation pipeline
+`tools/edit-file/index.ts::getConfirmationRequest` reads the whole file, computes `newContent` via string replace, and puts **both full `oldContent` and full `newContent`** into `ConfirmationRequest.args` (types.ts `ConfirmationRequest.args: Record<string, unknown>`). `catalog.ts::toAISDKTools` passes this request untouched to `context.requestConfirmation`. `PermissionDock`'s constructor (lines 47–65) then reruns `computeLineDiff(oldContent, newContent)` — a **second, independent** diff computation on the same edit (the first happened inside `edit-file/index.ts::execute` at line 116, producing `diffLines` that are never passed to the confirmation step because `getConfirmationRequest` runs *before* `execute`). `write_file`'s `getConfirmationRequest` puts the **entire file content** into `args.content`, and `PermissionDock` splits it into one `DiffLine` per line unconditionally, even if the dock is never scrolled into review mode.
+- Consequence: (a) diff computed twice per edit for no reason, (b) confirmation dialog construction cost and memory are proportional to whole-file size even for a one-line change, (c) `run_command`'s full command string flows through unbounded too.
+- Correction: `getConfirmationRequest` returns a **bounded preview** (capped line count/byte count) plus enough metadata to lazily compute a full diff only if/when review mode (`f`) is opened; `execute()`'s already-computed diff (or the tool's own bounded stats) becomes the one and only diff computation per edit (§9).
+- Verification: confirmation-construction benchmark on a 50k-line file must stay O(preview window), not O(file).
 
-xd doesn't use React, and it doesn't need to — `Component.ts` is already a
-small retained-mode component model (props/state/render). What xd is
-missing is exactly the **middle three stages**: a real layout pass, a 2D
-screen buffer (not an array of pre-wrapped strings), and a diff that
-operates on that buffer. That's what `yoga_tar.gz` (provided) is for:
-it's a **pure-TypeScript port of Facebook's Yoga** (no native binding, no
-WASM) — confirmed by inspecting its exports (`Node.create`, `setWidth`,
-`setFlexDirection`, `setMeasureFunc`, `getComputedLayout`, etc., a 1:1
-surface of the real Yoga API). Because it's pure TS, it survives
-`bun build --compile --minify` (the packaging step used in
-`package.json`'s `compile` script) with zero native-binding headaches —
-the exact problem that historically plagues `yoga-layout`'s WASM build
-inside single-file compiled binaries. **This is why it was the right
-library to hand to the agent for this job; use it, don't reach for
-`yoga-layout` from npm.**
+### F6 — `computeLineDiff` is O(M·N) time and memory
+`utils/diff.ts::computeLineDiff` builds a full `(M+1)×(N+1)` dynamic-programming matrix (`dp: number[][]`) to compute an LCS-based diff, with no size guard. It is called eagerly and unconditionally in `PermissionDock`'s **constructor**, i.e. it runs the moment the dock is *mounted*, not when the user opens full review.
+- Consequence: for a 10,000-line file, `dp` alone allocates ~10⁸ numbers (~800MB as a dense `number[][]` of arrays); for smaller-but-nontrivial files it still measurably stalls the single-threaded TUI render loop, freezing keystroke handling exactly as the "large-content bug" the review is meant to root out.
+- Correction: cap-and-fallback diff strategy (§9): use LCS diff only under a line/byte threshold; above threshold, use a cheap line-hash-based diff (Myers-style with O(N·D) using difference count, or a simple prefix/suffix-trim + hash bucketing) or fall back to a "changed: N lines added, M removed, no inline preview" summary. Never allocate an M×N matrix.
+- Verification: `computeLineDiff` on a fixture pair of 50,000-line files must complete under a fixed time budget and bounded memory in a test (§13); `PermissionDock` construction must not call the full diff algorithm before `isReviewing` is true for inputs above the threshold.
 
-Key design point that makes this tractable without a rewrite: `Node`
-supports `setMeasureFunc(fn)`, where `fn(width, widthMode, height,
-heightMode) => {width, height}`. **`cell-layout.ts`'s `wrapVisualLine` is
-already a correct, ANSI-aware, Unicode-width-aware word wrapper** — it
-does not need to be replaced. It gets **repurposed** as the measure
-function for Yoga "Text" leaf nodes: given a proposed width, return
-`{ width: <=proposed, height: wrapped line count }`. Layout (box
-positions) becomes Yoga's job; word-wrapping stays exactly the
-well-tested code that exists today.
+### F7 — TUI re-lays out full history every frame
+`tui/engine/FrameBuffer.ts::computeDocumentFrame` calls `layoutDocument(tree, safeWidth, forceAll, lineWidthCache)` (`cell-layout.ts`) which walks the entire `DocumentTree` to produce `physicalRows`/`totalPhysicalRows`, then slices a viewport out of the *complete* result. This runs on every call to `StateRenderer.render`, which `TerminalEngine` invokes on every keystroke, stream chunk, and resize (needs confirmation of call sites in Phase 8, but `computeDocumentFrame`'s signature and lack of any per-node memoization/dirty-tracking confirms the whole-tree walk). The `lineWidthCache: Map<string, number>` passed in only memoizes individual string-width measurements, not layout results — it does not make this O(viewport).
+- Consequence: as a session's `HistoryStore` grows (it is append-only and never trimmed — `HistoryStore.push` only appends, `getAllLines`/`getPrimaryScreenLines` flatten everything), every keystroke's cost grows linearly with total conversation length. A long session becomes progressively less responsive.
+- Correction: treat committed `HistoryEntry` blocks as immutable and cache their layout (physical row count + rendered rows) keyed by `(entry.id, width)`, invalidated only on resize; only re-lay-out active/live components (streaming view, prompt input, docks) each frame, then splice cached history rows with fresh live rows for the viewport slice (§11).
+- Verification: layout cost for a fixed-size keystroke event must be independent of total history length (measured in a synthetic history of 10k vs 100k entries — see §13 performance tests).
+
+### F8 — `HistoryStore` has no bounds and full-array `getAllLines`
+`tui/engine/HistoryStore.ts` is a plain append-only array with no cap, no eviction, and `getAllLines()`/`getPrimaryScreenLines()` do a full `flatMap` over every entry on every call site that needs them.
+- Consequence: compounds F7 — even if layout is fixed to be viewport-bounded, any remaining full-array consumer (e.g. primary-screen flush on exit) is O(history) by design, which is acceptable *only* if it's called O(1) times (verify call sites in Phase 8), not per-frame.
+- Correction: keep `HistoryStore` as the durable ordered log (it's fine for infrequent full flushes) but make sure no per-frame path calls `getAllLines`; add a `getRange`/cursor-based accessor for the layout cache to consume incrementally instead of re-flattening.
+- Verification: static call-site audit (grep) confirms `getAllLines`/`getPrimaryScreenLines` are only invoked on exit/history-flush paths, not from `StateRenderer.render` or its callers.
+
+### F9 — Confirmation dock cannot express "already denied a similar op this session" or partial approval scoping
+`catalog.ts::toAISDKTools` only tracks a flat `sessionAllowlist: Set<string>` keyed by **tool name**, not by target (path/command). `allow_session` for `edit_file` permanently allows *all* future edits to *any* file for the rest of the session with no way to scope it — this is a design/UX correctness gap adjacent to the safety work, noted here because §5's canonical tool-call model needs to decide whether to preserve this coarse-grained behavior or scope it; flagged for a product decision, not silently changed (see Phase 5 acceptance criteria).
+
+### F10 — No test coverage for sessions, tools, diff, or TUI
+`tests/showcase.test.ts` (111 lines) is the entire test suite. `package.json`'s `test` script is `bun test`. None of the failure modes in F1–F8 have regression coverage. Phase 0 must establish characterization tests before any refactor (§13, §16).
 
 ---
 
-## 3. Target architecture
+## 3. Root Causes
+
+| Finding | Root cause |
+|---|---|
+| F1, F4 | `SessionTurn` conflates three distinct concerns — durable replay state, UI summary state, and raw provider wire format — into one flat shape with two independently-populated, inconsistently-reconstructed fields. |
+| F2, F3 | Persistence was implemented as "serialize whole object to disk," never revisited once turn payloads grew large; no journal/atomicity primitive was ever introduced. |
+| F5, F6 | Tool `execute()` and `getConfirmationRequest()` are two independent code paths that both derive diff/content data from the same edit, because `ConfirmationRequest.args: Record<string, unknown>` is untyped and treated as a dumping ground rather than a normalized, bounded contract. |
+| F7, F8 | The TUI's rendering model has exactly one abstraction level (`DocumentTree` → full layout → screen diff); there is no distinction between immutable committed history and live/active content, so nothing can be cached across frames. |
+| F10 | No test infrastructure was established alongside the persistence/diff/confirmation code as it grew in complexity. |
+
+---
+
+## 4. Target Architecture
 
 ```
-Component tree (existing Component.ts subclasses, extended)
-        │  each component's render() returns a LayoutNode tree
+AI SDK stream (streamText)
+        │  chunk events (text-delta / tool-call / tool-result / tool-error / finish-step)
         ▼
-LayoutTree  (Box | Text primitives, flex props — thin wrapper over yoga-layout.ts)
-        │  Yoga.calculateLayout(availableWidth, availableHeight)
+agent-runner.ts            — unchanged shape, still emits AgentEvent
+        │  AgentEvent  (engine/events.ts)
         ▼
-Computed boxes (x, y, width, height per node, all clipped to parent bounds by construction)
-        │  paint pass: each Text leaf's content is wrapped (reusing wrapVisualLine)
-        │  to its OWN computed width, then blitted into...
-        ▼
-ScreenBuffer   (2D grid: rows × cols of {char, styleRun}, exactly termHeight × termWidth-1)
-        │  diff against previous ScreenBuffer, cell-run by cell-run
-        ▼
-ANSI patch compiler → StateRenderer (existing sync-update + cursor-position logic, kept)
-        ▼
-stdout
+Canonical tool-call lifecycle (NEW: engine/tool-lifecycle.ts)
+        │  normalized ToolCallRecord (bounded, typed, single representation)
+        ├──────────────► Runtime state (in-memory, agent-session.ts)
+        ├──────────────► Durable session state (NEW: session/schema.ts, versioned, atomic)
+        └──────────────► TUI presentation state (HistoryStore entries, PermissionDock props)
 ```
 
-Why a `ScreenBuffer` (2D grid) instead of today's `string[]` of
-pre-rendered rows: it makes "wider than the terminal" **structurally
-impossible** — a box's content can never write outside its allotted
-`(x, y, width, height)` rectangle because the paint step clips at
-blit-time, not by hoping every component's math is correct. This is what
-actually fixes Bug B/C as a class, not just the two call sites found
-today.
+Four state categories, kept explicitly separate (per the review brief):
+- **Runtime state**: `AgentSession`'s in-memory `messages: ModelMessage[]` — what's needed mid-execution.
+- **Model conversation state**: the `ModelMessage[]` actually sent back to the provider on the next turn — sourced *only* from normalized turn message logs, never reconstructed from UI strings.
+- **Durable session state**: the versioned `SessionDocument` on disk (§6) — bounded, atomic, migratable.
+- **TUI presentation state**: `HistoryStore` entries and dock props — derived, ephemeral, never a source of truth, never fed back into persistence.
 
-### New files to add (do not delete anything until the parity phase says so)
+---
 
-```
-src/tui/layout/
-  yoga.ts                # re-export from the provided yoga-layout.ts/enums.ts, pinned locally
-  LayoutNode.ts           # Box / Text node definitions + builder helpers (box(), text())
-  buildYogaTree.ts        # LayoutNode tree -> yoga-layout.ts Node tree, incl. Text measureFunc
-  ScreenBuffer.ts         # 2D cell grid: alloc, clear, blit(text, x, y, width, clip), diffAgainst()
-  paint.ts                # walks computed Yoga layout + LayoutNode tree, blits into ScreenBuffer
-  index.ts                # public API: layoutAndPaint(rootNode, width, height) -> ScreenBuffer
-```
+## 5. Invariants
 
-### Component contract change
+Non-negotiable, checked by tests where feasible:
 
-Add an **opt-in** second render mode so migration is incremental and
-nothing has to move in one shot:
+- **I1**: A tool result's full payload is stored in at most one place. Everywhere else, a bounded summary/preview is used.
+- **I2**: No session file write can leave `~/.xd/sessions/**/*.json` in a state that fails to parse as valid JSON matching the current or a migratable schema version.
+- **I3**: `AgentSession` resume always reconstructs `ModelMessage[]` from one normalized source per turn — never a userPrompt/assistantText fallback that silently drops tool calls.
+- **I4**: No diff computation allocates memory proportional to `oldLines.length * newLines.length`.
+- **I5**: Constructing a `PermissionDock` (mount) never performs an O(file size) computation; only entering review mode may, and only up to a capped bound.
+- **I6**: The cost of handling one keystroke/stream-chunk event in the TUI does not grow with total conversation history length.
+- **I7**: A raw newline/carriage-return inside any rendered string can never corrupt more than the single logical row it belongs to (existing `ScreenBuffer`/row-diff model — preserved, not weakened, by any change here).
+- **I8**: Every `ToolCallRecord` has a stable ID unique within its session, assigned once at `tool-call` event time and never regenerated.
+
+---
+
+## 6. Session/Persistence Design
+
+### 6.1 Schema (new file `src/session/schema.ts`, replaces ad hoc types in `session/types.ts`)
 
 ```ts
-// Component.ts — additive, non-breaking
-renderLayout?(width?: number, height?: number): LayoutNode; // new, optional
-```
+export const SESSION_SCHEMA_VERSION = 2;
 
-`TerminalEngine`/`DocumentTree` check `renderLayout` first; if a component
-doesn't implement it, fall back to today's `render()` → `string[]` path
-wrapped in an implicit single `Text` LayoutNode (`Overflow.Hidden`,
-width = parent width). This means **Phase 3 can ship with only
-`StatusBar`, `HelpMenu`, and `CommandPalette` (the three overflow-prone
-components) migrated**, while `Header`/docks/history text keep working
-exactly as before, unclipped-string-path, until they're migrated too.
+export interface SessionDocumentV2 {
+  schemaVersion: 2;
+  id: string;
+  name: string;
+  date: string;
+  createdAt: string;
+  updatedAt: string;
+  model: ModelSelection;
+  totalUsage: TokenUsage;
+  turns: SessionTurnV2[];
+}
 
----
+export interface SessionTurnV2 {
+  id: string;
+  timestamp: string;
+  status: 'complete' | 'interrupted' | 'errored';
+  userPrompt: string;
+  assistantText: string;
+  reasoning?: string;
+  usage: TokenUsage;
+  /** Single source of truth for model replay — normalized ModelMessage[] for this turn only. */
+  messages: ModelMessage[];
+  /** Bounded, UI-facing summaries only — never full tool result payloads. */
+  toolCallSummaries: ToolCallSummary[];
+}
 
-## 4. Phased implementation plan
-
-Each phase is independently shippable and independently testable. Do
-them in order. Do not start Phase 3 before Phase 1 and 2 are merged and
-verified — Phase 1/2 are the actual bug fix and are low-risk; Phase 3+ is
-the larger rebuild the user asked for and carries real regression risk,
-so it must land on top of a codebase that isn't already broken.
-
-### Phase 0 — Immediate hotfix (ship first, today)
-
-Goal: stop `/skills` (and any other multi-line command result) from
-corrupting the frame, with minimal-diff changes.
-
-1. **`src/tui/utils/message-formatter.ts`** — fix `formatSystemMessage` to
-   split on `\n` and return one array entry per line, matching every
-   other formatter in this file (`formatAssistantMessage` already does
-   `content.split('\n')` — `formatSystemMessage` is the outlier):
-   ```ts
-   export function formatSystemMessage(content: string): string[] {
-     const theme = getTheme();
-     const infoColor = themeColor(theme.permission);
-     const rawLines = content.split('\n');
-     return rawLines.map((l, i) =>
-       i === 0 ? infoColor(`${figures.info} ${l}`) : infoColor(`  ${l}`),
-     );
-   }
-   ```
-2. **`src/tui/engine/cell-layout.ts`** — add defense in depth so a stray
-   `\n`/`\r` reaching `wrapVisualLine` can never again silently corrupt a
-   row. At the top of `wrapVisualLineWithCursor`, before tokenizing,
-   assert/strip control characters other than the ANSI CSI sequences
-   already handled:
-   ```ts
-   // A logical "line" must never contain a raw line break — normalize
-   // defensively; upstream producers are responsible for pre-splitting.
-   text = text.replace(/\r\n|\r|\n/g, ' ');
-   ```
-   (Replace with a space, not empty string, so word boundaries aren't
-   accidentally glued together if this ever fires — it should be
-   unreachable after fix #1, this is a safety net, not the primary fix.)
-3. **`src/tui/components/StatusBar.ts`** — truncate `right` instead of
-   clamping padding to 1:
-   ```ts
-   const leftWidth = stringWidth(stripAnsi(left));
-   let rightWidth = stringWidth(stripAnsi(right));
-   const minGap = 1;
-   const maxRightWidth = Math.max(0, termWidth - 1 - leftWidth - minGap);
-   if (rightWidth > maxRightWidth) {
-     // drop the token-count segment first, then hard-truncate the model id
-     right = chalk.dim(model.modelId || `${model.provider}/${model.modelId}`);
-     rightWidth = stringWidth(stripAnsi(right));
-     if (rightWidth > maxRightWidth) {
-       right = truncateToWidth(right, maxRightWidth); // add helper, see below
-       rightWidth = maxRightWidth;
-     }
-   }
-   const spaceCount = Math.max(1, termWidth - 1 - leftWidth - rightWidth);
-   ```
-   Add a small `truncateToWidth(styledText, maxWidth)` helper to
-   `src/tui/utils/format.ts` that strips ANSI, slices to `maxWidth - 1`
-   visible columns via `string-width`-aware slicing, and re-appends a
-   reset code — this will be reused in Phase 1, write it once.
-4. **`src/tui/components/docks/HelpMenu.ts`** and
-   **`src/tui/components/docks/CommandPalette.ts`** — pass `width` through
-   in `CommandPalette` (it's dropped today) and truncate `desc`/`name` to
-   fit, using the same `truncateToWidth` helper; clamp the final assembled
-   row's total width to `termWidth - 1` (not just per-segment padding) in
-   both files.
-
-**Acceptance for Phase 0**: run `/skills` in a repo with 10+ skills at
-80, 60, and 40 columns; run `/skills` then immediately type without
-resizing/resuming; confirm the prompt box and cursor stay correctly
-positioned in all cases. Add a regression test (see Phase 5) that feeds
-a multi-line command message through `formatSystemMessage` →
-`wrapVisualLine` and asserts the output array never contains an entry
-whose raw string includes `\n`.
-
-### Phase 1 — Hard width invariant across the whole engine
-
-Goal: make "a produced row is wider than the terminal" impossible to ship
-again, engine-wide, independent of the Yoga rewrite.
-
-1. In `src/tui/engine/cell-layout.ts`, add an exported
-   `assertRowWidth(row: string, maxCols: number): string` used at the
-   single choke point where physical rows are finalized — inside
-   `measureNode()`'s row-push loop in the same file. If
-   `stringWidth(stripAnsi(row)) > maxCols`, hard-truncate with
-   `truncateToWidth` (moved/shared from Phase 0) rather than trusting the
-   caller. This turns Bug B/C into something that degrades gracefully
-   (visible truncation) instead of corrupting the whole frame.
-2. Add a `DEBUG_TUI_OVERFLOW` env-gated warning (write to a log file, never
-   to stdout/stderr while in the alternate screen) whenever
-   `assertRowWidth` actually has to truncate something — this gives you a
-   free inventory of every remaining unclamped component to fix in
-   Phase 3, from real usage, before you migrate them.
-3. **`src/tui/engine/TerminalEngine.ts`** — add DECAWM disable/enable:
-   ```ts
-   ensureAlternateScreen(): void {
-     if (!this.inAlternateScreen) {
-       process.stdout.write('\x1b[?1049h\x1b[?1004h\x1b[?7l\x1b[H');
-       ...
-   ```
-   and restore it symmetrically in `exitAlternateScreen()` /
-   `cleanupSync()` with `\x1b[?7h` before `\x1b[?1049l`. This is
-   defense-in-depth on top of #1, not a replacement for it — Windows
-   Terminal has had bugs with DECAWM state leaking across buffers
-   ([microsoft/terminal#12194](https://github.com/microsoft/terminal/issues/12194)),
-   so #1's hard clamp is the real fix; DECAWM-off is a second net.
-
-**Acceptance for Phase 1**: fuzz test — generate random ANSI-styled
-strings of random widths (including exactly `termWidth`, `termWidth+1`,
-`termWidth-1`) at terminal widths 20/40/80/120/200, feed through every
-component's `render()`, assert `stringWidth(stripAnsi(row)) <= termWidth - 1`
-for every returned row, for every component, at every width. This test
-alone should be considered a release gate from now on — wire it into
-`bun test`.
-
-### Phase 2 — `ScreenBuffer` primitive (no Yoga yet, no behavior change)
-
-Introduce `src/tui/layout/ScreenBuffer.ts` as a standalone, independently
-tested unit before touching the render pipeline:
-
-```ts
-export class ScreenBuffer {
-  constructor(width: number, height: number);
-  clear(): void;
-  blitText(x: number, y: number, maxWidth: number, styledText: string): void; // clips hard at maxWidth, splits ANSI-safely
-  getRow(y: number): string; // reconstructs one terminal row incl. SGR resume codes
-  diff(prev: ScreenBuffer): Array<{ row: number; text: string }>; // row-level diff, same contract StateRenderer already expects
+export interface ToolCallSummary {
+  id: string;
+  name: string;
+  status: 'completed' | 'failed' | 'denied' | 'aborted';
+  argsSummary: string;   // truncated, e.g. path or first N chars of command
+  durationMs?: number;
+  isError: boolean;
+  /** Bounded preview only (see §9), not the full result. */
+  resultPreview?: string;
+  resultTruncated: boolean;
 }
 ```
 
-Re-point `StateRenderer.render()` at `ScreenBuffer.diff()` instead of its
-current manual `previousLines`/`nextLines` array comparison — same
-external behavior, same synchronized-update/cursor logic, just backed by
-a real 2D structure. This is a refactor with **zero visible behavior
-change** if done right; ship it and verify pixel-for-pixel (byte-for-byte
-stdout capture) identical output to before on a fixed test transcript
-before moving on.
+`toolCalls: ToolResultInfo[]` and the dual `rawMessages` field are removed. `messages` is populated directly from `TurnSummary.rawMessages` (already produced by `agent-runner.ts` — no change needed there); `toolCallSummaries` is derived from `TurnSummary.toolCalls` by truncating `result` through the bounding function in §9 rather than storing it whole.
 
-### Phase 3 — Yoga integration + reconciler
+### 6.2 Atomic persistence (`session/store.ts::saveSession` rewrite)
 
-1. Add `src/tui/layout/yoga.ts`, `LayoutNode.ts`, `buildYogaTree.ts`,
-   `paint.ts` per the file list in section 3.
-2. `LayoutNode` shape (keep intentionally small — this is not trying to
-   clone all of CSS, only what xd's components actually need):
-   ```ts
-   type LayoutNode =
-     | { type: 'box'; direction: 'row' | 'column'; children: LayoutNode[];
-         width?: number | 'auto' | `${number}%`; height?: number | 'auto';
-         padding?: number; gap?: number; justify?: Justify; align?: Align;
-         overflow?: 'visible' | 'hidden' }
-     | { type: 'text'; content: string; wrappable?: boolean; maxWidth?: number };
-   ```
-3. `buildYogaTree.ts`: for `type: 'text'` leaves, call
-   `node.setMeasureFunc((width) => { const lines = wrapVisualLine(stripStyles ? content : content, Math.floor(width)); return { width: Math.min(width, maxLineWidth(lines)), height: lines.length }; })` —
-   reusing the existing, correct wrapper from `cell-layout.ts` verbatim.
-4. `paint.ts`: post-order walk of the computed tree; for each `text` leaf,
-   re-wrap its content to `getComputedWidth()` (same function, now called
-   with the box's real final width) and `ScreenBuffer.blitText(x, y,
-   computedWidth, line)` per output line, one call per wrapped line,
-   `y` incrementing — this is the enforcement point, blit is hard-clipped
-   by construction (Phase 2's `blitText` contract), so even a bug in a
-   migrated component's declared width can't leak into a sibling's
-   rectangle.
-5. Add `Component.renderLayout?()` per section 3's contract. Migrate, in
-   this order (highest overflow-risk first, using the
-   `DEBUG_TUI_OVERFLOW` log from Phase 1 step 2 to confirm you got them
-   all): `StatusBar` → `CommandPalette` → `HelpMenu` → `ModelPicker` →
-   `SessionMenu` → `PermissionDock` → `Header`. Leave `TextNode`/
-   `UserMessageNode` (scrollback history) on the legacy string path for
-   now — see Phase 4, they get a different treatment for perf reasons,
-   not a Yoga tree (flowed scrollback text doesn't benefit from a box
-   model; it's already correctly served by `wrapVisualLine`).
-6. Docks stop being "unmount input, mount dock in its place" and become a
-   `position: 'absolute'`-style overlay box (Yoga `PositionType.Absolute`)
-   painted on top of the live region — this removes an entire class of
-   "what was mounted before the dock, and did I restore it correctly"
-   bookkeeping currently duplicated in `app.ts` (`closeModal`,
-   `openHelp`, `openModelPicker`, `requestConfirmation` all repeat the
-   same unmount/remount dance).
+Replace direct `writeFileSync(filePath, ...)` with:
+1. Write to `filePath + '.tmp-' + randomUUID().slice(0,8)` in the same directory (same filesystem, so rename is atomic).
+2. `fsyncSync` the temp file descriptor (open with `'w'`, write, `fsync`, close) before rename — protects against reordered writes on crash.
+3. `renameSync(tmpPath, filePath)` — atomic on POSIX and Windows (NTFS) for same-volume renames.
+4. On any failure mid-sequence, delete the temp file (best-effort) and rethrow — the original `filePath` is never touched until the rename succeeds, satisfying I2.
 
-**Acceptance for Phase 3**: same fuzz test as Phase 1, now run against
-migrated components' `renderLayout()` output post-paint — should pass
-trivially since clipping is structural now, but keep the test (it's your
-regression guard for the *unmigrated* components still on the legacy
-path). Add golden-output snapshot tests per migrated component at
-40/80/120/200 columns.
+Serialize writes per session: `AgentSession`/`store.ts` must not allow two concurrent `saveSession` calls for the same `id` to race (single-writer-per-process is already true given `isGenerating` guards submission, but add an in-module `Map<sessionId, Promise>` write-queue in `store.ts` so `saveSession` always awaits the prior write for that id before starting a new one — cheap insurance against future concurrent callers, e.g. a future background auto-save).
 
-### Phase 4 — Scrollback performance (the "blazing fast" ask)
+### 6.3 Validation & corrupted-session recovery
 
-Today, `layoutDocument()` walks the **entire** `tree.getNodes()` array
-every frame. Split immutable history from the live region:
+New `session/validate.ts`:
+- `parseSessionDocument(raw: string): { ok: true; doc: SessionDocumentV2 } | { ok: false; reason: 'invalid-json' | 'schema-mismatch' | 'unknown-version'; raw: string }` using a Zod schema mirroring §6.1 (project already depends on `zod@4`).
+- `loadSession` (store.ts) calls this instead of bare `JSON.parse`. On `ok:false`:
+  - Move the offending file to `~/.xd/sessions/<date>/.quarantine/<id>.json` (create dir if needed) rather than deleting or silently skipping it.
+  - Return a discriminated result (`{ recovered: false, reason, quarantinedPath }`) instead of `null`, so callers (`/resume` command, `listSessions`) can surface a diagnostic ("Session abc123 could not be loaded (invalid-json) and was moved to quarantine") instead of the file silently vanishing.
+- `listSessions` uses the same validator; unparsable files are counted and reported (e.g. "3 sessions skipped — see `/resume --recover`") rather than swallowed.
 
-1. `DocumentTree` already conceptually separates `historyNodes` (pushed
-   once, immutable) from `liveNodes` (mounted components, re-rendered
-   often). Exploit that: maintain a **persistent cache of
-   `physicalRows` per history node**, keyed by `(nodeId, width)`, computed
-   **once** when the node is added or when width changes (resize), never
-   recomputed on a live-region-only re-render.
-2. `layoutDocument()` becomes: `[...cachedHistoryRows, ...freshLiveRows]`
-   — history rows are a cheap array-concat (or better, keep a running
-   flattened array and only `.push()` new history rows as they arrive,
-   never re-flatten what's already there), live rows are recomputed from
-   the (now typically 3-5 node) live region only.
-3. On resize: invalidate and recompute the **history row cache once**
-   (already debounced 50ms in `TerminalEngine`'s `resizeHandler` — keep
-   that), not on every keystroke.
-4. Add a perf test: seed 2,000 history entries, measure `requestFrame()`
-   wall time for a single keystroke in `PromptInput` before/after — this
-   should go from O(total history) to O(live region size), i.e. flat
-   regardless of scrollback length.
+### 6.4 Interrupted / partial turns
 
-### Phase 5 — Test matrix & sign-off
+`agent-session.ts::submitPrompt`'s catch block (lines 210–221) already tries to persist a partial `summary`. Formalize this: `SessionTurnV2.status` is set to `'interrupted'` (abort) or `'errored'` (exception) in that path, with `messages` populated from whatever `summary.rawMessages` exists at that point (may be empty — that's fine, it's explicit, not silently dropped as a fallback). On resume, `AgentSession` filters: an `'interrupted'`/`'errored'` turn's `messages` are still replayed as-is (they represent exactly what was sent/received before interruption); no fallback reconstruction path exists at all (removes F4's dual path entirely — there is only one path: `messages`).
 
-1. **Unit/regression** (run in CI via `bun test`):
-   - `formatSystemMessage` never emits an array entry containing `\n`.
-   - Width-fuzz test from Phase 1 (release gate).
-   - `ScreenBuffer.blitText` clipping unit tests (exact-width, off-by-one,
-     wide unicode/emoji, zero-width joiners, combining chars — reuse
-     `string-width`'s own edge-case fixtures if available).
-   - `wrapVisualLineWithCursor` ANSI-style-carry-across-wrap tests (already
-     partially implied by existing code; make explicit).
-   - Perf test from Phase 4.
-2. **Manual terminal matrix** — verify `/skills` output + resize + a dock
-   opened over a long scrollback, in each of: VS Code integrated terminal,
-   Windows Terminal, iTerm2, Alacritty, Kitty, Ghostty, tmux (inside one
-   of the above), and over SSH through at least one of them. Confirm
-   `CSI ?2026$p` (DECRQM) feature-detection isn't required today (the
-   code doesn't gate on it), but note it as a follow-up if a terminal in
-   the matrix turns out not to support mode 2026 (falls back silently to
-   un-synchronized output today, which is acceptable, not a regression).
-3. Only after Phase 5 passes: delete the legacy `render()` string path for
-   the components migrated in Phase 3 (keep it for history text nodes,
-   see Phase 4 note — that path is correct and fast for flowed text and
-   is not being replaced).
+### 6.5 IDs, ordering, large-result handling
+
+- Turn IDs (`randomUUID()`) and tool-call IDs (from `chunk.toolCallId`, already stable per AI SDK) are preserved as-is; `ToolCallSummary.id` must equal the corresponding tool-call/tool-result ID inside `messages` for that turn (test-checked, §13).
+- Ordering: `turns` array order is append-only and authoritative; no reordering logic exists or is needed.
+- Large-result handling: implemented once, in the bounding function shared by session summaries and confirmation previews — see §9.
+
+### 6.6 Migration
+
+New `session/migrate.ts`:
+- `migrateSessionDocument(raw: unknown, fromVersion: number | undefined): SessionDocumentV2`.
+- v1 (current, unversioned) → v2: for each old `SessionTurn`, if `rawMessages` present and non-empty, use it as `messages` and set `status: 'complete'`; if absent, set `status: 'interrupted'` and `messages: []` (explicit data-loss acknowledgment for pre-existing files, logged once, rather than the silent fallback reconstruction F4 does today) — build `toolCallSummaries` from the old `toolCalls` by truncating each `result` through the §9 bounding function.
+- `loadSession` runs migration transparently on load when `doc.schemaVersion` is missing or less than `SESSION_SCHEMA_VERSION`, then re-saves via the atomic path so the file is upgraded in place on next write (not forced eagerly, to avoid touching every file on first run of the new binary — lazy migration on next access).
+- Users are never required to delete `~/.xd/sessions`.
 
 ---
 
-## 5. Order of operations for the agent (do exactly this, in this order)
+## 7. Agent/AI SDK Design
 
-1. Phase 0, steps 1-4. Commit. This alone fixes the reported bug.
-2. Phase 1, steps 1-3 + acceptance fuzz test. Commit.
-3. Phase 2 (ScreenBuffer, byte-identical-output verification). Commit.
-4. Phase 3, in the component order listed. Commit per component.
-5. Phase 4. Commit.
-6. Phase 5, full matrix, sign-off.
+**Decision: keep the custom `streamText` orchestration in `agent-runner.ts`. Do not adopt `ToolLoopAgent`.**
 
-Do not reorder: Phase 3 depends on Phase 2's `ScreenBuffer` contract;
-Phase 2's "byte-identical" gate depends on Phase 1 already having fixed
-the width-overflow bugs (otherwise you'd be enshrining broken behavior as
-the "golden" output to match).
+Reasoning, weighed against xd's actual requirements:
+- xd needs per-chunk terminal streaming (`text-delta`/`reasoning-delta` piped live into `StreamingView`), an interactive per-tool-call confirmation gate injected *between* model tool-call and tool execution (`ToolCatalog.toAISDKTools`'s `execute` wrapper), mid-turn abort via `AbortSignal` wired to a UI keypress, and a bespoke `AgentEvent` union consumed by the TUI. `streamText`'s `result.stream` async iterator already gives direct access to every one of these primitives (`chunk.type` switch in `agent-runner.ts`) with full control over ordering and side effects.
+- `ToolLoopAgent` is a higher-level convenience wrapper over the same primitives, aimed at apps that don't need to intercept the loop between tool-call and tool-execution for interactive approval, and don't need a custom event model per chunk. Adopting it would mean either (a) losing the fine-grained confirmation-gate injection point, or (b) reimplementing an equivalent low-level escape hatch inside it — netting no simplification while adding a migration risk surface.
+- The one thing worth adopting from current v7 idiom regardless: `agent-runner.ts` already uses `instructions` (not `system`) and `isStepCount` (not the removed `stepCountIs`) — confirm these stay pinned to current API on every AI SDK bump per `.agents/skills/ai-sdk/SKILL.md`'s "never trust memory" rule; add this check to Phase 11's release gate.
+
+No change to `agent-runner.ts`'s core structure. Two targeted fixes inside it:
+- **Tool-call ID stability** (already correct — `chunk.toolCallId` is provider-assigned and stable; verify with a test that the same ID appears in `tool-call`, `tool-result`/`tool-error`, and the final `rawMessages` for a turn).
+- **`finishReason`/`stopReason` on error path**: currently `runAgentTurn`'s catch block emits an `error` event and rethrows without ever constructing a `TurnSummary` — `agent-session.ts` catches this and, if no `summary` was ever assigned (i.e. the error happened before the stream loop produced anything), nothing is persisted at all, meaning a pre-first-chunk failure (e.g. auth error) leaves no session turn record. Add a minimal `TurnSummary`-shaped catch in `submitPrompt` for this case so even a zero-content failed turn gets a `status: 'errored'` record with empty `messages` (needed for I2/§6.4 consistency and for the user to see "this turn failed" on `/resume`).
+
+---
+
+## 8. Tool/Event Design
+
+### 8.1 Canonical tool-call lifecycle (new `src/engine/tool-lifecycle.ts`)
+
+```ts
+export type ToolCallStatus =
+  | 'requested' | 'awaiting-approval' | 'approved' | 'denied'
+  | 'running' | 'completed' | 'failed' | 'aborted';
+
+export interface ToolCallRecord {
+  id: string;              // stable, from chunk.toolCallId
+  name: string;
+  status: ToolCallStatus;
+  argsSummary: string;     // bounded, tool-specific (see below)
+  startedAt?: number;
+  durationMs?: number;
+  isError: boolean;
+  resultPreview?: string;  // bounded (§9)
+  resultTruncated: boolean;
+}
+```
+
+This record type is what flows into `ToolCallSummary` (session) and into `HistoryStore`/dock rendering (TUI) — **one shape, two consumers**, replacing today's situation where `ToolResultInfo` (engine), `EditFileOutput`/`WriteFileOutput`/`RunCommandOutput` (per-tool, ad hoc), and `ConfirmationRequest.args` (untyped bag) each carry their own partial, inconsistent view of the same tool call.
+
+`catalog.ts::toAISDKTools`'s wrapped `execute` is the single place all state transitions happen: `requested` (chunk received) → `awaiting-approval`/`approved` (skips if `sessionAllowlist` hit or policy is `'never'`) → `denied` (throws the existing `isInterrupted` error, unchanged) → `running` → `completed`/`failed`. Emit a new `AgentEvent` variant `tool-status` (extends `engine/events.ts::AgentEvent`) at each transition so the TUI can render live status without waiting for the terminal `tool-result`/`tool-error` event it gets today.
+
+### 8.2 `argsSummary` per tool
+
+Each `ToolDefinition` (types.ts) gains an optional `summarizeArgs?: (args) => string` (distinct from the existing `summarize?: (args, result?) => string`, which conflates args+result into one log line). Defaults: `edit_file`/`write_file` → the `path`; `run_command` → first 80 chars of `command`; others → JSON.stringify capped at 80 chars. This is what `ToolCallSummary.argsSummary` and `ToolCallRecord.argsSummary` use — never the raw `args` object.
+
+### 8.3 Removing provider-shape leakage into the UI
+
+`PermissionDock` currently reaches into `props.request.args as any` for `oldContent`/`newContent`/`content`/`command` — provider- and tool-specific shape leaking directly into TUI code. Replace `ConfirmationRequest.args: Record<string, unknown>` with a discriminated `ConfirmationPreview` (§9) that each tool constructs explicitly; `PermissionDock` switches on `preview.kind` instead of tool name string comparisons (`request.toolName === 'edit_file'`) and `any`-casts.
+
+---
+
+## 9. Diff/Confirmation Design
+
+### 9.1 Bounded tool-result preview (new `src/tools/bounding.ts`, shared by §6 and §8)
+
+```ts
+export const RESULT_PREVIEW_MAX_CHARS = 4000;   // ~ a couple screens
+export const RESULT_PREVIEW_MAX_LINES = 200;
+
+export function boundResultText(text: string): { preview: string; truncated: boolean } { ... }
+```
+Used by: session persistence (`ToolCallSummary.resultPreview`), and by tool `execute()` return shapes — `EditFileOutput`/`WriteFileOutput`/`RunCommandOutput` stop returning `allLines`/`previewLines` containing the *entire* file; they return `boundResultText(fullContent)`'s output plus stats (`totalLines`, `bytesWritten`) which are cheap to compute without retaining the full text.
+
+### 9.2 Confirmation preview contract (`tools/types.ts::ConfirmationRequest` redesign)
+
+```ts
+export type ConfirmationPreview =
+  | { kind: 'edit'; path: string; statsOnly: { addedLines: number; removedLines: number }; smallPreviewDiffLines?: DiffLine[] /* only if under threshold, §9.3 */ }
+  | { kind: 'write'; path: string; isNewFile: boolean; totalLines: number; bytesWritten: number; smallPreviewLines?: string[] }
+  | { kind: 'command'; command: string /* capped to first N lines for display */; totalLines: number };
+
+export interface ConfirmationRequest {
+  toolName: string;
+  displayName: string;
+  promptTitle: string;
+  preview: ConfirmationPreview;   // replaces `args: Record<string, unknown>`
+  /** Opaque handle a full-review request can use to lazily compute the full diff/content. */
+  reviewToken: string;
+}
+```
+
+`getConfirmationRequest` for `edit_file`/`write_file` no longer reads full file content twice or builds `oldContent`/`newContent` strings for the dialog itself: it computes only line-count stats (cheap: count `\n` occurrences) plus a small preview (first/changed few lines) under the threshold in §9.3, and registers the full before/after under `reviewToken` in an in-memory, session-scoped, size-capped cache (`Map<reviewToken, {old:string,new:string}>`, evicted on decision) that `PermissionDock` can request from *only when* `isReviewing` becomes true.
+
+### 9.3 Diff algorithm cap-and-fallback (`utils/diff.ts::computeLineDiff` rewrite)
+
+```ts
+export const DIFF_FULL_ALGORITHM_LINE_CAP = 2000;   // M+N under this: current LCS DP is fine and gives best-quality diffs
+
+export function computeLineDiff(oldText: string, newText: string, contextLines = 3): DiffLine[] {
+  const oldLines = ...; const newLines = ...;
+  if (oldLines.length + newLines.length > DIFF_FULL_ALGORITHM_LINE_CAP) {
+    return computeBoundedDiff(oldLines, newLines, contextLines); // O(N) hash-based, see below
+  }
+  return computeLcsDiff(oldLines, newLines, contextLines); // existing DP algorithm, unchanged, renamed
+}
+```
+`computeBoundedDiff`: common-prefix/common-suffix trim (O(min(M,N))) to shrink the interesting middle region first (this alone resolves the common "small edit in a huge file" case to a tiny diff cheaply), then if the remaining middle region is still over a smaller inner cap, fall back to a line-hash multiset comparison (bucket lines by hash, report added/removed counts + first/last few changed lines) rather than a full alignment — explicitly *not* a best-effort LCS on a truncated window, to avoid an O(cap²) blowup at the boundary. Document the trade-off inline: bounded diff sacrifices perfect minimal-edit-script quality for O(N) worst case; this is acceptable because the UI only needs "what changed, roughly" for large files, with full content available via `reviewToken` for anyone who truly needs to see it (via `$EDITOR`/external diff, out of scope here) — never by rendering a giant TUI diff.
+
+`PermissionDock`'s constructor stops calling `computeLineDiff` unconditionally. It only requests `smallPreviewDiffLines` (already present on the `ConfirmationPreview` when under threshold) at construction time; entering review mode (`f`) is what triggers, lazily, a bounded/full diff fetch (through the `reviewToken` cache) — satisfying I5.
+
+### 9.4 Confirmation dialog stays compact regardless of payload size
+
+`PermissionDock.render` default view renders `preview.statsOnly`/`totalLines`/`bytesWritten` plus at most `smallPreviewDiffLines`/`smallPreviewLines` (already capped upstream, §9.2) — no code path in the default (non-reviewing) render can be handed unbounded data, because unbounded data is never constructed until review mode requests it. Full review mode (`isReviewing`) paginates via the existing `reviewOffset`/`reviewWindowSize` windowing (already present, lines 206–217/244–255) — keep that windowing logic, just feed it from the lazily-fetched bounded/full diff instead of an eagerly-computed one.
+
+---
+
+## 10. TUI Component System
+
+Keep the existing primitive set (`Box`, `Text`, `SelectList`, `ModalBox`) — the source shows a coherent, small primitive layer already (`tui/primitives/*.ts`, `tui/engine/Component.ts`); nothing here proves it's unsalvageable, so no framework swap. Scope for this plan is limited to the rendering-pipeline fix in §11, not a primitive redesign, since no finding in §2 implicates the primitive contract itself. (If a future audit finds primitive-level duplication, handle it as its own follow-up plan — out of scope here to avoid speculative abstraction per the coder-agent rules in §17 of the source brief.)
+
+---
+
+## 11. Rendering/Performance Design
+
+### 11.1 Split immutable history from live content
+
+New `tui/engine/HistoryLayoutCache.ts`:
+```ts
+interface CachedEntryLayout { entryId: string; width: number; physicalRows: PhysicalRow[]; rowCount: number; }
+class HistoryLayoutCache {
+  private cache = new Map<string, CachedEntryLayout>(); // key: `${entryId}:${width}`
+  getOrCompute(entry: HistoryEntry, width: number): CachedEntryLayout { ... }
+  invalidateWidth(width: number): void { ... } // called on resize
+}
+```
+`HistoryEntry` objects from `HistoryStore` are immutable once pushed (already true — `push` never mutates an existing entry), so `(entryId, width)` is a valid, permanent cache key until resize.
+
+### 11.2 `computeDocumentFrame` rewrite (`FrameBuffer.ts`)
+
+Split the tree walk: committed history entries are laid out via `HistoryLayoutCache.getOrCompute` (O(1) amortized per entry after first render at a given width); only the live/active region (current `StreamingView`, `PromptInput`, any mounted dock/overlay — i.e. whatever `DocumentTree` currently marks as non-committed, confirmed against `DocumentTree.ts` in Phase 7) is laid out fresh each call. The viewport slice (existing `startIndex`/`endIndex` windowing logic, unchanged) is then built from `[cached history rows] + [fresh live rows]` instead of one monolithic `layoutDocument(tree, ...)` call over everything.
+
+### 11.3 Invalidation rules
+
+- Resize (`termWidth` changes): `HistoryLayoutCache.invalidateWidth` drops all entries for the old width (new width starts a fresh cache namespace — cheap, since old-width entries are simply garbage until evicted); `StateRenderer.clearPreviousFrameRecord()` (already exists) forces a full repaint on the next frame, unchanged.
+- New history entry committed: no invalidation needed — it's simply not yet in the cache, computed lazily on first render.
+- `HistoryStore.clearAll()` (used by `/clear`): cache is cleared alongside it (wire this call in `HistoryStore.clearAll` or its caller).
+
+### 11.4 Complexity documentation (per-operation, added as doc comments at each function)
+
+| Operation | Complexity |
+|---|---|
+| Keystroke → `PromptInput` re-render | O(input size) |
+| Stream chunk → `StreamingView` update | O(chunk size) — live region only |
+| Full frame render, steady state (no resize, no new history) | O(visible viewport) |
+| Full frame render, one new history entry since last frame | O(new entry's line count) + O(viewport) |
+| Resize | O(history) once (cache rebuild, amortized back to O(viewport) on subsequent frames) |
+| `StateRenderer`'s terminal write (`ScreenBuffer.diff`) | O(terminal rows) — already true today, unchanged |
+
+### 11.5 `HistoryStore` per-frame usage audit
+
+Phase 8 must grep all call sites of `HistoryStore.getAllLines`/`getPrimaryScreenLines` and confirm none are reachable from the per-frame render path (`TerminalEngine`'s render trigger → `StateRenderer.render` → `FrameBuffer.computeDocumentFrame`); any found must be rerouted through `DocumentTree`/`HistoryLayoutCache` instead.
+
+---
+
+## 12. Error/Recovery Design
+
+- **User abort** (`category: 'aborted'` in `errors/classifier.ts`, already correctly classified): §7's fix ensures a session turn is still recorded (`status: 'interrupted'`) even if the abort happens before any stream content arrives.
+- **Model/provider failure**: already well-classified in `classifier.ts` (auth/forbidden/rate-limit/overload/context-length/etc.) — no change needed to classification; only the persistence gap in §7 is fixed so a pre-content failure still yields a recorded, inspectable turn.
+- **Tool failure**: `tool-error` chunk path in `agent-runner.ts` already distinguishes this from provider errors (`ToolResultInfo.isError`); flows into `ToolCallRecord.status: 'failed'` (§8) instead of being flattened into the same `toolCalls` array shape as successes.
+- **Persistence failure**: `saveSession`'s new atomic-write path (§6.2) must not swallow errors — if `renameSync` fails, the caller (`recordSessionTurn`) must propagate the failure up to `agent-session.ts::submitPrompt`, which must surface it to the TUI as a visible error badge (`formatErrorBadge`, already used in `app.ts` for other errors) rather than the current behavior of `saveSession`'s return value being ignored by `recordSessionTurn` — a failed save today is entirely silent.
+- **Corrupted state**: quarantine path in §6.3, always diagnosed, never silently discarded.
+- **Programmer error**: unchanged — TypeScript strictness plus the new Zod schema validation (§6.3) catches shape mismatches that would otherwise be `any`-cast programmer errors (e.g. today's `props.request.args as any` chain in `PermissionDock`, removed by §8.3/§9.2).
+- **Terminal restoration**: out of scope for this pass (no finding in §2 implicates it) — Phase 9 must confirm `TerminalEngine`'s teardown path (mode restore on exit/error) is exercised by a test (§13) rather than assumed safe, since it's a hard invariant (I-list in the original brief) even though no bug was found in it during this review.
+
+---
+
+## 13. Test/Validation Matrix
+
+All new/changed code ships with tests in the same phase (`bun test`, using `tests/` alongside existing `showcase.test.ts`).
+
+**Sessions** (`tests/session/*.test.ts`, new)
+- Zod schema validation accepts v2 docs, rejects malformed ones with the correct `reason`.
+- `saveSession` → `loadSession` round-trip preserves all fields.
+- v1→v2 migration: fixture v1 file with `rawMessages` present, and a second fixture with `rawMessages` absent (interrupted-turn case) — both migrate without throwing, second one gets `status:'interrupted'`, `messages: []`.
+- Atomic save: simulate a write failure (mock `fsyncSync`/`renameSync` to throw mid-sequence) — assert original file untouched.
+- Interrupted save: kill the write after temp-file write but before rename (test harness controls timing) — assert `filePath` still holds prior valid content.
+- Malformed JSON / invalid schema: both quarantined, both surfaced via a non-null diagnostic return, not silently skipped.
+- Partial turn / missing tool result / duplicate tool ID: fixture turns with these shapes — validator/migration must not throw, and (for duplicate tool ID) the loader must log a diagnostic.
+- Resume correctness: session with 3 turns (one interrupted) round-trips through `AgentSession.resume` and `getHistory()` matches expected `ModelMessage[]` exactly, including tool-call/result messages for the completed turns.
+- Large-output bounding: a `write_file` turn with a 5000-line file → session file size stays under a fixed byte budget (e.g. 20KB) regardless of file size.
+
+**Agent execution** (`tests/engine/*.test.ts`, new — mock `streamText`/model)
+- Plain response, single tool call, multiple sequential tool calls, tool failure, provider failure (each AI SDK error category from `classifier.ts`), stream error mid-turn, abort mid-turn, step-ceiling hit, correct `rawMessages`/`messages` reconstruction matching what was actually streamed.
+- Pre-content failure (auth error before first chunk) still yields a recorded, non-empty-shaped session turn (`status:'errored'`).
+
+**Tools** (`tests/tools/*.test.ts`, new)
+- `edit_file`/`write_file`: approval, denial (interrupted error thrown with `isInterrupted`), execution failure (missing file, ambiguous `old_string` match), oversized output (`boundResultText` truncates correctly at the exact boundary), large files (10k+ lines) execute without retaining full content beyond `boundResultText`'s cap.
+- `run_command`: large stdout (retains only `recentLines`/bounded output, matches existing `maxBufferLines` behavior — regression-protect what already works).
+
+**Diff** (`tests/utils/diff.test.ts`, new)
+- Insert/delete/replace/no-op cases against the existing LCS path (regression tests for current correct behavior — pin exact `DiffLine[]` output for small fixtures before touching the algorithm).
+- Long lines, large file (>`DIFF_FULL_ALGORITHM_LINE_CAP`) routes to `computeBoundedDiff`, completes within a fixed time budget (e.g. <200ms for 50k+50k lines) and without allocating an M×N structure (assert via a memory-conscious fixture size that would OOM the old algorithm in CI if it were still running the DP path).
+- Unicode, ANSI-embedded text lines pass through unmodified in `DiffLine.text` (rendering layer's job to handle width, not the diff algorithm's).
+- Pathological input (e.g. all-identical lines, all-distinct lines) stays within the time/memory budget.
+
+**TUI** (`tests/tui/*.test.ts`, new — as feasible without a real terminal; use `ScreenBuffer`/layout functions directly)
+- Narrow/wide terminal width layout correctness (existing `cell-layout.ts` behavior — pin current output for fixtures before refactoring §11).
+- `HistoryLayoutCache` returns identical rows for a cached vs. freshly-computed entry at the same width (correctness), and a call-count assertion that re-rendering the same frame twice without new history/resize does not recompute cached entries.
+- Resize invalidates the cache and produces a correct full repaint (`StateRenderer.clearPreviousFrameRecord` interaction).
+- `PermissionDock`: constructing it for a large edit does not call the full-diff path (assert via a spy/counter on `computeLineDiff`/`computeLcsDiff`) until `isReviewing` is toggled.
+- Diff review pagination (`reviewOffset` windowing) unchanged behavior, regression-pinned.
+
+**Performance** (`tests/perf/*.test.ts`, new, can be coarse-grained thresholds rather than micro-benchmarks)
+- Session save/load time vs. turn count (linear, not superlinear).
+- Frame-render cost for a fixed-size incremental change is flat across history sizes of 1k/10k/100k entries (within tolerance) — the concrete regression test for F7.
+- Diff time for 50k-line inputs stays under budget — the concrete regression test for F6.
+
+---
+
+## 14. Migration Plan
+
+- Schema versioning: `SessionDocumentV2.schemaVersion` field, `session/migrate.ts` as the single migration entry point, called transparently from `loadSession`.
+- Legacy compatibility: v1 (unversioned, current on-disk format) migrates as described in §6.6; migration is lazy (on next load of that specific file), never a forced bulk pass over `~/.xd/sessions` on startup.
+- Invalid-session handling: quarantine (§6.3), never silent deletion.
+- Migration tests: covered in §13's session test list (v1-with-rawMessages and v1-without-rawMessages fixtures).
+- Rollback/recovery: quarantined files are moved, not deleted — a user (or a future `/resume --recover` command, product decision, not required by this plan) can always inspect `~/.xd/sessions/<date>/.quarantine/`.
+- No manual deletion of `~/.xd/sessions` is ever required for a user to keep working — every failure mode degrades to "this one session is quarantined," never "the whole store is unusable."
+
+---
+
+## 15. Phased Implementation Plan
+
+Each phase: goal, prerequisites, exact files, tests, acceptance criteria. Buildable and testable at the end of every phase (`bun run format && bun test && bun run build`).
+
+### Phase 0 — Characterization tests (no behavior change)
+- **Goal**: lock down current correct behavior before touching anything.
+- **Files**: add `tests/utils/diff.test.ts` (pin current `computeLineDiff` output on small fixtures), `tests/session/store.test.ts` (pin current `saveSession`/`loadSession`/`recordSessionTurn` round-trip behavior), `tests/tui/cell-layout.test.ts` (pin current `layoutDocument` output for a small fixed `DocumentTree`).
+- **Acceptance**: `bun test` passes; these tests describe current behavior, including current bugs (e.g. duplication) — they exist to catch *unintended* regressions in later phases, not to assert current behavior is correct.
+
+### Phase 1 — Session schema & atomic persistence (F1, F2, F3)
+- **Files**: new `src/session/schema.ts`, `src/session/validate.ts`, `src/session/migrate.ts`; modify `src/session/store.ts` (`saveSession` atomic rewrite, `loadSession`/`listSessions` use validator+migration), `src/session/types.ts` (re-export new schema types, deprecate/remove old `SessionTurn`/`SessionData` once all call sites migrate).
+- **Symbols**: `saveSession`, `loadSession`, `listSessions`, `recordSessionTurn` (store.ts); `SessionTurn`, `SessionData` (types.ts, replaced by `SessionTurnV2`/`SessionDocumentV2`).
+- **Rules**: no call site outside `session/` should construct a raw `SessionData`/`SessionTurn` object literal directly — go through `createSession`/`recordSessionTurn`.
+- **Tests**: full session test list from §13 (schema, atomic save, corruption, migration).
+- **Acceptance**: Phase 0's pinned round-trip test is updated to reflect the new (bounded, versioned) shape; new tests from §13 pass; `bun test` green.
+
+### Phase 2 — Canonical tool-call lifecycle & bounding (F1 cont'd, F5, F9's product-decision flagged not silently changed)
+- **Files**: new `src/tools/bounding.ts`, new `src/engine/tool-lifecycle.ts`; modify `src/engine/types.ts` (`ToolResultInfo` usage trimmed/aligned with `ToolCallRecord`), `src/engine/events.ts` (add `tool-status` event), `src/tools/catalog.ts` (`toAISDKTools`'s execute wrapper emits lifecycle transitions), `src/tools/types.ts` (add `summarizeArgs?`).
+- **Symbols**: `ToolCatalog.toAISDKTools`, `ConfirmationRequest`.
+- **Tests**: tool tests from §13 (approval/denial/failure/oversized-output/large-files).
+- **Acceptance**: `agent-session.ts::recordSessionTurn` call (Phase 1's `SessionTurnV2.toolCallSummaries`) is populated from `ToolCallRecord`s, not raw `ToolResultInfo.result`.
+
+### Phase 3 — Confirmation preview contract & lazy full-content (F5, F6, F9)
+- **Files**: modify `src/tools/types.ts` (`ConfirmationPreview` discriminated union replaces `ConfirmationRequest.args`), `src/tools/edit-file/index.ts` (`getConfirmationRequest` builds bounded preview + registers `reviewToken`), `src/tools/write-file/index.ts` (same), `src/tools/run-command/index.ts` (same, command capped for display), `src/utils/diff.ts` (`computeLineDiff` cap-and-fallback rewrite, add `computeBoundedDiff`), new `src/tools/review-cache.ts` (session-scoped `reviewToken` → full content map, capped size/TTL).
+- **Symbols**: `ConfirmationRequest.args` (removed), `computeLineDiff` (rewritten, signature preserved), `PermissionDock` constructor (modify to consume `preview`/`reviewToken` instead of `args as any`).
+- **Tests**: diff tests from §13 (cap boundary, large-file timing/memory), `PermissionDock` construction test (no full-diff call before review mode).
+- **Acceptance**: I4, I5 hold (test-verified); confirmation dialog construction is O(preview), not O(file), for a 50k-line fixture.
+
+### Phase 4 — Resume reconstruction fix (F4)
+- **Files**: modify `src/engine/agent-session.ts` (constructor's turn-rehydration loop — single path from `turn.messages`, no `userPrompt`/`assistantText` fallback), `src/engine/agent-runner.ts` (pre-content-failure `TurnSummary` fix from §7).
+- **Tests**: resume-correctness and pre-content-failure tests from §13.
+- **Acceptance**: interrupted-turn resume round-trip test passes; no code path reconstructs messages from `userPrompt`/`assistantText` strings.
+
+### Phase 5 — TUI history/live split & layout cache (F7, F8)
+- **Files**: new `src/tui/engine/HistoryLayoutCache.ts`; modify `src/tui/engine/FrameBuffer.ts` (`computeDocumentFrame` split), `src/tui/engine/DocumentTree.ts` (expose which nodes are committed-history vs. live, if not already distinguishable — confirm during implementation and add the minimal marker needed), `src/tui/engine/HistoryStore.ts` (wire `clearAll` to cache invalidation, confirm `getAllLines`/`getPrimaryScreenLines` call sites per F8's audit and reroute any per-frame ones).
+- **Symbols**: `computeDocumentFrame`, `layoutDocument` (cell-layout.ts, called only for the live region + cache misses).
+- **Tests**: TUI/perf tests from §13 (cache correctness, flat-cost-across-history-size).
+- **Acceptance**: I6 holds (perf test); Phase 0's `cell-layout.ts` pinned-output test still passes unchanged (visual output identical, only cost profile changes).
+
+### Phase 6 — Error/recovery hardening (§12)
+- **Files**: modify `src/session/store.ts` (`recordSessionTurn` propagates save failures instead of ignoring return value), `src/engine/agent-session.ts` (surface propagated save failures), `src/tui/app.ts` (render save-failure error badge via existing `formatErrorBadge`).
+- **Tests**: persistence-failure test from §13 (save failure surfaces to caller, not silent).
+- **Acceptance**: a forced `saveSession` failure in a test is visible in the TUI layer, not swallowed.
+
+### Phase 7 — Terminal-restoration safety net (§12, no known bug, verification only)
+- **Files**: `tests/tui/terminal-engine.test.ts` (new) exercising `TerminalEngine`'s teardown path under a simulated error/exit.
+- **Acceptance**: test exists and passes; if it uncovers a real gap, fix minimally in `src/tui/engine/TerminalEngine.ts` with its own targeted test — do not expand scope speculatively.
+
+### Phase 8 — Migration activation & full regression pass
+- **Files**: none new; run the full `bun test` suite, `bun run build`, `bun run compile`.
+- **Acceptance**: all release gates in §16 pass; manual smoke tests from §16 performed against a real terminal.
+
+Order rationale: sessions first (Phase 1) because tool/confirmation bounding (Phase 2–3) needs the new `ToolCallSummary` shape to land in; resume fix (Phase 4) depends on Phase 1's schema; TUI perf (Phase 5) is independent of 1–4 and could be parallelized but is sequenced after for review bandwidth, not a hard dependency; error hardening (Phase 6) depends on Phase 1's atomic save existing to have a failure mode to propagate.
+
+---
+
+## 16. Validation / Release Gates
+
+Hard gates, every phase:
+```
+bun run format
+bun test
+bun run build
+bun run compile
+```
+(No separate typecheck script exists in `package.json` — `bun build`/`bun test` type-check as part of Bun's TS handling; if a dedicated `tsc --noEmit` is added to `package.json` during this work, add it to the gate list.)
+
+Manual smoke tests (Phase 8, and after any phase touching the relevant area):
+- New session creation and first turn.
+- Multi-tool turn (2+ sequential tool calls in one turn).
+- Abort mid-generation.
+- Tool failure (e.g. `edit_file` on a nonexistent file).
+- File edit approval (`allow_once`) and denial.
+- Large file edit (>2000 lines) — confirm confirmation dialog stays compact, `f` review opens correctly, no visible stall.
+- `f` full review on a large command.
+- `/resume` on a session with a mix of complete and interrupted turns.
+- Corrupted-session recovery: hand-corrupt a session file, confirm quarantine + diagnostic instead of crash/silent loss.
+- Terminal resize during an active stream.
+- Long session scrolling (100+ turns) — confirm responsiveness.
+- Model switching via `/model` mid-session.
+
+---
+
+## 17. Definition of Done
+
+- All findings in §2 have a corresponding fix landed in the phase listed in §15, with the test from §13 passing and green in CI (`bun test`).
+- I1–I8 (§5) all have at least one automated regression test.
+- No session file write can corrupt a previously-valid file (§6.2, test-verified).
+- No diff or confirmation-dialog construction is O(file size) for the default (non-review) path; review mode is explicitly bounded/paginated (§9, test-verified).
+- TUI per-frame cost for incremental changes is independent of total history size (§11, test-verified).
+- `/resume` never silently drops tool-call history (§6.4/§8, test-verified).
+- Existing users' session files load without manual intervention (§14).
+- All four release gates (§16) pass, plus the manual smoke-test list.
+- No new framework, database, or TUI library was introduced; the custom TUI and custom `streamText` orchestration were kept and hardened in place, per §7 and §10's reasoning.
 

@@ -33,9 +33,7 @@ describe('CodeShowcase Primitive', () => {
     });
 
     expect(rendered[0]).toContain('Updated file.txt');
-    // Should have top hidden indicator and bottom hidden indicator
     expect(rendered.some((l) => l.includes('lines (ctrl+o to expand)'))).toBe(true);
-    // Should show around line 15
     expect(rendered.some((l) => l.includes('15'))).toBe(true);
   });
 
@@ -85,7 +83,6 @@ describe('formatToolStatus with CodeShowcase', () => {
 
     expect(result[0]).toContain('Update');
     expect(result.some((l) => l.includes('Updated story.txt'))).toBe(true);
-    // Header (1) + summary (1) + 10 code preview rows = 12 lines total
     const previewRows = result.filter((l) => l.includes('line '));
     expect(previewRows.length).toBe(10);
   });
@@ -105,7 +102,39 @@ describe('formatToolStatus with CodeShowcase', () => {
     expect(result[0]).toContain('Write');
     expect(result.some((l) => l.includes('Wrote 3 lines to story.txt'))).toBe(true);
     expect(result.some((l) => l.includes('1') && l.includes('First line'))).toBe(true);
-    // Should NOT contain + or - diff markers
     expect(result.some((l) => l.includes('+') || l.includes('-'))).toBe(false);
+  });
+
+  it('formats non-confirmation tools with a clean single summary line and NO 10-line CodeShowcase box', () => {
+    const result = formatToolStatus({
+      toolName: 'read_file',
+      displayName: 'Read',
+      status: 'completed',
+      argsSummary: JSON.stringify({ path: 'AGENTS.md' }),
+      toolOutput: 'Read 48 of 48 lines',
+      previewLines: ['1 | # AGENTS.md', '2 | Universal operational guidelines...'],
+    });
+
+    // Should only have main line + summary line (2 lines total, NO 10-line CodeShowcase box)
+    expect(result.length).toBe(2);
+    expect(result[0]).toContain('Read');
+    expect(result[0]).toContain('AGENTS.md');
+    expect(result[1]).toContain('Read 48 of 48 lines');
+    // Ensure no CodeShowcase line numbers or preview boxes
+    expect(result.some((l) => l.includes('ctrl+o to expand'))).toBe(false);
+  });
+
+  it('formats list_dir and search_text cleanly without CodeShowcase box', () => {
+    const listResult = formatToolStatus({
+      toolName: 'list_dir',
+      displayName: 'List',
+      status: 'completed',
+      argsSummary: JSON.stringify({ path: '.' }),
+      toolOutput: 'Listed 15 entries',
+    });
+
+    expect(listResult.length).toBe(2);
+    expect(listResult[0]).toContain('List');
+    expect(listResult[1]).toContain('Listed 15 entries');
   });
 });

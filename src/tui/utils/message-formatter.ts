@@ -187,6 +187,9 @@ export function formatToolStatus(options: {
 
   const lines: string[] = [mainLine];
 
+  const requiresConfirmation =
+    toolName === 'edit_file' || toolName === 'write_file' || toolName === 'run_command';
+
   if (error) {
     const isInterrupted =
       error.toLowerCase().includes('interrupted') ||
@@ -196,7 +199,10 @@ export function formatToolStatus(options: {
     const errText = isInterrupted ? 'Interrupted · What should xd do instead?' : error;
     const errColor = isInterrupted ? chalk.dim : themeColor(theme.error);
     lines.push(`  ${chalk.dim('└ ')}${errColor(errText)}`);
-  } else if ((diffLines && diffLines.length > 0) || (previewLines && previewLines.length > 0)) {
+  } else if (
+    requiresConfirmation &&
+    ((diffLines && diffLines.length > 0) || (previewLines && previewLines.length > 0))
+  ) {
     const isWrite = toolName === 'write_file';
     const isEdit = toolName === 'edit_file';
     const mode = isEdit ? 'highlight' : isWrite ? 'start' : 'end';
@@ -213,17 +219,12 @@ export function formatToolStatus(options: {
 
     lines.push(...showcase);
   } else if (toolOutput) {
-    const outLines = toolOutput.split('\n').filter(Boolean);
-    if (outLines.length <= 1) {
-      lines.push(
-        `  ${chalk.dim('└ ')}${chalk.dim(truncateMiddle(outLines[0] ?? '(no content)', 80))}`,
-      );
-    } else {
-      const showcase = CodeShowcase.render({
-        lines: outLines,
-        mode: 'end',
-      });
-      lines.push(...showcase);
+    const firstLine = toolOutput
+      .split('\n')
+      .map((l) => l.trim())
+      .find(Boolean);
+    if (firstLine && !firstLine.startsWith('{')) {
+      lines.push(`  ${chalk.dim('└ ')}${chalk.dim(truncateMiddle(firstLine, 80))}`);
     }
   }
 

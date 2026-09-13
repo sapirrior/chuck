@@ -1,6 +1,5 @@
-import { randomUUID } from 'node:crypto';
-import type { UIHistoryItem } from '../tui/types.js';
 import type { SessionData } from '../session/types.js';
+import type { UIHistoryItem } from '../tui/types.js';
 
 /**
  * Extracts full output or summary from tool execution outputs for terminal rendering.
@@ -12,35 +11,64 @@ export function formatToolOutputSummary(res: unknown, isError = false): string |
 
   if (typeof res === 'object') {
     const obj = res as Record<string, any>;
-    if (obj.output !== undefined && typeof obj.output === 'string') {
-      const trimmed = obj.output.trim();
-      return trimmed || '(no content)';
-    }
-    if (obj.stdout !== undefined || obj.stderr !== undefined) {
-      const combined = [obj.stdout, obj.stderr].filter(Boolean).join('\n').trim();
-      return combined || '(no content)';
-    }
-    if (obj.message && typeof obj.message === 'string') {
-      return obj.message;
+
+    if (typeof obj.message === 'string' && obj.message.trim()) {
+      return obj.message.trim();
     }
     if (obj.totalLines !== undefined && obj.startLine !== undefined && obj.endLine !== undefined) {
       return `Read ${obj.endLine - obj.startLine + 1} of ${obj.totalLines} lines`;
     }
+    if (obj.totalEntries !== undefined) {
+      return `Listed ${obj.totalEntries} entries`;
+    }
+    if (obj.totalMatches !== undefined && Array.isArray(obj.files)) {
+      return `Found ${obj.totalMatches} files`;
+    }
+    if (obj.totalMatches !== undefined && Array.isArray(obj.matches)) {
+      return `Found ${obj.totalMatches} matches`;
+    }
+    if (obj.resultCount !== undefined) {
+      return `Found ${obj.resultCount} results`;
+    }
     if (obj.url && obj.status) {
       return `Fetched ${obj.contentType ?? 'content'} (${obj.status} OK, ${obj.content?.length ?? 0} chars)`;
+    }
+    if (obj.linesWritten !== undefined && obj.path) {
+      return `Wrote ${obj.linesWritten} lines to ${obj.path}`;
+    }
+    if (obj.replacements !== undefined && obj.path) {
+      return `Updated ${obj.path}`;
+    }
+    if (obj.output !== undefined && typeof obj.output === 'string') {
+      const trimmed = obj.output.trim();
+      return trimmed || undefined;
+    }
+    if (obj.stdout !== undefined || obj.stderr !== undefined) {
+      const combined = [obj.stdout, obj.stderr].filter(Boolean).join('\n').trim();
+      return combined || undefined;
     }
     if (obj.content !== undefined) {
       if (typeof obj.content === 'string') {
         const trimmed = obj.content.trim();
-        return trimmed || '(no content)';
+        return trimmed || undefined;
       }
-      return JSON.stringify(obj.content);
     }
+    return undefined;
   }
 
   if (typeof res === 'string') {
     const trimmed = res.trim();
-    return trimmed || '(no content)';
+    if (!trimmed) return undefined;
+
+    // Check if it's a stringified JSON object
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        const extracted = formatToolOutputSummary(parsed, isError);
+        if (extracted) return extracted;
+      } catch {}
+    }
+    return trimmed;
   }
 
   return undefined;
@@ -60,29 +88,66 @@ export function rehydrateSessionHistory(sessionData: SessionData): UIHistoryItem
         content: turn.userPrompt,
       });
     }
-    if (turn.toolCalls && turn.toolCalls.length > 0) {
-      for (const tc of turn.toolCalls) {
+
+    if (turn.toolCallSummaries && turn.toolCallSummaries.length > 0) {
+      for (const tc of turn.toolCallSummaries) {
+        let cleanOutput = tc.resultPreview;
+        if (cleanOutput && cleanOutput.startsWith('{') && cleanOutput.endsWith('}')) {
+          try {
+            const parsed = JSON.parse(cleanOutput);
+            cleanOutput = formatToolOutputSummary(parsed, tc.isError) ?? cleanOutput;
+          } catch {}
+        }
+
+        const isMutatingTool =
+          tc.name === 'edit_file' || tc.name === 'write_file' || tc.name === 'run_command';
+
+        let previewLines: string[] | undefined = undefined;
+        if (
+          isMutatingTool &&
+          tc.resultPreview &&
+          !tc.resultPreview.startsWith('{') &&
+          tc.resultPreview !== cleanOutput
+        ) {
+          previewLines = tc.resultPreview.split(/\r?\n/).filter(Boolean);
+        }
+
+        restoredItems.push({
+          id: `tool-${tc.id}`,
+          type: 'tool',
+          content: '',
+          toolData: {
+            toolName: tc.name,
+            argsSummary: tc.argsSummary,
+            status: tc.status,
+            error: tc.isError ? cleanOutput : undefined,
+            toolOutput: cleanOutput,
+            previewLines,
+            totalLines: previewLines?.length,
+          },
+        });
+      }
+    } else if ((turn as any).toolCalls && (turn as any).toolCalls.length > 0) {
+      for (const tc of (turn as any).toolCalls) {
         const resObj =
           typeof tc.result === 'object' && tc.result !== null ? (tc.result as any) : undefined;
-        let previewLines: string[] | undefined = undefined;
-        let totalLines: number | undefined = resObj?.totalLines;
+        const isMutatingTool =
+          tc.name === 'edit_file' || tc.name === 'write_file' || tc.name === 'run_command';
 
-        if (Array.isArray(resObj?.previewLines)) {
-          previewLines = resObj.previewLines;
-          totalLines = totalLines ?? resObj?.previewLines.length;
-        } else if (resObj?.output || resObj?.stdout || resObj?.stderr) {
-          const combined = [resObj.output, resObj.stdout, resObj.stderr]
-            .filter(Boolean)
-            .join('\n')
-            .trim();
-          if (combined) {
-            const outLines = combined.split(/\r?\n/);
-            previewLines = outLines;
-            totalLines = totalLines ?? outLines.length;
+        let previewLines: string[] | undefined = undefined;
+        let totalLines: number | undefined = undefined;
+
+        if (isMutatingTool) {
+          if (Array.isArray(resObj?.previewLines)) {
+            previewLines = resObj.previewLines;
+            totalLines = totalLines ?? resObj?.previewLines.length;
+          } else if (resObj?.stdout || resObj?.stderr) {
+            const combined = [resObj.stdout, resObj.stderr].filter(Boolean).join('\n').trim();
+            if (combined) {
+              previewLines = combined.split(/\r?\n/);
+              totalLines = previewLines.length;
+            }
           }
-        } else if (Array.isArray(resObj?.recentLines)) {
-          previewLines = resObj.recentLines;
-          totalLines = totalLines ?? resObj?.recentLines.length;
         }
 
         restoredItems.push({
@@ -100,14 +165,16 @@ export function rehydrateSessionHistory(sessionData: SessionData): UIHistoryItem
               : undefined,
             toolOutput: formatToolOutputSummary(tc.result, tc.isError),
             previewLines,
-            diffLines: Array.isArray(resObj?.diffLines) ? resObj.diffLines : undefined,
-            highlightLineIndex: resObj?.highlightLineIndex,
-            highlightCount: resObj?.highlightCount,
-            totalLines: resObj?.totalLines,
+            diffLines:
+              isMutatingTool && Array.isArray(resObj?.diffLines) ? resObj.diffLines : undefined,
+            highlightLineIndex: isMutatingTool ? resObj?.highlightLineIndex : undefined,
+            highlightCount: isMutatingTool ? resObj?.highlightCount : undefined,
+            totalLines,
           },
         });
       }
     }
+
     if (turn.reasoning) {
       restoredItems.push({
         id: `res-reasoning-${turn.id}`,
@@ -115,6 +182,7 @@ export function rehydrateSessionHistory(sessionData: SessionData): UIHistoryItem
         content: turn.reasoning,
       });
     }
+
     if (turn.assistantText) {
       restoredItems.push({
         id: `res-text-${turn.id}`,

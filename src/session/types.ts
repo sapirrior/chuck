@@ -1,33 +1,22 @@
-import type { ModelMessage } from 'ai';
-import type { ModelSelection, TokenUsage, ToolResultInfo } from '../engine/types.js';
+import type { ModelSelection } from '../engine/types.js';
+import type {
+  SessionDocumentV2,
+  SessionTurnV2,
+  ToolCallSummary,
+} from './schema.js';
 
-/**
- * A single conversation turn preserved in durable session storage.
- */
-export interface SessionTurn {
-  id: string;
-  timestamp: string;
-  userPrompt: string;
-  assistantText: string;
-  reasoning?: string;
-  toolCalls: ToolResultInfo[];
-  usage: TokenUsage;
-  rawMessages?: ModelMessage[];
-}
+export {
+  SESSION_SCHEMA_VERSION,
+  type SessionDocumentV2,
+  type SessionTurnV2,
+  type ToolCallSummary,
+} from './schema.js';
 
-/**
- * Full session document saved at ~/.xd/sessions/<date>/<sessionId>.json
- */
-export interface SessionData {
-  id: string;
-  name: string;
-  date: string; // YYYY-MM-DD
-  createdAt: string;
-  updatedAt: string;
-  model: ModelSelection;
-  totalUsage: TokenUsage;
-  turns: SessionTurn[];
-}
+/** Canonical session document type */
+export type SessionData = SessionDocumentV2;
+
+/** Canonical session turn type */
+export type SessionTurn = SessionTurnV2;
 
 /**
  * Lightweight metadata used when listing sessions for /resume.
@@ -43,3 +32,11 @@ export interface SessionSummary {
   turnCount: number;
   filePath: string;
 }
+
+export interface QuarantineResult {
+  recovered: false;
+  reason: 'invalid-json' | 'schema-mismatch' | 'unknown-version';
+  quarantinedPath: string;
+}
+
+export type LoadSessionResult = SessionDocumentV2 | null;

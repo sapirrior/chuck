@@ -1,9 +1,10 @@
 import { existsSync, lstatSync, readFileSync, writeFileSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
 import { z } from 'zod';
-import type { ConfirmationRequest, ToolDefinition } from '../types.js';
-
 import { computeLineDiff, type DiffLine } from '../../utils/diff.js';
+import { boundResultText } from '../bounding.js';
+import { reviewTokenCache } from '../review-cache.js';
+import type { ConfirmationRequest, ToolDefinition } from '../types.js';
 
 export const editFileInputSchema = z.object({
   path: z
@@ -25,19 +26,12 @@ export interface EditFileOutput {
   replacements: number;
   message: string;
   diffLines?: DiffLine[];
-  allLines?: string[];
   previewLines?: string[];
   highlightLineIndex?: number;
   highlightCount?: number;
   totalLines?: number;
 }
 
-/**
- * Edit File Tool:
- * - Exact string replacement in local files.
- * - Handles single replacement vs replace_all.
- * - Prompts for user confirmation with before/after diff preview.
- */
 export const editFileTool: ToolDefinition<typeof editFileInputSchema, EditFileOutput> = {
   name: 'edit_file',
   displayName: 'Update',
@@ -46,10 +40,16 @@ export const editFileTool: ToolDefinition<typeof editFileInputSchema, EditFileOu
   parameters: editFileInputSchema,
   confirmationPolicy: 'session',
 
+  summarizeArgs: (args) => args.path,
+
   getConfirmationRequest: (args: EditFileInput): ConfirmationRequest => {
     let oldContent = '';
     let newContent = '';
     const targetPath = isAbsolute(args.path) ? args.path : resolve(process.cwd(), args.path);
+
+    let addedLines = 0;
+    let removedLines = 0;
+    let smallPreviewDiffLines: DiffLine[] | undefined = undefined;
 
     if (existsSync(targetPath)) {
       try {
@@ -57,15 +57,35 @@ export const editFileTool: ToolDefinition<typeof editFileInputSchema, EditFileOu
         newContent = args.replace_all
           ? oldContent.replaceAll(args.old_string, args.new_string)
           : oldContent.replace(args.old_string, args.new_string);
+
+        removedLines = args.old_string.split(/\r?\n/).length;
+        addedLines = args.new_string.split(/\r?\n/).length;
+
+        // Compute small preview diff only if file or edit is reasonably small (<200 lines)
+        if (oldContent.length + newContent.length < 50000) {
+          smallPreviewDiffLines = computeLineDiff(oldContent, newContent, 3).slice(0, 20);
+        }
       } catch {
-        // Fallback for preview
+        // Fallback
       }
     }
+
+    const reviewToken = reviewTokenCache.register({
+      oldContent,
+      newContent,
+    });
 
     return {
       toolName: 'edit_file',
       displayName: 'Update',
       promptTitle: `Update ${args.path}?`,
+      preview: {
+        kind: 'edit',
+        path: args.path,
+        statsOnly: { addedLines, removedLines },
+        smallPreviewDiffLines,
+      },
+      reviewToken,
       args: {
         path: args.path,
         old_string: args.old_string,
@@ -112,15 +132,18 @@ export const editFileTool: ToolDefinition<typeof editFileInputSchema, EditFileOu
     writeFileSync(targetPath, updated, 'utf-8');
     const bytesWritten = Buffer.byteLength(updated, 'utf-8');
 
-    // Compute unified line diff for colorized preview with full 10-line window context
+    // Compute unified line diff for preview
     const diffLines = computeLineDiff(content, updated, 10);
 
-    // Create full updated lines and calculate edit highlight indices
     const updatedLines = updated.split(/\r?\n/);
     const charOffset = updated.indexOf(args.new_string);
     const editLineIndex =
       charOffset >= 0 ? updated.slice(0, charOffset).split(/\r?\n/).length - 1 : 0;
     const replacementLinesCount = args.new_string.split(/\r?\n/).length;
+
+    // Bound preview lines so large files don't retain memory
+    const { preview: boundedPreview } = boundResultText(updated);
+    const previewLines = boundedPreview.split(/\r?\n/);
 
     return {
       path: args.path,
@@ -128,8 +151,7 @@ export const editFileTool: ToolDefinition<typeof editFileInputSchema, EditFileOu
       replacements: args.replace_all ? occurrences : 1,
       message: `Updated ${args.path}`,
       diffLines,
-      allLines: updatedLines,
-      previewLines: updatedLines,
+      previewLines,
       highlightLineIndex: editLineIndex,
       highlightCount: replacementLinesCount,
       totalLines: updatedLines.length,

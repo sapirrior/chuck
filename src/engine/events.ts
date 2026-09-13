@@ -1,3 +1,4 @@
+import type { ToolCallRecord } from './tool-lifecycle.js';
 import type { TokenUsage, ToolCallInfo, ToolResultInfo, TurnSummary } from './types.js';
 
 /**
@@ -16,6 +17,10 @@ export type AgentEvent =
   | {
       type: 'tool-call';
       toolCall: ToolCallInfo;
+    }
+  | {
+      type: 'tool-status';
+      record: ToolCallRecord;
     }
   | {
       type: 'tool-result';
