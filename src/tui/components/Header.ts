@@ -28,7 +28,7 @@ export default class Header extends Component<HeaderProps> {
 
   override render(_width?: number): string[] {
     const theme = getTheme();
-    const version = this.props.version ?? '0.1.2';
+    const version = this.props.version ?? '0.1.3';
     const brandColor = themeColor(theme.brand);
     const logoL0 = brandColor(LOGO_LINES[0] ?? '');
     const logoL1 = brandColor(LOGO_LINES[1] ?? '');
