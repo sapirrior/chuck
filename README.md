@@ -1,6 +1,6 @@
 # Chuck
 
-**The non-destructive AI codebase scout and terminal architect.**  
+**The non-destructive AI terminal agent and codebase scout.**  
 Blazing fast, model-agnostic, and crafted natively for developers who live in their shell.
 
 ---
@@ -10,15 +10,40 @@ Blazing fast, model-agnostic, and crafted natively for developers who live in th
 
 ---
 
-## Why Chuck?
+## Core Product Concepts & Guarantees
 
-Most AI coding assistants force you into heavy browser interfaces or slow Electron apps. `chuck` brings autonomous codebase investigation and plan generation straight to your command line:
+Chuck operates on a fundamentally different philosophy than traditional destructive coding agents:
 
-- **Instant & Lightweight:** Starts in milliseconds natively with [Bun](https://bun.sh) — zero bloat, zero Electron memory footprint.
-- **Zero-Flicker Alternate Screen TUI:** Powered by Mode 2026 atomic updates and line-differential rendering for fluid terminal interactions.
-- **Any LLM Provider:** Switch seamlessly between Anthropic, Google Gemini, OpenAI, or your own local/custom OpenAI-compatible models.
-- **Safe & Non-Destructive:** Explores, reads, searches, and produces plans/artifacts strictly confined under `.chuck/` without modifying your host project files.
-- **Built for Deep Flow:** Keyboard-driven navigation, multi-line editing, session resume, and `@` file mentions.
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                          HOST PROJECT                            │
+│   src/          package.json       tests/        .git/           │
+│   (100% Read-Only: read_file, find_files, search_text, list_dir) │
+└─────────────────────────────────┬────────────────────────────────┘
+                                  │
+                       No Direct File Mutations
+                                  │
+┌─────────────────────────────────▼────────────────────────────────┐
+│                       .chuck/ WORKSPACE                          │
+│                                                                  │
+│   ├── plans/           Architectural blueprints & task maps      │
+│   │   └── plan.md      (write_plan, rename_plan, delete_plan)    │
+│   │                                                              │
+│   └── artifacts/       Isolated code proposals & draft files     │
+│       └── src/...      (write_artifact, edit_artifact, etc.)     │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### 1. The Zero Host Mutation Guarantee
+* **Root Files are Untouchable:** Chuck does not have access to any tools capable of directly modifying, overwriting, or deleting files in your workspace root.
+* **Structural Path Confinement:** All write and delete operations are strictly resolved and confined within `.chuck/`. Attempts to traverse upward (`../`) or target absolute paths are rejected at the runtime boundary.
+* **Diff-Free & Risk-Free:** Review code proposals at your own pace without fear of uncommitted git tree pollution, accidental file corruption, or overwritten work.
+
+### 2. Architectural Scouting Before Execution
+* Chuck acts as your principal architect: it deeply investigates your repo, traces execution paths, identifies conventions, and generates complete, production-ready plans under `.chuck/plans/`.
+
+### 3. Isolated Artifact Proposals
+* When Chuck writes code, it creates full file proposals under `.chuck/artifacts/<path>`. You can easily compare, test, or copy these proposals into your codebase whenever you decide.
 
 ---
 
@@ -131,7 +156,7 @@ export CUSTOM_API_KEY="your-groq-key"
 
 ### Switch Models on the Fly (`/model`)
 
-Type `/model` inside `chuck` to open the interactive model picker. Instantly switch between configured providers and models without restarting your session.
+Type `/model` inside `chuck` to open the interactive model picker or use `/model <model_id>`. Instantly switch between configured providers and models; choices are automatically remembered and saved to `~/.chuck/settings.json`.
 
 ### Mention Files with `@`
 
@@ -139,11 +164,12 @@ Type `@` followed by any filename (e.g. `@app.ts` or `@auth/login`) to fuzzy-sea
 
 ### Non-Destructive Artifacts & Plans
 
-Chuck generates standalone blueprints and architectural artifacts under:
-- `.chuck/plans/`
-- `.chuck/artifacts/`
+Chuck provides non-destructive tooling strictly confined to `.chuck/`:
+- **Plans (`.chuck/plans/`):** `write_plan`, `rename_plan`, `delete_plan`
+- **Artifacts (`.chuck/artifacts/`):** `write_artifact`, `edit_artifact`, `rename_artifact`, `delete_artifact`
+- **Investigation:** `read_file`, `find_files`, `search_text`, `list_dir`, `web_fetch`, `web_search`
 
-Your original workspace files remain untouched.
+Your original host project files are never modified directly.
 
 ---
 
@@ -180,7 +206,7 @@ Your original workspace files remain untouched.
 ```
 src/
 ├── engine/       # Agent execution loop, multi-provider model routing, system prompt
-├── tools/        # Artifact tools (.chuck/), file reading, search, web fetch/search
+├── tools/        # Confined tools (artifacts, plans, search, inspect, fetch)
 ├── tui/          # Alternate-screen renderer, ScreenBuffer, declarative layout
 │   ├── primitives/   # Box, Text, SelectList, ModalBox, KeyReader
 │   ├── components/   # Header, PromptInput, StatusBar, StreamingView, Docks
