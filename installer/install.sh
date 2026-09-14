@@ -9,9 +9,9 @@ CYAN='\033[0;36m'
 BOLD='\033[1m'
 NC='\033[0m'
 
-REPO="sapirrior/xd"
+REPO="sapirrior/chuck"
 
-echo -e "${CYAN}${BOLD}[+] Installing xd — General-Purpose AI Terminal Agent...${NC}"
+echo -e "${CYAN}${BOLD}[+] Installing Chuck — Autonomous AI Codebase Scout & Terminal Architect...${NC}"
 
 # Detect OS
 OS_RAW="$(uname -s)"
@@ -44,24 +44,24 @@ IS_TERMUX=false
 if [ -n "${PREFIX}" ] && [ -d "${PREFIX}/bin" ]; then
   IS_TERMUX=true
   INSTALL_DIR="${PREFIX}/bin"
-  SHARE_DIR="${PREFIX}/share/xd"
-  ASSET_NAME="xd-dist-cli.tar.gz"
+  SHARE_DIR="${PREFIX}/share/chuck"
+  ASSET_NAME="chuck-dist-cli.tar.gz"
 elif [ -d "$HOME/.local/bin" ] || mkdir -p "$HOME/.local/bin" 2>/dev/null; then
   INSTALL_DIR="$HOME/.local/bin"
-  ASSET_NAME="xd-${OS}-${ARCH}.tar.gz"
+  ASSET_NAME="chuck-${OS}-${ARCH}.tar.gz"
 else
   INSTALL_DIR="/usr/local/bin"
-  ASSET_NAME="xd-${OS}-${ARCH}.tar.gz"
+  ASSET_NAME="chuck-${OS}-${ARCH}.tar.gz"
 fi
 
 mkdir -p "${INSTALL_DIR}"
 DOWNLOAD_URL="https://github.com/${REPO}/releases/latest/download/${ASSET_NAME}"
 
 echo -e "  ${BLUE}•${NC} Platform:     ${BOLD}${OS}-${ARCH}$([ "$IS_TERMUX" = true ] && echo " (Termux)")${NC}"
-echo -e "  ${BLUE}•${NC} Install path: ${BOLD}${INSTALL_DIR}/xd${NC}"
+echo -e "  ${BLUE}•${NC} Install path: ${BOLD}${INSTALL_DIR}/chuck${NC}"
 echo -e "  ${BLUE}•${NC} Downloading:  ${CYAN}${DOWNLOAD_URL}${NC}"
 
-TMP_DIR="$(mktemp -d 2>/dev/null || mktemp -d -t 'xd-install')"
+TMP_DIR="$(mktemp -d 2>/dev/null || mktemp -d -t 'chuck-install')"
 cleanup() {
   rm -rf "${TMP_DIR}"
 }
@@ -88,11 +88,11 @@ if [ "$IS_TERMUX" = true ]; then
   fi
   mv "${TMP_DIR}/cli.js" "${SHARE_DIR}/cli.js"
 
-  cat << EOF > "${INSTALL_DIR}/xd"
+  cat << EOF > "${INSTALL_DIR}/chuck"
 #!${INSTALL_DIR}/sh
 CLI_PATH="${SHARE_DIR}/cli.js"
 if [ ! -f "\${CLI_PATH}" ]; then
-  CLI_PATH="\${PREFIX:-/data/data/com.termux/files/usr}/share/xd/cli.js"
+  CLI_PATH="\${PREFIX:-/data/data/com.termux/files/usr}/share/chuck/cli.js"
 fi
 
 if command -v bun >/dev/null 2>&1; then
@@ -104,20 +104,20 @@ else
   exit 1
 fi
 EOF
-  chmod +x "${INSTALL_DIR}/xd"
+  chmod +x "${INSTALL_DIR}/chuck"
   if command -v termux-fix-shebang >/dev/null 2>&1; then
-    termux-fix-shebang "${INSTALL_DIR}/xd" 2>/dev/null || true
+    termux-fix-shebang "${INSTALL_DIR}/chuck" 2>/dev/null || true
   fi
 else
-  if [ ! -f "${TMP_DIR}/xd" ]; then
-    echo -e "${RED}[x] Failed to extract xd binary from archive.${NC}"
+  if [ ! -f "${TMP_DIR}/chuck" ]; then
+    echo -e "${RED}[x] Failed to extract chuck binary from archive.${NC}"
     exit 1
   fi
-  chmod +x "${TMP_DIR}/xd"
-  mv "${TMP_DIR}/xd" "${INSTALL_DIR}/xd"
+  chmod +x "${TMP_DIR}/chuck"
+  mv "${TMP_DIR}/chuck" "${INSTALL_DIR}/chuck"
 fi
 
-echo -e "${GREEN}${BOLD}[✔] Successfully installed xd to ${INSTALL_DIR}/xd!${NC}"
+echo -e "${GREEN}${BOLD}[✔] Successfully installed chuck to ${INSTALL_DIR}/chuck!${NC}"
 
 # Check PATH
 case ":$PATH:" in
@@ -131,4 +131,4 @@ case ":$PATH:" in
     ;;
 esac
 
-echo -e "Run ${BOLD}xd${NC} to get started."
+echo -e "Run ${BOLD}chuck${NC} to get started."

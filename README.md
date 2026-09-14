@@ -65,7 +65,7 @@ Chuck operates on a fundamentally different philosophy than traditional destruct
 ### Linux, macOS & Termux
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/sapirrior/xd/main/installer/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/sapirrior/chuck/main/installer/install.sh | bash
 ```
 
 _Automatically detects Linux (x64/ARM64), macOS (Apple Silicon/Intel), and Termux, installing `chuck` directly into your path._
@@ -73,14 +73,14 @@ _Automatically detects Linux (x64/ARM64), macOS (Apple Silicon/Intel), and Termu
 ### Windows (PowerShell)
 
 ```powershell
-irm https://raw.githubusercontent.com/sapirrior/xd/main/installer/install.ps1 | iex
+irm https://raw.githubusercontent.com/sapirrior/chuck/main/installer/install.ps1 | iex
 ```
 
 ### Install from Source
 
 ```bash
-git clone https://github.com/sapirrior/xd.git
-cd xd
+git clone https://github.com/sapirrior/chuck.git
+cd chuck
 bun install
 bun run start
 ```
