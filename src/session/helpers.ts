@@ -117,13 +117,10 @@ export function rehydrateSessionHistory(sessionData: SessionData): UIHistoryItem
           }
         } else if (Array.isArray(msg.content)) {
           let textAccum = '';
-          let reasoningAccum = '';
 
           for (const part of msg.content) {
             if (part.type === 'text') {
               textAccum += (textAccum ? '\n' : '') + part.text;
-            } else if (part.type === 'reasoning') {
-              reasoningAccum += (reasoningAccum ? '\n' : '') + part.text;
             } else if (part.type === 'tool-call') {
               toolCallsMap.set(part.toolCallId, {
                 id: part.toolCallId,
@@ -132,14 +129,6 @@ export function rehydrateSessionHistory(sessionData: SessionData): UIHistoryItem
                 isError: false,
               });
             }
-          }
-
-          if (reasoningAccum.trim()) {
-            restoredItems.push({
-              id: `r-${turn.id}-${restoredItems.length}`,
-              type: 'reasoning',
-              content: reasoningAccum.trim(),
-            });
           }
 
           if (textAccum.trim()) {

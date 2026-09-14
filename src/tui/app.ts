@@ -346,7 +346,6 @@ export class TUIApp {
     this.setBusy(true);
 
     const turnStartTime = performance.now();
-    let accumulatedReasoning = '';
     let accumulatedText = '';
     const activeToolStartTimes = new Map<string, number>();
 
@@ -362,24 +361,22 @@ export class TUIApp {
         onEvent: (event) => {
           switch (event.type) {
             case 'reasoning-delta': {
-              accumulatedReasoning += event.reasoning;
-              this.streamingView.setStream(accumulatedReasoning, accumulatedText, true);
+              // Internal model reasoning is saved to session messages but not rendered to the TUI
               break;
             }
             case 'text-delta': {
               accumulatedText += event.text;
-              this.streamingView.setStream(accumulatedReasoning, accumulatedText, true);
+              this.streamingView.setStream(accumulatedText, true);
               break;
             }
             case 'tool-call': {
-              // Flush any prior accumulated assistant text or thinking before tool execution log
-              if (accumulatedText.trim() || accumulatedReasoning.trim()) {
+              // Flush any prior accumulated assistant text before tool execution log
+              if (accumulatedText.trim()) {
                 this.engine.commit(
                   'assistant-message',
-                  formatAssistantMessage(accumulatedText, accumulatedReasoning),
+                  formatAssistantMessage(accumulatedText),
                 );
                 accumulatedText = '';
-                accumulatedReasoning = '';
                 this.streamingView.reset();
               }
 
@@ -422,14 +419,13 @@ export class TUIApp {
             }
             case 'turn-complete': {
               this.streamingView.setActiveTool(null);
-              if (accumulatedText.trim() || accumulatedReasoning.trim()) {
+              if (accumulatedText.trim()) {
                 this.engine.commit(
                   'assistant-message',
-                  formatAssistantMessage(accumulatedText, accumulatedReasoning),
+                  formatAssistantMessage(accumulatedText),
                 );
               }
               accumulatedText = '';
-              accumulatedReasoning = '';
               this.streamingView.reset();
 
               // Commit turn finished badge with leading empty line
@@ -460,14 +456,13 @@ export class TUIApp {
       this.streamingView.setActiveTool(null);
       const structured = classifyError(err);
       if (structured.category === 'aborted') {
-        if (accumulatedText.trim() || accumulatedReasoning.trim()) {
+        if (accumulatedText.trim()) {
           this.engine.commit(
             'assistant-message',
-            formatAssistantMessage(accumulatedText, accumulatedReasoning),
+            formatAssistantMessage(accumulatedText),
           );
         }
         accumulatedText = '';
-        accumulatedReasoning = '';
         this.streamingView.reset();
         this.engine.commit('system', formatErrorBadge(structured));
       } else {

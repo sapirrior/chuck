@@ -12,7 +12,6 @@ export interface ActiveToolCall {
 }
 
 export interface StreamingViewState {
-  reasoning: string;
   text: string;
   isStreaming: boolean;
   activeTool?: ActiveToolCall | null;
@@ -27,7 +26,6 @@ export default class StreamingView extends Component<{}, StreamingViewState> {
   constructor() {
     super({});
     this.state = {
-      reasoning: '',
       text: '',
       isStreaming: false,
       activeTool: null,
@@ -35,8 +33,8 @@ export default class StreamingView extends Component<{}, StreamingViewState> {
     };
   }
 
-  setStream(reasoning: string, text: string, isStreaming: boolean): void {
-    this.setState({ reasoning, text, isStreaming });
+  setStream(text: string, isStreaming: boolean): void {
+    this.setState({ text, isStreaming });
     this.ensurePulse();
   }
 
@@ -72,7 +70,7 @@ export default class StreamingView extends Component<{}, StreamingViewState> {
       clearInterval(this.pulseTimer);
       this.pulseTimer = null;
     }
-    this.setState({ reasoning: '', text: '', isStreaming: false, activeTool: null, pulseFrame: 0 });
+    this.setState({ text: '', isStreaming: false, activeTool: null, pulseFrame: 0 });
   }
 
   override componentWillUnmount(): void {
@@ -83,15 +81,14 @@ export default class StreamingView extends Component<{}, StreamingViewState> {
   }
 
   override render(width?: number): string[] {
-    const { reasoning, text, isStreaming, activeTool, pulseFrame } = this.state;
-    if (!isStreaming && !reasoning && !text && !activeTool) return [];
+    const { text, isStreaming, activeTool, pulseFrame } = this.state;
+    if (!isStreaming && !text && !activeTool) return [];
 
     const termWidth = width ?? process.stdout.columns ?? 80;
     const maxCols = Math.max(1, termWidth);
     const textWidth = Math.max(1, Math.min(96, maxCols) - 2);
 
     const lines: string[] = [];
-    const theme = getTheme();
 
     // 1. Ongoing active tool call (streaming live output)
     if (activeTool) {
@@ -133,26 +130,7 @@ export default class StreamingView extends Component<{}, StreamingViewState> {
       }
     }
 
-    // 2. Active reasoning / thinking
-    if (reasoning) {
-      if (lines.length > 0) lines.push('');
-      const isPulsing = pulseFrame % 2 === 0;
-      const asterisk = isPulsing
-        ? chalk.yellow.bold(figures.asterisk)
-        : chalk.dim(figures.asterisk);
-      lines.push(`${asterisk} ${chalk.dim.italic(reasoning.split('\n')[0] ?? 'Thinking...')}`);
-
-      const rLines = reasoning.split('\n').slice(1);
-      for (const rl of rLines) {
-        if (!rl.trim()) continue;
-        const wrapped = wrapVisualLine(rl, textWidth);
-        for (const wl of wrapped) {
-          lines.push(`  ${chalk.dim.italic(wl)}`);
-        }
-      }
-    }
-
-    // 3. Streaming assistant text
+    // 2. Streaming assistant text
     if (text) {
       if (lines.length > 0) lines.push('');
       const formatted = formatMarkdown(text);

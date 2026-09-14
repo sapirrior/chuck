@@ -55,21 +55,8 @@ export function formatSystemMessage(content: string): string[] {
   );
 }
 
-export function formatAssistantMessage(content: string, reasoning?: string): string[] {
+export function formatAssistantMessage(content: string): string[] {
   const lines: string[] = [];
-  const theme = getTheme();
-
-  if (reasoning) {
-    const firstLine = reasoning.split('\n')[0] ?? '';
-    const brandColor = themeColor(theme.brand);
-    lines.push(`${chalk.white(figures.blackCircle)} ${brandColor('Thought')}`);
-    if (firstLine.trim()) {
-      lines.push(`  ${chalk.dim('└ ')}${chalk.dim.italic(firstLine.slice(0, 80))}`);
-    }
-    if (content) {
-      lines.push('');
-    }
-  }
 
   if (content) {
     const formatted = formatMarkdown(content);

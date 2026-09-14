@@ -3,7 +3,6 @@ import type { ModelMessage } from 'ai';
 export interface ExtractedTurnView {
   userPrompt: string;
   assistantText: string;
-  reasoning?: string;
   toolInvocations: Array<{
     id: string;
     name: string;
@@ -19,7 +18,6 @@ export interface ExtractedTurnView {
 export function extractTurnView(messages: ModelMessage[]): ExtractedTurnView {
   let userPrompt = '';
   let assistantText = '';
-  let reasoning = '';
   const toolCallsMap = new Map<
     string,
     { id: string; name: string; args: Record<string, unknown>; result?: unknown; isError: boolean }
@@ -43,8 +41,6 @@ export function extractTurnView(messages: ModelMessage[]): ExtractedTurnView {
         for (const part of msg.content) {
           if (part.type === 'text') {
             assistantText += (assistantText ? '\n' : '') + part.text;
-          } else if (part.type === 'reasoning') {
-            reasoning += (reasoning ? '\n' : '') + part.text;
           } else if (part.type === 'tool-call') {
             toolCallsMap.set(part.toolCallId, {
               id: part.toolCallId,
@@ -81,7 +77,6 @@ export function extractTurnView(messages: ModelMessage[]): ExtractedTurnView {
   return {
     userPrompt,
     assistantText,
-    reasoning: reasoning || undefined,
     toolInvocations: Array.from(toolCallsMap.values()),
   };
 }
