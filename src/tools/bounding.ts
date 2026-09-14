@@ -60,11 +60,7 @@ export function extractToolResultPreview(res: unknown): {
       return { resultPreview: obj.message.trim(), resultTruncated: false };
     }
 
-    if (
-      obj.totalLines !== undefined &&
-      obj.startLine !== undefined &&
-      obj.endLine !== undefined
-    ) {
+    if (obj.totalLines !== undefined && obj.startLine !== undefined && obj.endLine !== undefined) {
       return {
         resultPreview: `Read ${obj.endLine - obj.startLine + 1} of ${obj.totalLines} lines`,
         resultTruncated: false,

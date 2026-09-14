@@ -496,9 +496,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
       lines.push(themeColor(theme.permission)('Press Esc again to clear'));
     }
 
-    const borderColor = disabled
-      ? themeColor(theme.subtle)
-      : themeColor(theme.promptBorder);
+    const borderColor = disabled ? themeColor(theme.subtle) : themeColor(theme.promptBorder);
 
     if (disabled) {
       const brand = themeColor(theme.brand);

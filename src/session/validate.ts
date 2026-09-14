@@ -1,8 +1,4 @@
-import {
-  SESSION_SCHEMA_VERSION,
-  SessionDocumentSchema,
-  type SessionDocument,
-} from './schema.js';
+import { SESSION_SCHEMA_VERSION, SessionDocumentSchema, type SessionDocument } from './schema.js';
 
 export type ParseSessionResult =
   | { ok: true; doc: SessionDocument }

@@ -24,7 +24,8 @@ export const writePlanTool: ToolDefinition<typeof WritePlanParamsSchema, WritePl
   name: 'write_plan',
   displayName: 'Write Plan',
   icon: '📋',
-  description: 'Writes an architectural, implementation, or investigation plan into .chuck/plans/ (defaults to .chuck/plans/plan.md).',
+  description:
+    'Writes an architectural, implementation, or investigation plan into .chuck/plans/ (defaults to .chuck/plans/plan.md).',
   parameters: WritePlanParamsSchema,
   confirmationPolicy: 'never',
 

@@ -37,9 +37,7 @@ export function resolveChuckPath(
 
   // Ensure resolved path starts with baseDir
   if (resolvedPath !== baseDir && !resolvedPath.startsWith(baseDir + '/')) {
-    throw new Error(
-      `Path traversal outside .chuck/${subDir}/ is strictly forbidden: "${trimmed}"`,
-    );
+    throw new Error(`Path traversal outside .chuck/${subDir}/ is strictly forbidden: "${trimmed}"`);
   }
 
   // Ensure parent directory exists

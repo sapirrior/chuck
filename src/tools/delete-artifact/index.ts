@@ -4,7 +4,9 @@ import { resolveChuckPath } from '../chuck-paths.js';
 import type { ToolDefinition } from '../types.js';
 
 export const DeleteArtifactParamsSchema = z.object({
-  path: z.string().describe('Relative path of the artifact file or directory inside .chuck/artifacts/ to delete'),
+  path: z
+    .string()
+    .describe('Relative path of the artifact file or directory inside .chuck/artifacts/ to delete'),
 });
 
 export type DeleteArtifactParams = z.infer<typeof DeleteArtifactParamsSchema>;
@@ -14,7 +16,10 @@ export interface DeleteArtifactResult {
   message: string;
 }
 
-export const deleteArtifactTool: ToolDefinition<typeof DeleteArtifactParamsSchema, DeleteArtifactResult> = {
+export const deleteArtifactTool: ToolDefinition<
+  typeof DeleteArtifactParamsSchema,
+  DeleteArtifactResult
+> = {
   name: 'delete_artifact',
   displayName: 'Delete Artifact',
   icon: '🗑',

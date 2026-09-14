@@ -72,7 +72,10 @@ export class TUIApp {
           return typeof userMsg.content === 'string'
             ? userMsg.content
             : Array.isArray(userMsg.content)
-              ? userMsg.content.filter((p: any) => p.type === 'text').map((p: any) => p.text).join(' ')
+              ? userMsg.content
+                  .filter((p: any) => p.type === 'text')
+                  .map((p: any) => p.text)
+                  .join(' ')
               : '';
         })
         .filter((p): p is string => Boolean(p && p.trim())),
@@ -372,10 +375,7 @@ export class TUIApp {
             case 'tool-call': {
               // Flush any prior accumulated assistant text before tool execution log
               if (accumulatedText.trim()) {
-                this.engine.commit(
-                  'assistant-message',
-                  formatAssistantMessage(accumulatedText),
-                );
+                this.engine.commit('assistant-message', formatAssistantMessage(accumulatedText));
                 accumulatedText = '';
                 this.streamingView.reset();
               }
@@ -420,10 +420,7 @@ export class TUIApp {
             case 'turn-complete': {
               this.streamingView.setActiveTool(null);
               if (accumulatedText.trim()) {
-                this.engine.commit(
-                  'assistant-message',
-                  formatAssistantMessage(accumulatedText),
-                );
+                this.engine.commit('assistant-message', formatAssistantMessage(accumulatedText));
               }
               accumulatedText = '';
               this.streamingView.reset();
@@ -457,10 +454,7 @@ export class TUIApp {
       const structured = classifyError(err);
       if (structured.category === 'aborted') {
         if (accumulatedText.trim()) {
-          this.engine.commit(
-            'assistant-message',
-            formatAssistantMessage(accumulatedText),
-          );
+          this.engine.commit('assistant-message', formatAssistantMessage(accumulatedText));
         }
         accumulatedText = '';
         this.streamingView.reset();

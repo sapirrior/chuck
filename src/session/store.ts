@@ -93,11 +93,7 @@ export function createSession(model: ModelSelection, customId?: string): Session
 /**
  * Quarantines a corrupted or malformed session file into ~/.chuck/sessions/<date>/.quarantine/<id>.json
  */
-export function quarantineSessionFile(
-  filePath: string,
-  dateDir: string,
-  fileName: string,
-): string {
+export function quarantineSessionFile(filePath: string, dateDir: string, fileName: string): string {
   const quarantineDir = join(dateDir, '.quarantine');
   if (!existsSync(quarantineDir)) {
     mkdirSync(quarantineDir, { recursive: true });
@@ -181,7 +177,10 @@ export function recordSessionTurn(
         typeof firstUserMsg.content === 'string'
           ? firstUserMsg.content
           : Array.isArray(firstUserMsg.content)
-            ? firstUserMsg.content.filter((p: any) => p.type === 'text').map((p: any) => p.text).join(' ')
+            ? firstUserMsg.content
+                .filter((p: any) => p.type === 'text')
+                .map((p: any) => p.text)
+                .join(' ')
             : '';
       if (promptText.trim()) {
         session.name = promptText.trim().slice(0, 100);

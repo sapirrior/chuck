@@ -16,7 +16,10 @@ export interface RenameArtifactResult {
   message: string;
 }
 
-export const renameArtifactTool: ToolDefinition<typeof RenameArtifactParamsSchema, RenameArtifactResult> = {
+export const renameArtifactTool: ToolDefinition<
+  typeof RenameArtifactParamsSchema,
+  RenameArtifactResult
+> = {
   name: 'rename_artifact',
   displayName: 'Rename Artifact',
   icon: '🔀',

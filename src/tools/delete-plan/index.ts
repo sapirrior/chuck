@@ -7,7 +7,9 @@ export const DeletePlanParamsSchema = z.object({
   path: z
     .string()
     .optional()
-    .describe('Relative path of the plan file inside .chuck/plans/ to delete (defaults to "plan.md")'),
+    .describe(
+      'Relative path of the plan file inside .chuck/plans/ to delete (defaults to "plan.md")',
+    ),
 });
 
 export type DeletePlanParams = z.infer<typeof DeletePlanParamsSchema>;

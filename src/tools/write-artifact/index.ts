@@ -4,7 +4,11 @@ import { resolveChuckPath } from '../chuck-paths.js';
 import type { ToolDefinition } from '../types.js';
 
 export const WriteArtifactParamsSchema = z.object({
-  path: z.string().describe('Relative path for the artifact inside .chuck/artifacts/ (e.g. "src/engine.ts" or "README.md")'),
+  path: z
+    .string()
+    .describe(
+      'Relative path for the artifact inside .chuck/artifacts/ (e.g. "src/engine.ts" or "README.md")',
+    ),
   content: z.string().describe('Full text content to write to the artifact file'),
 });
 
@@ -17,11 +21,15 @@ export interface WriteArtifactResult {
   message: string;
 }
 
-export const writeArtifactTool: ToolDefinition<typeof WriteArtifactParamsSchema, WriteArtifactResult> = {
+export const writeArtifactTool: ToolDefinition<
+  typeof WriteArtifactParamsSchema,
+  WriteArtifactResult
+> = {
   name: 'write_artifact',
   displayName: 'Write Artifact',
   icon: '✎',
-  description: 'Creates or overwrites an artifact file inside the .chuck/artifacts/ directory. Never modifies the host project directly.',
+  description:
+    'Creates or overwrites an artifact file inside the .chuck/artifacts/ directory. Never modifies the host project directly.',
   parameters: WriteArtifactParamsSchema,
   confirmationPolicy: 'never',
 

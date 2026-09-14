@@ -85,7 +85,13 @@ export function rehydrateSessionHistory(sessionData: SessionData): UIHistoryItem
 
     const toolCallsMap = new Map<
       string,
-      { id: string; name: string; args: Record<string, unknown>; result?: unknown; isError: boolean }
+      {
+        id: string;
+        name: string;
+        args: Record<string, unknown>;
+        result?: unknown;
+        isError: boolean;
+      }
     >();
 
     for (const msg of turn.messages) {

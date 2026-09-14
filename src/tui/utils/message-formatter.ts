@@ -15,9 +15,7 @@ function truncateMiddle(text: string, maxLength = 48): string {
 export function formatUserMessage(content: string, targetWidth?: number): string[] {
   const theme = getTheme();
   const termCols =
-    typeof targetWidth === 'number' && targetWidth > 0
-      ? targetWidth
-      : process.stdout.columns || 80;
+    typeof targetWidth === 'number' && targetWidth > 0 ? targetWidth : process.stdout.columns || 80;
   const bg = themeBgColor(theme.userCardBg);
   const pointer = `${figures.pointerBold} `;
   const prefix = pointer;
@@ -98,14 +96,7 @@ export function formatToolStatus(options: {
   error?: string;
   toolOutput?: string;
 }): string[] {
-  const {
-    toolName,
-    displayName,
-    icon,
-    argsSummary,
-    status,
-    error,
-  } = options;
+  const { toolName, displayName, icon, argsSummary, status, error } = options;
   const theme = getTheme();
   const fullTermWidth = process.stdout.columns || 80;
 
@@ -124,15 +115,7 @@ export function formatToolStatus(options: {
   if (argsSummary) {
     try {
       const parsed = JSON.parse(argsSummary);
-      const primaryKeys = [
-        'path',
-        'file',
-        'url',
-        'query',
-        'pattern',
-        'name',
-        'prompt',
-      ];
+      const primaryKeys = ['path', 'file', 'url', 'query', 'pattern', 'name', 'prompt'];
       for (const k of primaryKeys) {
         if (parsed[k] !== undefined) {
           const val = parsed[k];
@@ -164,7 +147,8 @@ export function formatToolStatus(options: {
     const rawError = error || 'Operation failed';
     const firstLineErr = rawError.split('\n')[0]?.trim() || rawError;
     const maxErrLen = Math.max(10, fullTermWidth - 6);
-    const truncatedErr = firstLineErr.length > maxErrLen ? `${firstLineErr.slice(0, maxErrLen - 1)}…` : firstLineErr;
+    const truncatedErr =
+      firstLineErr.length > maxErrLen ? `${firstLineErr.slice(0, maxErrLen - 1)}…` : firstLineErr;
     lines.push(`  ${chalk.dim('└ ')}${themeColor(theme.error)(truncatedErr)}`);
   }
 

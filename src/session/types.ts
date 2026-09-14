@@ -1,14 +1,7 @@
 import type { ModelSelection } from '../engine/types.js';
-import type {
-  SessionDocument,
-  SessionTurn,
-} from './schema.js';
+import type { SessionDocument, SessionTurn } from './schema.js';
 
-export {
-  SESSION_SCHEMA_VERSION,
-  type SessionDocument,
-  type SessionTurn,
-} from './schema.js';
+export { SESSION_SCHEMA_VERSION, type SessionDocument, type SessionTurn } from './schema.js';
 
 /** Canonical session document type */
 export type SessionData = SessionDocument;
