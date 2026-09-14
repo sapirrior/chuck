@@ -1,0 +1,3 @@
+No matter what, this session schema (schemaVersion: 1) is the last and the only schema that will be used. No changes.
+Canonical session turns store only metadata and ordered ModelMessage[] directly from the model runtime.
+All UI views, summaries, and replays are derived projections at runtime.

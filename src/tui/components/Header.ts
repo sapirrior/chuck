@@ -39,7 +39,7 @@ export default class Header extends Component<HeaderProps> {
     const cwdFormatted = this.formatCwd(this.props.cwd ?? process.cwd());
 
     return Box({ direction: 'column', overflow: 'visible', truncation: 'none' }, [
-      Text(`${logoL0}  ${chalk.white.bold('xd')} ${chalk.dim(`v${version}`)}`, {
+      Text(`${logoL0}  ${chalk.white.bold('Chuck')} ${chalk.dim(`v${version}`)}`, {
         overflow: 'visible',
         truncation: 'none',
       }),

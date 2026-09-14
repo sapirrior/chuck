@@ -1,34 +1,34 @@
-# xd
+# Chuck
 
-**The AI coding agent built for the terminal.**  
+**The non-destructive AI codebase scout and terminal architect.**  
 Blazing fast, model-agnostic, and crafted natively for developers who live in their shell.
 
 ---
 
 > [!IMPORTANT]
-> **Active Development / Beta:** `xd` is currently in active development. Features and interfaces are evolving quickly. Feedback and contributions are warmly welcomed.
+> **Active Development / Beta:** `chuck` is currently in active development. Features and interfaces are evolving quickly. Feedback and contributions are warmly welcomed.
 
 ---
 
-## Why xd?
+## Why Chuck?
 
-Most AI coding assistants force you into heavy browser interfaces or slow Electron apps. `xd` brings autonomous pair programming straight to your command line:
+Most AI coding assistants force you into heavy browser interfaces or slow Electron apps. `chuck` brings autonomous codebase investigation and plan generation straight to your command line:
 
 - **Instant & Lightweight:** Starts in milliseconds natively with [Bun](https://bun.sh) — zero bloat, zero Electron memory footprint.
 - **Zero-Flicker Alternate Screen TUI:** Powered by Mode 2026 atomic updates and line-differential rendering for fluid terminal interactions.
 - **Any LLM Provider:** Switch seamlessly between Anthropic, Google Gemini, OpenAI, or your own local/custom OpenAI-compatible models.
-- **Safe & Autonomous:** Inspect code diffs, run commands with granular permission gates, search workspaces, and fetch live web intelligence.
+- **Safe & Non-Destructive:** Explores, reads, searches, and produces plans/artifacts strictly confined under `.chuck/` without modifying your host project files.
 - **Built for Deep Flow:** Keyboard-driven navigation, multi-line editing, session resume, and `@` file mentions.
 
 ---
 
 ```text
- ▛███▜   xd v0.1.1
+ ▛███▜   Chuck v0.1.1
 ▀█████▀  AI can make mistakes. Verify important info.
  ▘▘ ▝▝
 
 ────────────────────────────────────────────────────────────────────────────────
-> Refactor the authentication loop and add token rotation
+> Investigate the auth flow and draft a plan for token rotation
 ────────────────────────────────────────────────────────────────────────────────
 ? for shortcuts                                            claude-3-7-sonnet
 ```
@@ -43,7 +43,7 @@ Most AI coding assistants force you into heavy browser interfaces or slow Electr
 curl -fsSL https://raw.githubusercontent.com/sapirrior/xd/main/installer/install.sh | bash
 ```
 
-_Automatically detects Linux (x64/ARM64), macOS (Apple Silicon/Intel), and Termux, installing `xd` directly into your path._
+_Automatically detects Linux (x64/ARM64), macOS (Apple Silicon/Intel), and Termux, installing `chuck` directly into your path._
 
 ### Windows (PowerShell)
 
@@ -64,7 +64,7 @@ bun run start
 
 ## Connect Your Models
 
-`xd` works with leading cloud frontier models as well as local models and self-hosted endpoints.
+`chuck` works with leading cloud frontier models as well as local models and self-hosted endpoints.
 
 ### 1. Cloud Providers
 
@@ -85,7 +85,7 @@ export OPENAI_API_KEY="sk-..."
 
 ### 2. Custom Endpoints & Local Models (Ollama, DeepSeek, LM Studio, vLLM, OpenRouter, Groq)
 
-Connect `xd` to any custom OpenAI-compatible server or local model runner using `CUSTOM_API_URL`, `CUSTOM_API_MODEL_NAME`, and `CUSTOM_API_KEY`:
+Connect `chuck` to any custom OpenAI-compatible server or local model runner using `CUSTOM_API_URL`, `CUSTOM_API_MODEL_NAME`, and `CUSTOM_API_KEY`:
 
 #### Local Ollama
 
@@ -131,24 +131,19 @@ export CUSTOM_API_KEY="your-groq-key"
 
 ### Switch Models on the Fly (`/model`)
 
-Type `/model` inside `xd` to open the interactive model picker. Instantly switch between configured providers and models without restarting your session.
+Type `/model` inside `chuck` to open the interactive model picker. Instantly switch between configured providers and models without restarting your session.
 
 ### Mention Files with `@`
 
 Type `@` followed by any filename (e.g. `@app.ts` or `@auth/login`) to fuzzy-search and attach context files directly into your prompt.
 
-### Run Shell Commands with `!`
+### Non-Destructive Artifacts & Plans
 
-Type `!` to switch to bash execution mode and run shell commands directly inside your session without leaving the agent.
+Chuck generates standalone blueprints and architectural artifacts under:
+- `.chuck/plans/`
+- `.chuck/artifacts/`
 
-### Safe Diff Reviews
-
-Before `xd` modifies any file, it presents a side-by-side or unified colored diff preview:
-
-- `1` or `y`: Allow change once
-- `2` or `a`: Allow all edits for the session
-- `3` or `n`: Deny change
-- `f`: Open scrollable full-screen diff review
+Your original workspace files remain untouched.
 
 ---
 
@@ -156,7 +151,6 @@ Before `xd` modifies any file, it presents a side-by-side or unified colored dif
 
 | Key             | Action                                 |
 | :-------------- | :------------------------------------- |
-| `!`             | Bash command execution mode            |
 | `@`             | Mention & fuzzy-search workspace files |
 | `?`             | Toggle shortcuts modal                 |
 | `/`             | Open slash commands menu               |
@@ -177,7 +171,7 @@ Before `xd` modifies any file, it presents a side-by-side or unified colored dif
 | `/skills`        | Inspect discovered agent skills and capabilities |
 | `/clear`         | Clear conversation context and start fresh       |
 | `/rename <name>` | Rename current session                           |
-| `/exit`          | Exit `xd`                                        |
+| `/exit`          | Exit `chuck`                                     |
 
 ---
 
@@ -186,16 +180,16 @@ Before `xd` modifies any file, it presents a side-by-side or unified colored dif
 ```
 src/
 ├── engine/       # Agent execution loop, multi-provider model routing, system prompt
-├── tools/        # File edits, terminal commands, directory tree, web search & fetch
+├── tools/        # Artifact tools (.chuck/), file reading, search, web fetch/search
 ├── tui/          # Alternate-screen renderer, ScreenBuffer, declarative layout
 │   ├── primitives/   # Box, Text, SelectList, ModalBox, KeyReader
 │   ├── components/   # Header, PromptInput, StatusBar, StreamingView, Docks
 │   └── engine/       # DocumentTree, CellLayout, FrameBuffer
 ├── commands/     # Slash commands (/model, /resume, /skills, /clear, etc.)
-├── session/      # Session persistence and conversation storage
+├── session/      # Canonical session storage v1 (ModelMessage[]), helpers & projections
 ├── skills/       # Dynamic skill discovery
 ├── theme/        # Theme palettes, TrueColor & ANSI fallbacks, figures
-└── utils/        # ANSI tokenizers, diffing, markdown renderers
+└── utils/        # ANSI tokenizers, formatting, markdown renderers
 ```
 
 ---

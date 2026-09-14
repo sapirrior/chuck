@@ -4,8 +4,6 @@ import { themeColor, themeBgColor, chalk, formatMarkdown } from './format.js';
 import { wrapVisualLine } from '../engine/cell-layout.js';
 import type { ToolExecutionStatus } from '../types.js';
 import type { StructuredError } from '../../errors/index.js';
-import { CodeShowcase } from '../primitives/CodeShowcase.js';
-import type { DiffLine } from '../../utils/diff.js';
 
 function truncateMiddle(text: string, maxLength = 48): string {
   if (!text || text.length <= maxLength) return text;
@@ -14,16 +12,17 @@ function truncateMiddle(text: string, maxLength = 48): string {
   return `${text.slice(0, leftChars)}…${text.slice(text.length - rightChars)}`;
 }
 
-export function formatUserMessage(content: string, isBash = false, targetWidth?: number): string[] {
+export function formatUserMessage(content: string, targetWidth?: number): string[] {
   const theme = getTheme();
-  const fullTermWidth = process.stdout.columns || 80;
-  const wrapWidth = targetWidth ?? fullTermWidth;
+  const termCols =
+    typeof targetWidth === 'number' && targetWidth > 0
+      ? targetWidth
+      : process.stdout.columns || 80;
   const bg = themeBgColor(theme.userCardBg);
-  const chevColor = isBash ? themeColor(theme.bashPink) : themeColor(theme.userChevron);
-  const pointer = isBash ? '! ' : `${figures.pointerBold} `;
+  const pointer = `${figures.pointerBold} `;
   const prefix = pointer;
 
-  const availableTextWidth = Math.max(10, wrapWidth - 2);
+  const availableTextWidth = Math.max(10, termCols - 2);
   const vLines = content.split('\n');
   const lines: string[] = [];
 
@@ -36,9 +35,9 @@ export function formatUserMessage(content: string, isBash = false, targetWidth?:
       const p = isFirstRow ? prefix : '  ';
       isFirstRow = false;
       const visibleLen = stringWidth(p) + stringWidth(segment);
-      const padLen = Math.max(0, fullTermWidth - visibleLen);
-      const pStyled = isBash ? chevColor(p) : themeColor(theme.userChevron)(p);
-      const textStyled = isBash ? chevColor(segment) : chalk.white(segment);
+      const padLen = Math.max(0, termCols - visibleLen);
+      const pStyled = themeColor(theme.userChevron)(p);
+      const textStyled = chalk.white(segment);
       const fullRow = bg(`${pStyled}${textStyled}${' '.repeat(padLen)}`);
       lines.push(fullRow);
     }
@@ -52,7 +51,7 @@ export function formatSystemMessage(content: string): string[] {
   const infoColor = themeColor(theme.permission);
   const rawLines = content.split('\n');
   return rawLines.map((l, i) =>
-    i === 0 ? infoColor(`${figures.info} ${l}`) : infoColor(`  ${l}`),
+    i === 0 ? `  ${chalk.dim('└ ')}${infoColor(l)}` : `    ${infoColor(l)}`,
   );
 }
 
@@ -63,9 +62,7 @@ export function formatAssistantMessage(content: string, reasoning?: string): str
   if (reasoning) {
     const firstLine = reasoning.split('\n')[0] ?? '';
     const brandColor = themeColor(theme.brand);
-    lines.push(
-      `${chalk.white(figures.blackCircle)} ${brandColor('Thought')} ${chalk.dim('(ctrl+o to expand)')}`,
-    );
+    lines.push(`${chalk.white(figures.blackCircle)} ${brandColor('Thought')}`);
     if (firstLine.trim()) {
       lines.push(`  ${chalk.dim('└ ')}${chalk.dim.italic(firstLine.slice(0, 80))}`);
     }
@@ -113,11 +110,6 @@ export function formatToolStatus(options: {
   durationMs?: number;
   error?: string;
   toolOutput?: string;
-  previewLines?: string[];
-  diffLines?: DiffLine[];
-  highlightLineIndex?: number;
-  highlightCount?: number;
-  totalLines?: number;
 }): string[] {
   const {
     toolName,
@@ -126,14 +118,9 @@ export function formatToolStatus(options: {
     argsSummary,
     status,
     error,
-    toolOutput,
-    previewLines,
-    diffLines,
-    highlightLineIndex,
-    highlightCount,
-    totalLines,
   } = options;
   const theme = getTheme();
+  const fullTermWidth = process.stdout.columns || 80;
 
   // Completed tool bullet is green ●, error/failed is red ●, running is dim/white ●
   let bullet = chalk.dim(figures.blackCircle);
@@ -153,8 +140,6 @@ export function formatToolStatus(options: {
       const primaryKeys = [
         'path',
         'file',
-        'cmd',
-        'command',
         'url',
         'query',
         'pattern',
@@ -187,45 +172,13 @@ export function formatToolStatus(options: {
 
   const lines: string[] = [mainLine];
 
-  const requiresConfirmation =
-    toolName === 'edit_file' || toolName === 'write_file' || toolName === 'run_command';
-
-  if (error) {
-    const isInterrupted =
-      error.toLowerCase().includes('interrupted') ||
-      error.toLowerCase().includes('declined') ||
-      error.toLowerCase().includes('cancelled');
-
-    const errText = isInterrupted ? 'Interrupted · What should xd do instead?' : error;
-    const errColor = isInterrupted ? chalk.dim : themeColor(theme.error);
-    lines.push(`  ${chalk.dim('└ ')}${errColor(errText)}`);
-  } else if (
-    requiresConfirmation &&
-    ((diffLines && diffLines.length > 0) || (previewLines && previewLines.length > 0))
-  ) {
-    const isWrite = toolName === 'write_file';
-    const isEdit = toolName === 'edit_file';
-    const mode = isEdit ? 'highlight' : isWrite ? 'start' : 'end';
-
-    const showcase = CodeShowcase.render({
-      lines: previewLines,
-      diffLines,
-      mode,
-      highlightLineIndex,
-      highlightCount,
-      totalLines,
-      headerMessage: toolOutput && (isWrite || isEdit) ? toolOutput : undefined,
-    });
-
-    lines.push(...showcase);
-  } else if (toolOutput) {
-    const firstLine = toolOutput
-      .split('\n')
-      .map((l) => l.trim())
-      .find(Boolean);
-    if (firstLine && !firstLine.startsWith('{')) {
-      lines.push(`  ${chalk.dim('└ ')}${chalk.dim(truncateMiddle(firstLine, 80))}`);
-    }
+  // Only failed calls display a single-line error continuation
+  if (status === 'failed' || error) {
+    const rawError = error || 'Operation failed';
+    const firstLineErr = rawError.split('\n')[0]?.trim() || rawError;
+    const maxErrLen = Math.max(10, fullTermWidth - 6);
+    const truncatedErr = firstLineErr.length > maxErrLen ? `${firstLineErr.slice(0, maxErrLen - 1)}…` : firstLineErr;
+    lines.push(`  ${chalk.dim('└ ')}${themeColor(theme.error)(truncatedErr)}`);
   }
 
   return lines;

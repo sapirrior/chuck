@@ -10,7 +10,6 @@ import { SAFETY_STEP_CEILING } from './constants.js';
 import type { AgentEventListener } from './events.js';
 import { createModelInstance, resolveActiveModelSelection } from './model-provider.js';
 import { buildSystemPrompt } from './system-prompt.js';
-import { extractToolResultPreview } from '../tools/bounding.js';
 import type { ModelSelection, SessionConfig, TokenUsage, TurnSummary } from './types.js';
 
 export interface SubmitPromptOptions {
@@ -137,10 +136,11 @@ export class AgentSession {
     }
 
     // 1. Append user message to history
-    this.messages.push({
+    const userMessage: ModelMessage = {
       role: 'user',
       content: trimmedPrompt,
-    });
+    };
+    this.messages.push(userMessage);
 
     // 2. Prepare turn environment
     this.isGenerating = true;
@@ -166,15 +166,19 @@ export class AgentSession {
       });
 
       // 4. Append turn response messages to history
+      const responseMessages: ModelMessage[] = [];
       if (summary.rawMessages && summary.rawMessages.length > 0) {
         for (const msg of summary.rawMessages) {
           this.messages.push(msg);
+          responseMessages.push(msg);
         }
       } else if (summary.text) {
-        this.messages.push({
+        const assistantMsg: ModelMessage = {
           role: 'assistant',
           content: summary.text,
-        });
+        };
+        this.messages.push(assistantMsg);
+        responseMessages.push(assistantMsg);
       }
 
       // 5. Accumulate usage
@@ -190,84 +194,35 @@ export class AgentSession {
           (this.accumulatedUsage.cacheReadTokens ?? 0) + summary.usage.cacheReadTokens;
       }
 
-      // 6. Record and persist turn in session document (~/.xd/sessions/<date>/<sessionId>.json)
-      const toolCallSummaries = (summary.toolCalls || []).map((tc) => {
-        let argsSummary = '';
-        try {
-          argsSummary = typeof tc.args === 'string' ? tc.args : JSON.stringify(tc.args ?? {});
-        } catch {
-          argsSummary = String(tc.args ?? '');
-        }
-        if (argsSummary.length > 80) {
-          argsSummary = argsSummary.slice(0, 80) + '...';
-        }
-        const { resultPreview, resultTruncated } = extractToolResultPreview(tc.result);
-        return {
-          id: tc.id,
-          name: tc.name,
-          status: (tc.isError ? 'failed' : 'completed') as const,
-          argsSummary,
-          isError: tc.isError,
-          resultPreview,
-          resultTruncated,
-        };
-      });
+      // 6. Record and persist turn in session document (~/.chuck/sessions/<date>/<sessionId>.json)
+      const turnMessages: ModelMessage[] = [userMessage, ...responseMessages];
 
       recordSessionTurn(this.sessionData, {
         status: 'complete',
-        userPrompt: trimmedPrompt,
-        assistantText: summary.text,
-        reasoning: summary.reasoning,
         usage: summary.usage,
-        messages: summary.rawMessages && summary.rawMessages.length > 0 ? summary.rawMessages : [],
-        toolCallSummaries,
+        messages: turnMessages,
       });
 
       return summary;
     } catch (err) {
-      // If turn was interrupted/aborted after tool was called, persist whatever was recorded
-      if (summary) {
-        const toolCallSummaries = (summary.toolCalls || []).map((tc) => {
-          let argsSummary = '';
-          try {
-            argsSummary = typeof tc.args === 'string' ? tc.args : JSON.stringify(tc.args ?? {});
-          } catch {
-            argsSummary = String(tc.args ?? '');
-          }
-          if (argsSummary.length > 80) {
-            argsSummary = argsSummary.slice(0, 80) + '...';
-          }
-          return {
-            id: tc.id,
-            name: tc.name,
-            status: (tc.isError ? 'failed' : 'aborted') as const,
-            argsSummary,
-            isError: tc.isError,
-            resultTruncated: false,
-          };
-        });
+      const responseMessages: ModelMessage[] = summary?.rawMessages ?? [];
+      const turnMessages: ModelMessage[] = [userMessage, ...responseMessages];
 
+      if (summary) {
         recordSessionTurn(this.sessionData, {
           status: 'interrupted',
-          userPrompt: trimmedPrompt,
-          assistantText: summary.text,
-          reasoning: summary.reasoning,
           usage: summary.usage,
-          messages: summary.rawMessages && summary.rawMessages.length > 0 ? summary.rawMessages : [],
-          toolCallSummaries,
+          messages: turnMessages,
         });
       } else {
         recordSessionTurn(this.sessionData, {
           status: 'errored',
-          userPrompt: trimmedPrompt,
-          assistantText: '',
           usage: {
             inputTokens: 0,
             outputTokens: 0,
             totalTokens: 0,
           },
-          messages: [],
-          toolCallSummaries: [],
+          messages: [userMessage],
         });
       }
       throw err;

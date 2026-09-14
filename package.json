@@ -1,7 +1,7 @@
 {
-  "name": "xd",
+  "name": "chuck",
   "version": "0.1.2",
-  "description": "General-purpose AI terminal agent",
+  "description": "Non-destructive codebase scout and terminal architect",
   "author": "sapirrior",
   "license": "MIT",
   "files": [
@@ -9,14 +9,14 @@
   ],
   "type": "module",
   "bin": {
-    "xd": "./dist/cli.js"
+    "chuck": "./dist/cli.js"
   },
   "scripts": {
     "dev": "bun --watch src/cli.ts",
     "start": "bun src/cli.ts",
     "prepublishOnly": "bun run build",
     "build": "bun build src/cli.ts --outdir ./dist --target node",
-    "compile": "bun build --compile --minify src/cli.ts --outfile ./dist/xd",
+    "compile": "bun build --compile --minify src/cli.ts --outfile ./dist/chuck",
     "format": "prettier --check \"**/*.{ts,js}\"",
     "format:fix": "prettier --write \"**/*.{ts,js}\"",
     "test": "bun test"

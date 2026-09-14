@@ -99,7 +99,7 @@ export const lightTheme: UITheme = {
 
 /**
  * Returns active theme (defaulting to darkTheme).
- * TODO: Wire dynamic theme selection to ~/.xd/settings.json (theme: 'dark' | 'light').
+ * TODO: Wire dynamic theme selection to ~/.chuck/settings.json (theme: 'dark' | 'light').
  */
 export function getTheme(): UITheme {
   return darkTheme;

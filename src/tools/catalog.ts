@@ -1,6 +1,6 @@
 import { tool as createAISDKTool } from 'ai';
 import type { z } from 'zod';
-import type { ConfirmationRequest, ToolContext, ToolDefinition } from './types.js';
+import type { ToolContext, ToolDefinition } from './types.js';
 
 /**
  * Central tool registry and catalog.
@@ -40,8 +40,7 @@ export class ToolCatalog {
   }
 
   /**
-   * Converts all registered tools into AI SDK v7 `tool(...)` instances,
-   * with automatic user confirmation interception for mutating actions.
+   * Converts all registered tools into AI SDK v7 `tool(...)` instances.
    */
   public toAISDKTools(context: ToolContext): Record<string, any> {
     const aiTools: Record<string, any> = {};
@@ -52,49 +51,6 @@ export class ToolCatalog {
         inputSchema: def.parameters,
         parameters: def.parameters,
         execute: async (args: any) => {
-          // 1. Check if this tool requires confirmation
-          const policy = def.confirmationPolicy ?? 'never';
-          const requiresConfirmation =
-            policy !== 'never' && (def.needsConfirmation ? def.needsConfirmation(args) : true);
-
-          if (requiresConfirmation && context.requestConfirmation) {
-            // Check session allowlist
-            const isWhitelisted = context.sessionAllowlist?.has(name) ?? false;
-
-            if (!isWhitelisted) {
-              const request: ConfirmationRequest = def.getConfirmationRequest
-                ? def.getConfirmationRequest(args)
-                : {
-                    toolName: name,
-                    displayName: def.displayName,
-                    args,
-                    promptTitle: `Approve execution of ${def.displayName}?`,
-                    preview: {
-                      kind: 'custom',
-                      details: typeof args === 'string' ? args : JSON.stringify(args ?? {}),
-                    },
-                    reviewToken: '',
-                  };
-
-              const decision = await context.requestConfirmation(request);
-
-              if (decision === 'deny') {
-                if (context.onDeny) {
-                  context.onDeny();
-                }
-                const err = new Error(`Interrupted by user`);
-                (err as any).isInterrupted = true;
-                (err as any).toolName = name;
-                throw err;
-              }
-
-              if (decision === 'allow_session' && context.sessionAllowlist) {
-                context.sessionAllowlist.add(name);
-              }
-            }
-          }
-
-          // 2. Execute tool
           return def.execute(args, context);
         },
       });

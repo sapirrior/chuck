@@ -9,7 +9,7 @@ async function main() {
   const args = process.argv.slice(2);
 
   if (args.includes('--version') || args.includes('-v')) {
-    console.log(`xd ${VERSION}`);
+    console.log(`chuck ${VERSION}`);
     process.exit(0);
   }
 
@@ -22,7 +22,7 @@ async function main() {
     });
     await app.start();
   } catch (err) {
-    console.error('Failed to initialize xd:', err instanceof Error ? err.message : String(err));
+    console.error('Failed to initialize chuck:', err instanceof Error ? err.message : String(err));
     process.exit(1);
   }
 }

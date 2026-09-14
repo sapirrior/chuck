@@ -1,6 +1,6 @@
-# Contributing to xd
+# Contributing to Chuck
 
-Thank you for your interest in contributing to `xd`! This guide covers everything you need to get started.
+Thank you for your interest in contributing to `chuck`! This guide covers everything you need to get started.
 
 ---
 
@@ -30,13 +30,13 @@ bun run dev
 
 ```
 src/
-├── engine/       # Agent loop, model orchestration, session management
-├── tools/        # Tool definitions exposed to the model
+├── engine/       # Agent loop, model orchestration, system prompt
+├── tools/        # Tool definitions exposed to the model (confined to .chuck/)
 ├── tui/          # Alternate-screen TUI engine, renderer, layout
 ├── commands/     # Slash command system (/model, /clear, /resume, etc.)
 ├── config/       # Environment and settings
 ├── models/       # Model discovery and provider mapping
-├── session/      # Session persistence and storage
+├── session/      # Canonical session storage and projections
 ├── skills/       # Skills discovery and loading
 ├── theme/        # Colors, figures, and visual tokens
 └── utils/        # Shared helpers (markdown, ANSI, token formatting)
@@ -51,7 +51,7 @@ src/
 | `bun run dev` | Run from source in watch mode |
 | `bun run start` | Run the CLI directly |
 | `bun run build` | Bundle to `./dist/cli.js` |
-| `bun run compile` | Compile to standalone binary `./dist/xd` |
+| `bun run compile` | Compile to standalone binary `./dist/chuck` |
 | `bun run format` | Check formatting |
 | `bun run format:fix` | Auto-fix formatting |
 | `bun test` | Run tests |

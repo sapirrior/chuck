@@ -68,7 +68,7 @@ export const webFetchTool: ToolDefinition<typeof webFetchInputSchema, WebFetchOu
     const response = await fetch(args.url, {
       method: 'GET',
       headers: {
-        'User-Agent': 'xd-agent/0.1.0 (terminal AI agent; +https://github.com/sapirrior/xd)',
+        'User-Agent': 'chuck-agent/0.1.2 (terminal AI scout; +https://github.com/sapirrior/chuck)',
         Accept: 'text/html,application/xhtml+xml,application/json,text/plain;q=0.9,*/*;q=0.8',
       },
       signal,

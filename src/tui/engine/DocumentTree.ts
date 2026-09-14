@@ -52,16 +52,16 @@ export class UserMessageNode implements ComponentNode {
   id: string;
   kind: 'custom' = 'custom';
   content: string;
-  isBash: boolean;
   wrappable = false;
+  overflow = 'hidden' as const;
+  truncation = 'clip' as const;
   private _cachedWidth = -1;
   private _cachedColumns = -1;
   private _cachedLines: string[] = [];
 
-  constructor(id: string, content: string, isBash = false) {
+  constructor(id: string, content: string) {
     this.id = id;
     this.content = content;
-    this.isBash = isBash;
   }
 
   invalidateCache(): void {
@@ -82,7 +82,7 @@ export class UserMessageNode implements ComponentNode {
     }
     this._cachedWidth = width;
     this._cachedColumns = termCols;
-    this._cachedLines = formatUserMessage(this.content, this.isBash, width);
+    this._cachedLines = formatUserMessage(this.content, width);
     return this._cachedLines;
   }
 }
@@ -109,8 +109,8 @@ export class DocumentTree {
     return node;
   }
 
-  addUserMessage(content: string, isBash = false): UserMessageNode {
-    const node = new UserMessageNode(`user-node-${this.idCounter++}`, content, isBash);
+  addUserMessage(content: string): UserMessageNode {
+    const node = new UserMessageNode(`user-node-${this.idCounter++}`, content);
     this.historyNodes.push(node);
     if (this.lastHistoryWidth > 0) {
       const cached = historyLayoutCache.getOrCompute(node.id, this.lastHistoryWidth, () => {

@@ -1,13 +1,11 @@
-import type { ConfirmationDecision, ConfirmationRequest } from '../tools/types.js';
 import type { ModelDescriptor } from '../models/index.js';
 import type { SessionData } from '../session/types.js';
-import type { DiffLine } from '../utils/diff.js';
 
 export type ToolExecutionStatus = 'running' | 'completed' | 'failed';
 
 export interface UIHistoryItem {
   id: string;
-  type: 'user' | 'assistant' | 'reasoning' | 'tool' | 'system' | 'bash';
+  type: 'user' | 'assistant' | 'reasoning' | 'tool' | 'system';
   content: string;
   toolData?: {
     toolName: string;
@@ -18,17 +16,7 @@ export interface UIHistoryItem {
     durationMs?: number;
     error?: string;
     toolOutput?: string;
-    previewLines?: string[];
-    diffLines?: DiffLine[];
-    highlightLineIndex?: number;
-    highlightCount?: number;
-    totalLines?: number;
   };
-}
-
-export interface ActiveConfirmationState {
-  request: ConfirmationRequest;
-  resolver: (decision: ConfirmationDecision) => void;
 }
 
 export interface AppUIState {
@@ -42,5 +30,4 @@ export interface AppUIState {
   showModelPicker: boolean;
   availableModels: ModelDescriptor[];
   availableSessions: SessionData[];
-  activeConfirmation: ActiveConfirmationState | null;
 }

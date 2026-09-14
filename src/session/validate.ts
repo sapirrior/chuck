@@ -1,17 +1,15 @@
-import { migrateSessionDocument } from './migrate.js';
 import {
   SESSION_SCHEMA_VERSION,
-  SessionDocumentV2Schema,
-  type SessionDocumentV2,
+  SessionDocumentSchema,
+  type SessionDocument,
 } from './schema.js';
 
 export type ParseSessionResult =
-  | { ok: true; doc: SessionDocumentV2 }
+  | { ok: true; doc: SessionDocument }
   | { ok: false; reason: 'invalid-json' | 'schema-mismatch' | 'unknown-version'; raw: string };
 
 /**
- * Validates and parses raw session JSON content into SessionDocumentV2.
- * Migrates legacy schema versions automatically.
+ * Validates and parses raw session JSON content into SessionDocument.
  */
 export function parseSessionDocument(raw: string): ParseSessionResult {
   let parsedJson: any;
@@ -25,27 +23,29 @@ export function parseSessionDocument(raw: string): ParseSessionResult {
     return { ok: false, reason: 'schema-mismatch', raw };
   }
 
-  // Future schema versions not yet supported
-  if (
-    typeof parsedJson.schemaVersion === 'number' &&
-    parsedJson.schemaVersion > SESSION_SCHEMA_VERSION
-  ) {
-    return { ok: false, reason: 'unknown-version', raw };
-  }
-
-  try {
-    // If legacy v1 or unversioned, migrate first
-    const candidate =
-      parsedJson.schemaVersion === SESSION_SCHEMA_VERSION
-        ? parsedJson
-        : migrateSessionDocument(parsedJson);
-
-    const validation = SessionDocumentV2Schema.safeParse(candidate);
-    if (validation.success) {
-      return { ok: true, doc: validation.data as SessionDocumentV2 };
+  // Ensure schemaVersion is 1
+  if (parsedJson.schemaVersion !== SESSION_SCHEMA_VERSION) {
+    // If unversioned, default schemaVersion to 1
+    if (parsedJson.schemaVersion === undefined) {
+      parsedJson.schemaVersion = SESSION_SCHEMA_VERSION;
+    } else {
+      return { ok: false, reason: 'unknown-version', raw };
     }
-    return { ok: false, reason: 'schema-mismatch', raw };
-  } catch {
-    return { ok: false, reason: 'schema-mismatch', raw };
   }
+
+  // Normalize turns messages if necessary
+  if (Array.isArray(parsedJson.turns)) {
+    for (const turn of parsedJson.turns) {
+      if (!Array.isArray(turn.messages)) {
+        turn.messages = [];
+      }
+    }
+  }
+
+  const validation = SessionDocumentSchema.safeParse(parsedJson);
+  if (validation.success) {
+    return { ok: true, doc: validation.data as SessionDocument };
+  }
+
+  return { ok: false, reason: 'schema-mismatch', raw };
 }

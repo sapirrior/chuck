@@ -2,36 +2,19 @@ import { z } from 'zod';
 import type { ModelMessage } from 'ai';
 import type { ModelSelection, TokenUsage } from '../engine/types.js';
 
-export const SESSION_SCHEMA_VERSION = 2;
+export const SESSION_SCHEMA_VERSION = 1;
 
-export interface ToolCallSummary {
-  id: string;
-  name: string;
-  status: 'completed' | 'failed' | 'denied' | 'aborted';
-  argsSummary: string;
-  durationMs?: number;
-  isError: boolean;
-  /** Bounded preview only, not the full result. */
-  resultPreview?: string;
-  resultTruncated: boolean;
-}
-
-export interface SessionTurnV2 {
+export interface SessionTurn {
   id: string;
   timestamp: string;
   status: 'complete' | 'interrupted' | 'errored';
-  userPrompt: string;
-  assistantText: string;
-  reasoning?: string;
   usage: TokenUsage;
-  /** Single source of truth for model replay — normalized ModelMessage[] for this turn only. */
+  /** Canonical source of truth for conversation replay and history */
   messages: ModelMessage[];
-  /** Bounded, UI-facing summaries only — never full tool result payloads. */
-  toolCallSummaries: ToolCallSummary[];
 }
 
-export interface SessionDocumentV2 {
-  schemaVersion: 2;
+export interface SessionDocument {
+  schemaVersion: 1;
   id: string;
   name: string;
   date: string;
@@ -39,7 +22,7 @@ export interface SessionDocumentV2 {
   updatedAt: string;
   model: ModelSelection;
   totalUsage: TokenUsage;
-  turns: SessionTurnV2[];
+  turns: SessionTurn[];
 }
 
 export const TokenUsageSchema = z.object({
@@ -56,31 +39,16 @@ export const ModelSelectionSchema = z.object({
   modelId: z.string(),
 });
 
-export const ToolCallSummarySchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  status: z.enum(['completed', 'failed', 'denied', 'aborted']),
-  argsSummary: z.string(),
-  durationMs: z.number().optional(),
-  isError: z.boolean(),
-  resultPreview: z.string().optional(),
-  resultTruncated: z.boolean(),
-});
-
-export const SessionTurnV2Schema = z.object({
+export const SessionTurnSchema = z.object({
   id: z.string(),
   timestamp: z.string(),
   status: z.enum(['complete', 'interrupted', 'errored']),
-  userPrompt: z.string(),
-  assistantText: z.string(),
-  reasoning: z.string().optional(),
   usage: TokenUsageSchema,
   messages: z.array(z.any()),
-  toolCallSummaries: z.array(ToolCallSummarySchema),
 });
 
-export const SessionDocumentV2Schema = z.object({
-  schemaVersion: z.literal(2),
+export const SessionDocumentSchema = z.object({
+  schemaVersion: z.literal(1),
   id: z.string(),
   name: z.string(),
   date: z.string(),
@@ -88,5 +56,5 @@ export const SessionDocumentV2Schema = z.object({
   updatedAt: z.string(),
   model: ModelSelectionSchema,
   totalUsage: TokenUsageSchema,
-  turns: z.array(SessionTurnV2Schema),
+  turns: z.array(SessionTurnSchema),
 });

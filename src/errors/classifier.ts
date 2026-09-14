@@ -181,7 +181,7 @@ export function classifyError(error: unknown): StructuredError {
     category: 'unknown',
     shortMessage: msg.length > 100 ? `${msg.slice(0, 97)}…` : msg || 'Unexpected execution error',
     isRetryable: false,
-    suggestedAction: 'If issue persists, run /clear or check ~/.xd/logs',
+    suggestedAction: 'If issue persists, run /clear or check ~/.chuck/logs',
     originalError: error,
   };
 }

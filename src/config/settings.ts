@@ -9,30 +9,30 @@ export interface SavedModelSettings {
 }
 
 /**
- * Persistent user settings stored in ~/.xd/settings.json
+ * Persistent user settings stored in ~/.chuck/settings.json
  */
 export interface UserSettings {
   model?: SavedModelSettings;
 }
 
 /**
- * Resolves the path to the user's settings file (~/.xd/settings.json).
+ * Resolves the path to the user's settings file (~/.chuck/settings.json).
  */
 export function getSettingsPath(): string {
   const home = homedir();
-  return join(home, '.xd', 'settings.json');
+  return join(home, '.chuck', 'settings.json');
 }
 
 /**
- * Resolves the directory path for xd configuration (~/.xd).
+ * Resolves the directory path for chuck configuration (~/.chuck).
  */
 export function getSettingsDir(): string {
   const home = homedir();
-  return join(home, '.xd');
+  return join(home, '.chuck');
 }
 
 /**
- * Safely loads user settings from ~/.xd/settings.json.
+ * Safely loads user settings from ~/.chuck/settings.json.
  * Returns default empty object if the file does not exist or cannot be parsed.
  */
 export function loadSettings(): UserSettings {
@@ -54,7 +54,7 @@ export function loadSettings(): UserSettings {
 }
 
 /**
- * Saves and updates user settings in ~/.xd/settings.json.
+ * Saves and updates user settings in ~/.chuck/settings.json.
  */
 export function saveSettings(updates: Partial<UserSettings>): UserSettings {
   const dirPath = getSettingsDir();
@@ -75,7 +75,7 @@ export function saveSettings(updates: Partial<UserSettings>): UserSettings {
 }
 
 /**
- * Returns the persisted model selection from ~/.xd/settings.json if present.
+ * Returns the persisted model selection from ~/.chuck/settings.json if present.
  */
 export function getSavedModel(): SavedModelSettings | undefined {
   const settings = loadSettings();
@@ -93,7 +93,7 @@ export function getSavedModel(): SavedModelSettings | undefined {
 }
 
 /**
- * Persists the user's selected model to ~/.xd/settings.json.
+ * Persists the user's selected model to ~/.chuck/settings.json.
  */
 export function saveModelSelection(selection: SavedModelSettings): void {
   saveSettings({

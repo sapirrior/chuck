@@ -1,34 +1,27 @@
-import { randomUUID } from 'node:crypto';
-import { exec } from 'node:child_process';
-import { promisify } from 'node:util';
 import TerminalEngine from './engine/TerminalEngine.js';
 import { AgentSession } from '../engine/agent-session.js';
 import { defaultCommandRegistry } from '../commands/registry.js';
 import { defaultToolCatalog } from '../tools/index.js';
-import type { ConfirmationDecision, ConfirmationRequest, ToolContext } from '../tools/types.js';
+import type { ToolContext } from '../tools/types.js';
 import type { ModelDescriptor } from '../models/index.js';
 import type { SessionData } from '../session/types.js';
-import { listSessions, loadSession } from '../session/index.js';
+import { listSessions, loadSession, rehydrateSessionHistory } from '../session/index.js';
 import { saveSettings } from '../config/index.js';
 import Header from './components/Header.js';
 import StatusBar from './components/StatusBar.js';
 import StreamingView from './components/StreamingView.js';
 import PromptInput from './components/PromptInput.js';
-import PermissionDock from './components/docks/PermissionDock.js';
 import ModelPicker from './components/docks/ModelPicker.js';
 import SessionMenu from './components/docks/SessionMenu.js';
 import HelpMenu from './components/docks/HelpMenu.js';
 import {
-  formatUserMessage,
   formatSystemMessage,
   formatAssistantMessage,
   formatToolStatus,
   formatErrorBadge,
   formatTurnStatus,
 } from './utils/message-formatter.js';
-import { formatToolOutputSummary, rehydrateSessionHistory } from '../utils/history-helpers.js';
 import { classifyError } from '../errors/index.js';
-import { executeShellCommand } from '../shell/index.js';
 
 export interface TUIAppOptions {
   initialSession?: AgentSession;
@@ -47,8 +40,7 @@ export class TUIApp {
   private promptInput: PromptInput;
   private statusBar: StatusBar;
 
-  private activeModal: PermissionDock | ModelPicker | SessionMenu | HelpMenu | null = null;
-  private sessionAllowlist = new Set<string>();
+  private activeModal: ModelPicker | SessionMenu | HelpMenu | null = null;
   private ctrlCPending = false;
   private ctrlCTimer: NodeJS.Timeout | null = null;
   private isBusy = false;
@@ -69,12 +61,20 @@ export class TUIApp {
     this.streamingView = new StreamingView();
 
     this.promptInput = new PromptInput({
-      onSubmit: (text, isBash) => this.handleSubmit(text, isBash),
+      onSubmit: (text) => this.handleSubmit(text),
       onAbort: () => this.handleAbort(),
       onToggleHelp: () => this.toggleHelp(),
       cwd: this.cwd,
       initialHistory: this.session.session.turns
-        .map((t) => t.userPrompt)
+        .map((t) => {
+          const userMsg = t.messages.find((m) => m.role === 'user');
+          if (!userMsg) return '';
+          return typeof userMsg.content === 'string'
+            ? userMsg.content
+            : Array.isArray(userMsg.content)
+              ? userMsg.content.filter((p: any) => p.type === 'text').map((p: any) => p.text).join(' ')
+              : '';
+        })
         .filter((p): p is string => Boolean(p && p.trim())),
     });
 
@@ -98,8 +98,6 @@ export class TUIApp {
       for (const item of items) {
         if (item.type === 'user') {
           this.engine.commitPrompt(item.content);
-        } else if (item.type === 'bash') {
-          this.engine.commitPrompt(item.content, true);
         } else if (item.type === 'system') {
           this.engine.commit('system', formatSystemMessage(item.content));
         } else if (item.type === 'tool' && item.toolData) {
@@ -115,11 +113,6 @@ export class TUIApp {
               durationMs: item.toolData.durationMs,
               error: item.toolData.error,
               toolOutput: item.toolData.toolOutput,
-              previewLines: item.toolData.previewLines,
-              diffLines: item.toolData.diffLines,
-              highlightLineIndex: item.toolData.highlightLineIndex,
-              highlightCount: item.toolData.highlightCount,
-              totalLines: item.toolData.totalLines,
             }),
           );
         } else if (item.type === 'assistant') {
@@ -248,8 +241,6 @@ export class TUIApp {
     for (const item of items) {
       if (item.type === 'user') {
         this.engine.commitPrompt(item.content);
-      } else if (item.type === 'bash') {
-        this.engine.commitPrompt(item.content, true);
       } else if (item.type === 'system') {
         this.engine.commit('system', formatSystemMessage(item.content));
       } else if (item.type === 'tool' && item.toolData) {
@@ -264,11 +255,6 @@ export class TUIApp {
             durationMs: item.toolData.durationMs,
             error: item.toolData.error,
             toolOutput: item.toolData.toolOutput,
-            previewLines: item.toolData.previewLines,
-            diffLines: item.toolData.diffLines,
-            highlightLineIndex: item.toolData.highlightLineIndex,
-            highlightCount: item.toolData.highlightCount,
-            totalLines: item.toolData.totalLines,
           }),
         );
       } else if (item.type === 'assistant') {
@@ -300,65 +286,14 @@ export class TUIApp {
     this.engine.mount(this.statusBar);
   }
 
-  private requestConfirmation(request: ConfirmationRequest): Promise<ConfirmationDecision> {
-    return new Promise<ConfirmationDecision>((resolve) => {
-      this.engine.unmount(this.promptInput);
-      this.engine.unmount(this.statusBar);
-
-      const dock = new PermissionDock({
-        request,
-        onDecision: (decision) => {
-          this.engine.unmount(dock);
-          this.engine.unmount(this.statusBar);
-          this.activeModal = null;
-          this.engine.mount(this.promptInput, { keepCursorVisible: true, kind: 'input' });
-          this.engine.mount(this.statusBar);
-          resolve(decision);
-        },
-      });
-
-      this.activeModal = dock;
-      this.engine.mount(dock, { kind: 'dock' });
-      this.engine.mount(this.statusBar);
-    });
-  }
-
   private handleAbort(): void {
     if (this.isBusy) {
       this.session.abort();
     }
   }
 
-  private async handleSubmit(text: string, isBash = false): Promise<void> {
-    // 1. Bash execution (!)
-    if (isBash) {
-      this.engine.commitPrompt(text, true);
-      this.setBusy(true);
-
-      try {
-        const result = await executeShellCommand({
-          command: text,
-          cwd: this.cwd,
-          onLine: (_line, recent) => {
-            this.streamingView.setStream('', recent.join('\n'), true);
-          },
-        });
-        this.streamingView.reset();
-
-        const raw = result.output || result.stdout || result.stderr || '';
-        const output = raw.trim() || '(no content)';
-        this.engine.commit('assistant-message', formatAssistantMessage(output));
-      } catch (err) {
-        this.streamingView.reset();
-        const structured = classifyError(err);
-        this.engine.commit('system', formatErrorBadge(structured));
-      } finally {
-        this.setBusy(false);
-      }
-      return;
-    }
-
-    // 2. Slash command execution (/)
+  private async handleSubmit(text: string): Promise<void> {
+    // 1. Slash command execution (/)
     if (defaultCommandRegistry.isCommand(text)) {
       const cmdResult = await defaultCommandRegistry.execute(text, {
         session: this.session,
@@ -406,7 +341,7 @@ export class TUIApp {
       return;
     }
 
-    // 3. Submit user prompt to AgentSession
+    // 2. Submit user prompt to AgentSession
     this.engine.commitPrompt(text);
     this.setBusy(true);
 
@@ -417,11 +352,6 @@ export class TUIApp {
 
     const toolContext: ToolContext = {
       cwd: this.cwd,
-      requestConfirmation: (req) => this.requestConfirmation(req),
-      sessionAllowlist: this.sessionAllowlist,
-      onToolProgress: (_chunk, recentLines) => {
-        this.streamingView.updateToolOutput(recentLines);
-      },
     };
 
     const tools = defaultToolCatalog.toAISDKTools(toolContext);
@@ -454,7 +384,6 @@ export class TUIApp {
               }
 
               activeToolStartTimes.set(event.toolCall.id, performance.now());
-              // Set live active tool indicator in StreamingView with pulsing white bullet
               this.streamingView.setActiveTool({
                 id: event.toolCall.id,
                 name: event.toolCall.name,
@@ -470,36 +399,6 @@ export class TUIApp {
               activeToolStartTimes.delete(event.toolResult.id);
 
               const toolDef = defaultToolCatalog.get(event.toolResult.name);
-              const outputSummary = formatToolOutputSummary(
-                event.toolResult.result,
-                event.toolResult.isError,
-              );
-
-              const resObj =
-                typeof event.toolResult.result === 'object' && event.toolResult.result !== null
-                  ? (event.toolResult.result as any)
-                  : undefined;
-
-              const isMutatingTool =
-                event.toolResult.name === 'edit_file' ||
-                event.toolResult.name === 'write_file' ||
-                event.toolResult.name === 'run_command';
-
-              let previewLines: string[] | undefined = undefined;
-              let totalLines: number | undefined = undefined;
-
-              if (isMutatingTool) {
-                if (Array.isArray(resObj?.previewLines)) {
-                  previewLines = resObj.previewLines;
-                  totalLines = resObj?.totalLines ?? previewLines.length;
-                } else if (resObj?.stdout || resObj?.stderr) {
-                  const combined = [resObj.stdout, resObj.stderr].filter(Boolean).join('\n').trim();
-                  if (combined) {
-                    previewLines = combined.split(/\r?\n/);
-                    totalLines = previewLines.length;
-                  }
-                }
-              }
 
               this.engine.commit(
                 'tool-result',
@@ -517,12 +416,6 @@ export class TUIApp {
                         JSON.stringify(event.toolResult.result))
                       : String(event.toolResult.result)
                     : undefined,
-                  toolOutput: outputSummary,
-                  previewLines,
-                  diffLines: Array.isArray(resObj?.diffLines) ? resObj.diffLines : undefined,
-                  highlightLineIndex: resObj?.highlightLineIndex,
-                  highlightCount: resObj?.highlightCount,
-                  totalLines: resObj?.totalLines,
                 }),
               );
               break;
@@ -539,7 +432,7 @@ export class TUIApp {
               accumulatedReasoning = '';
               this.streamingView.reset();
 
-              // Commit turn finished badge with leading empty line (e.g. * Baked for 20s · done 7:31 AM)
+              // Commit turn finished badge with leading empty line
               const totalDurationMs = Math.round(performance.now() - turnStartTime);
               this.engine.commit('system', ['', formatTurnStatus(totalDurationMs)]);
 

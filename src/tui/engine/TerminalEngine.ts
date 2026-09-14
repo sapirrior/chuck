@@ -231,9 +231,9 @@ export default class TerminalEngine {
     }
   }
 
-  commitPrompt(text: string, isBash = false): void {
+  commitPrompt(text: string): void {
     this.ensureAlternateScreen();
-    this.tree.addUserMessage(text, isBash);
+    this.tree.addUserMessage(text);
     this.requestFrame();
   }
 

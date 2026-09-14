@@ -39,7 +39,7 @@ export const PROVIDER_SELECTION_PRIORITY: readonly ProviderName[] = [
 
 /**
  * Resolves the active model selection based on explicit user choices,
- * saved user preferences (~/.xd/settings.json), and configured environment credentials.
+ * saved user preferences (~/.chuck/settings.json), and configured environment credentials.
  */
 export function resolveActiveModelSelection(
   requested?: Partial<ModelSelection>,
@@ -87,7 +87,7 @@ export function resolveActiveModelSelection(
     }
   }
 
-  // 4. Saved user preference in ~/.xd/settings.json
+  // 4. Saved user preference in ~/.chuck/settings.json
   const savedModel = getSavedModel();
   if (savedModel && hasProviderConfig(savedModel.provider, config)) {
     return {

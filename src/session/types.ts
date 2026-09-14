@@ -1,22 +1,17 @@
 import type { ModelSelection } from '../engine/types.js';
 import type {
-  SessionDocumentV2,
-  SessionTurnV2,
-  ToolCallSummary,
+  SessionDocument,
+  SessionTurn,
 } from './schema.js';
 
 export {
   SESSION_SCHEMA_VERSION,
-  type SessionDocumentV2,
-  type SessionTurnV2,
-  type ToolCallSummary,
+  type SessionDocument,
+  type SessionTurn,
 } from './schema.js';
 
 /** Canonical session document type */
-export type SessionData = SessionDocumentV2;
-
-/** Canonical session turn type */
-export type SessionTurn = SessionTurnV2;
+export type SessionData = SessionDocument;
 
 /**
  * Lightweight metadata used when listing sessions for /resume.
@@ -39,4 +34,4 @@ export interface QuarantineResult {
   quarantinedPath: string;
 }
 
-export type LoadSessionResult = SessionDocumentV2 | null;
+export type LoadSessionResult = SessionDocument | null;

@@ -37,7 +37,7 @@ export default class HelpMenu extends Component<HelpMenuProps> {
     const maxCols = Math.max(1, termWidth);
 
     const leftCol = [
-      { key: '!', desc: 'Bash command' },
+      { key: '/', desc: 'Commands' },
       { key: '@', desc: 'Mention files' },
       { key: '?', desc: 'Shortcuts menu' },
       { key: 'Esc Esc', desc: 'Clear input' },

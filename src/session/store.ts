@@ -25,13 +25,16 @@ import {
 import { parseSessionDocument } from './validate.js';
 
 /**
- * Resolves the base root directory for sessions: ~/.xd/sessions (or overridden by XD_SESSIONS_DIR)
+ * Resolves the base root directory for sessions: ~/.chuck/sessions (or overridden by CHUCK_SESSIONS_DIR / XD_SESSIONS_DIR)
  */
 export function getSessionsRootDir(): string {
+  if (process.env.CHUCK_SESSIONS_DIR) {
+    return process.env.CHUCK_SESSIONS_DIR;
+  }
   if (process.env.XD_SESSIONS_DIR) {
     return process.env.XD_SESSIONS_DIR;
   }
-  return join(homedir(), '.xd', 'sessions');
+  return join(homedir(), '.chuck', 'sessions');
 }
 
 /**
@@ -53,7 +56,7 @@ export function generateSessionId(): string {
 }
 
 /**
- * Resolves the full file path for a session: ~/.xd/sessions/<date>/<sessionId>.json
+ * Resolves the full file path for a session: ~/.chuck/sessions/<date>/<sessionId>.json
  */
 export function getSessionFilePath(date: string, sessionId: string): string {
   return join(getSessionsRootDir(), date, `${sessionId}.json`);
@@ -88,7 +91,7 @@ export function createSession(model: ModelSelection, customId?: string): Session
 }
 
 /**
- * Quarantines a corrupted or malformed session file into ~/.xd/sessions/<date>/.quarantine/<id>.json
+ * Quarantines a corrupted or malformed session file into ~/.chuck/sessions/<date>/.quarantine/<id>.json
  */
 export function quarantineSessionFile(
   filePath: string,
@@ -114,7 +117,7 @@ export function quarantineSessionFile(
 }
 
 /**
- * Persists or updates a session JSON file atomically at ~/.xd/sessions/<date>/<sessionId>.json.
+ * Persists or updates a session JSON file atomically at ~/.chuck/sessions/<date>/<sessionId>.json.
  * Uses temp-file + fsync + atomic rename to prevent file corruption.
  */
 export function saveSession(session: SessionData): string {
@@ -171,12 +174,19 @@ export function recordSessionTurn(
   };
 
   // The first user message becomes the session name only if it hasn't been custom-named
-  if (
-    session.turns.length === 0 &&
-    turnData.userPrompt &&
-    (!session.name || session.name === 'New Session')
-  ) {
-    session.name = turnData.userPrompt.slice(0, 100).trim();
+  if (session.turns.length === 0 && (!session.name || session.name === 'New Session')) {
+    const firstUserMsg = turnData.messages.find((m) => m.role === 'user');
+    if (firstUserMsg) {
+      const promptText =
+        typeof firstUserMsg.content === 'string'
+          ? firstUserMsg.content
+          : Array.isArray(firstUserMsg.content)
+            ? firstUserMsg.content.filter((p: any) => p.type === 'text').map((p: any) => p.text).join(' ')
+            : '';
+      if (promptText.trim()) {
+        session.name = promptText.trim().slice(0, 100);
+      }
+    }
   }
 
   session.turns.push(turn);
@@ -234,7 +244,7 @@ export function loadSession(sessionIdOrPath: string): SessionData | null {
     }
   }
 
-  // Otherwise search date directories in ~/.xd/sessions
+  // Otherwise search date directories in ~/.chuck/sessions
   const rootDir = getSessionsRootDir();
   if (!existsSync(rootDir)) {
     return null;

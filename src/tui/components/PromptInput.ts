@@ -7,7 +7,7 @@ import { themeColor, chalk, truncateToWidth } from '../utils/format.js';
 import { parseKeyInput } from '../primitives/index.js';
 
 export interface PromptInputProps {
-  onSubmit: (text: string, isBash?: boolean) => void;
+  onSubmit: (text: string) => void;
   onAbort?: () => void;
   onToggleHelp?: () => void;
   cwd?: string;
@@ -36,7 +36,7 @@ const STATUS_WORDS = [
 ];
 
 export default class PromptInput extends Component<PromptInputProps, PromptInputState> {
-  override overflow = 'wrap' as const;
+  override overflow = 'hidden' as const;
   override truncation = 'none' as const;
 
   private history: string[] = [];
@@ -186,10 +186,9 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
 
         const trimmed = this.state.value.trim();
         if (trimmed) {
-          const isBash = trimmed.startsWith('!');
           this.addHistory(trimmed);
           this.setState({ value: '', cursorPos: 0, fileMatches: [] });
-          this.props.onSubmit(isBash ? trimmed.slice(1).trim() : trimmed, isBash);
+          this.props.onSubmit(trimmed);
         }
         return true;
       }
@@ -497,12 +496,9 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
       lines.push(themeColor(theme.permission)('Press Esc again to clear'));
     }
 
-    const isBash = value.startsWith('!');
     const borderColor = disabled
       ? themeColor(theme.subtle)
-      : isBash
-        ? themeColor(theme.bashPink)
-        : themeColor(theme.promptBorder);
+      : themeColor(theme.promptBorder);
 
     if (disabled) {
       const brand = themeColor(theme.brand);
@@ -546,7 +542,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
     }
 
     // Input prompt line
-    const chevColor = isBash ? themeColor(theme.bashPink) : themeColor(theme.userChevron);
+    const chevColor = themeColor(theme.userChevron);
     const pointer = chevColor(`${figures.pointerBold} `);
 
     if (value.length === 0) {
