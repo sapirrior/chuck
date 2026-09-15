@@ -24,6 +24,7 @@ import {
 import { classifyError } from '../errors/index.js';
 
 export interface TUIAppOptions {
+  version?: string;
   initialSession?: AgentSession;
   cwd?: string;
   onExit?: () => void;
@@ -54,6 +55,7 @@ export class TUIApp {
     const model = this.session.getModel();
 
     this.header = new Header({
+      version: options.version,
       cwd: this.cwd,
       model,
     });

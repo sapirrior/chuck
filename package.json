@@ -17,8 +17,8 @@
     "prepublishOnly": "bun run build",
     "build": "bun build src/cli.ts --outdir ./dist --target node",
     "compile": "bun build --compile --minify src/cli.ts --outfile ./dist/chuck",
-    "format": "prettier --check \"**/*.{ts,js}\"",
-    "format:fix": "prettier --write \"**/*.{ts,js}\"",
+    "format": "bun ./node_modules/prettier/bin/prettier.cjs --check \"src/**/*.{ts,js}\"",
+    "format:fix": "bun ./node_modules/prettier/bin/prettier.cjs --write \"src/**/*.{ts,js}\"",
     "test": "bun test"
   },
   "dependencies": {

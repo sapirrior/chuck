@@ -3,7 +3,7 @@ import pkg from '../package.json' with { type: 'json' };
 import { TUIApp } from './tui/index.js';
 import { AgentSession } from './engine/index.js';
 
-const VERSION: string = pkg.version || '0.1.0';
+const VERSION: string = pkg.version || '0.0.0';
 
 async function main() {
   const args = process.argv.slice(2);
@@ -16,6 +16,7 @@ async function main() {
   try {
     const session = new AgentSession();
     const app = new TUIApp({
+      version: VERSION,
       initialSession: session,
       cwd: process.cwd(),
       onExit: () => process.exit(0),

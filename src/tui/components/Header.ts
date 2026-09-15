@@ -1,8 +1,11 @@
 import { homedir } from 'node:os';
+import pkg from '../../../package.json' with { type: 'json' };
 import Component from '../engine/Component.js';
 import { getTheme, LOGO_LINES } from '../../theme/index.js';
 import { themeColor, chalk } from '../utils/format.js';
 import { Box, Text } from '../primitives/index.js';
+
+const DEFAULT_VERSION = pkg.version || '0.0.0';
 
 export interface HeaderProps {
   version?: string;
@@ -28,7 +31,7 @@ export default class Header extends Component<HeaderProps> {
 
   override render(_width?: number): string[] {
     const theme = getTheme();
-    const version = this.props.version ?? '0.1.4';
+    const version = this.props.version ?? DEFAULT_VERSION;
     const brandColor = themeColor(theme.brand);
     const logoL0 = brandColor(LOGO_LINES[0] ?? '');
     const logoL1 = brandColor(LOGO_LINES[1] ?? '');
