@@ -11,7 +11,7 @@ NC='\033[0m'
 
 REPO="sapirrior/chuck"
 
-echo -e "${CYAN}${BOLD}[+] Installing Chuck — Autonomous AI Codebase Scout & Terminal Architect...${NC}"
+echo -e "${CYAN}${BOLD}[+] Installing Chuck — Engineering Agent...${NC}"
 
 # Detect OS
 OS_RAW="$(uname -s)"

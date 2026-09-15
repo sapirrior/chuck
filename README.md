@@ -1,6 +1,6 @@
 # Chuck
 
-**The non-destructive AI terminal agent and codebase scout.**  
+**The engineering agent that proposes before it touches your code.**  
 Blazing fast, model-agnostic, and crafted natively for developers who live in their shell.
 
 ---
@@ -39,8 +39,8 @@ Chuck operates on a fundamentally different philosophy than traditional destruct
 * **Structural Path Confinement:** All write and delete operations are strictly resolved and confined within `.chuck/`. Attempts to traverse upward (`../`) or target absolute paths are rejected at the runtime boundary.
 * **Diff-Free & Risk-Free:** Review code proposals at your own pace without fear of uncommitted git tree pollution, accidental file corruption, or overwritten work.
 
-### 2. Architectural Scouting Before Execution
-* Chuck acts as your principal architect: it deeply investigates your repo, traces execution paths, identifies conventions, and generates complete, production-ready plans under `.chuck/plans/`.
+### 2. Deep Investigation Before Execution
+* Chuck acts as a senior engineer joining your codebase cold: it investigates your repo, traces execution paths, identifies conventions, and generates complete, production-ready plans under `.chuck/plans/`.
 
 ### 3. Isolated Artifact Proposals
 * When Chuck writes code, it creates full file proposals under `.chuck/artifacts/<path>`. You can easily compare, test, or copy these proposals into your codebase whenever you decide.
@@ -162,9 +162,10 @@ Type `/model` inside `chuck` to open the interactive model picker or use `/model
 
 Type `@` followed by any filename (e.g. `@app.ts` or `@auth/login`) to fuzzy-search and attach context files directly into your prompt.
 
-### Non-Destructive Artifacts & Plans
-
-Chuck provides non-destructive tooling strictly confined to `.chuck/`:
+### Isolated Artifacts & Plans
+ 
+Chuck ships every plan and every file it writes into a workspace confined to `.chuck/` — a guarantee,
+not a limitation:
 - **Plans (`.chuck/plans/`):** `write_plan`, `rename_plan`, `delete_plan`
 - **Artifacts (`.chuck/artifacts/`):** `write_artifact`, `edit_artifact`, `rename_artifact`, `delete_artifact`
 - **Investigation:** `read_file`, `find_files`, `search_text`, `list_dir`, `web_fetch`, `web_search`

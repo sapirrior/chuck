@@ -4,7 +4,8 @@ Universal operational guidelines for AI coding agents working in the `chuck` rep
 
 ## 1. Project Overview & Tech Stack
 
-`chuck` is a non-destructive codebase scout and terminal architect companion built with:
+`chuck` is an engineering agent — investigation, planning, and code generation, all shipped as reviewable
+proposals — built with:
 
 - **Language/Runtime:** TypeScript, executed natively by [Bun](https://bun.sh)
 - **Model Orchestration & Tool Calling:** Vercel AI SDK (`ai`)

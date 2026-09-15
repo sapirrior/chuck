@@ -1,6 +1,6 @@
 # Contributing to Chuck
 
-Thank you for your interest in contributing to `chuck`, the non-destructive AI terminal agent! This guide covers everything you need to get started.
+Thank you for your interest in contributing to `chuck`, the engineering agent! This guide covers everything you need to get started.
 
 ---
 

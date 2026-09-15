@@ -5,7 +5,7 @@ $Repo = "sapirrior/chuck"
 $Asset = "chuck-windows-x64.zip"
 $DownloadUrl = "https://github.com/$Repo/releases/latest/download/$Asset"
 
-Write-Host "[+] Installing Chuck - Autonomous AI Codebase Scout & Terminal Architect..." -ForegroundColor Cyan
+Write-Host "[+] Installing Chuck - Engineering Agent..." -ForegroundColor Cyan
 
 $InstallDir = Join-Path $env:LOCALAPPDATA "chuck\bin"
 if (-not (Test-Path $InstallDir)) {
