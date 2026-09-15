@@ -48,7 +48,7 @@ Chuck operates on a fundamentally different philosophy than traditional destruct
 ---
 
 ```text
- ▛███▜   Chuck v0.1.3
+ ▛███▜   Chuck v0.1.4
 ▀█████▀  AI can make mistakes. Verify important info.
  ▘▘ ▝▝
 

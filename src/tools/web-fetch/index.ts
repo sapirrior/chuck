@@ -1,5 +1,8 @@
 import { z } from 'zod';
+import pkg from '../../../package.json' with { type: 'json' };
 import type { ToolDefinition } from '../types.js';
+
+const VERSION: string = pkg.version || '0.0.0';
 
 export const webFetchInputSchema = z.object({
   url: z.string().url().describe('The HTTP or HTTPS URL to fetch content from.'),
@@ -68,8 +71,9 @@ export const webFetchTool: ToolDefinition<typeof webFetchInputSchema, WebFetchOu
     const response = await fetch(args.url, {
       method: 'GET',
       headers: {
-        'User-Agent': 'chuck-agent/0.1.3 (terminal AI scout; +https://github.com/sapirrior/chuck)',
+        'User-Agent': `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 (chuck-agent/${VERSION}; +https://github.com/sapirrior/chuck)`,
         Accept: 'text/html,application/xhtml+xml,application/json,text/plain;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
       },
       signal,
     });

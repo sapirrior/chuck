@@ -1,5 +1,8 @@
 import { z } from 'zod';
+import pkg from '../../../package.json' with { type: 'json' };
 import type { ToolDefinition } from '../types.js';
+
+const VERSION: string = pkg.version || '0.0.0';
 
 export const webSearchInputSchema = z.object({
   query: z.string().min(1).describe('The search query or keywords to look up on the web.'),
@@ -90,8 +93,7 @@ async function searchDuckDuckGoDirect(
   const response = await fetch(url, {
     method: 'GET',
     headers: {
-      'User-Agent':
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      'User-Agent': `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 (chuck-agent/${VERSION}; +https://github.com/sapirrior/chuck)`,
       Accept:
         'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
       'Accept-Language': 'en-US,en;q=0.5',
