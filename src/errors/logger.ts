@@ -4,14 +4,11 @@ import { join } from 'node:path';
 import { classifyError } from './classifier.js';
 
 /**
- * Resolves the root directory for error logs: ~/.chuck/logs (or overridden by CHUCK_LOGS_DIR / XD_LOGS_DIR).
+ * Resolves the root directory for error logs: ~/.chuck/logs (or overridden by CHUCK_LOGS_DIR).
  */
 export function getLogsRootDir(): string {
   if (process.env.CHUCK_LOGS_DIR) {
     return process.env.CHUCK_LOGS_DIR;
-  }
-  if (process.env.XD_LOGS_DIR) {
-    return process.env.XD_LOGS_DIR;
   }
   return join(homedir(), '.chuck', 'logs');
 }

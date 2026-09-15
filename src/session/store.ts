@@ -25,14 +25,11 @@ import {
 import { parseSessionDocument } from './validate.js';
 
 /**
- * Resolves the base root directory for sessions: ~/.chuck/sessions (or overridden by CHUCK_SESSIONS_DIR / XD_SESSIONS_DIR)
+ * Resolves the base root directory for sessions: ~/.chuck/sessions (or overridden by CHUCK_SESSIONS_DIR)
  */
 export function getSessionsRootDir(): string {
   if (process.env.CHUCK_SESSIONS_DIR) {
     return process.env.CHUCK_SESSIONS_DIR;
-  }
-  if (process.env.XD_SESSIONS_DIR) {
-    return process.env.XD_SESSIONS_DIR;
   }
   return join(homedir(), '.chuck', 'sessions');
 }

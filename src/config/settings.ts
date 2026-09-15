@@ -20,14 +20,11 @@ export interface UserSettings {
 }
 
 /**
- * Resolves the directory path for chuck configuration (~/.chuck or overridden by CHUCK_SETTINGS_DIR / XD_SETTINGS_DIR).
+ * Resolves the directory path for chuck configuration (~/.chuck or overridden by CHUCK_SETTINGS_DIR).
  */
 export function getSettingsDir(): string {
   if (process.env.CHUCK_SETTINGS_DIR) {
     return process.env.CHUCK_SETTINGS_DIR;
-  }
-  if (process.env.XD_SETTINGS_DIR) {
-    return process.env.XD_SETTINGS_DIR;
   }
   return join(homedir(), '.chuck');
 }
