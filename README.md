@@ -91,7 +91,7 @@ bun run start
 
 `chuck` works with leading cloud frontier models as well as local models and self-hosted endpoints.
 
-### 1. Cloud Providers
+### 1. Cloud Providers & Unified Routers
 
 Add your API key to your environment or `.env` file:
 
@@ -104,11 +104,23 @@ export GEMINI_API_KEY="AIzaSy..."
 
 # OpenAI (GPT-4o, o3-mini, o1)
 export OPENAI_API_KEY="sk-..."
+
+# xAI (Grok 4, Grok 3, Grok Code)
+export XAI_API_KEY="xai-..."
+
+# Mistral AI (Mistral Small, Mistral Large, Codestral, Ministral)
+export MISTRAL_API_KEY="your-mistral-api-key"
+
+# DeepSeek (DeepSeek-Flash, DeepSeek-V4-Pro)
+export DEEPSEEK_API_KEY="sk-..."
+
+# OpenRouter (Unified router over 400+ models, including openrouter/free)
+export OPENROUTER_API_KEY="sk-or-v1-..."
 ```
 
 ---
 
-### 2. Custom Endpoints & Local Models (Ollama, DeepSeek, LM Studio, vLLM, OpenRouter, Groq)
+### 2. Custom Endpoints & Local Models (Ollama, LM Studio, vLLM, Groq)
 
 Connect `chuck` to any custom OpenAI-compatible server or local model runner using `CUSTOM_API_URL`, `CUSTOM_API_MODEL_NAME`, and `CUSTOM_API_KEY`:
 
@@ -128,22 +140,9 @@ export CUSTOM_API_URL="http://localhost:1234/v1"
 export CUSTOM_API_MODEL_NAME="deepseek-r1-distill-qwen-32b"
 ```
 
-#### DeepSeek API
+#### Groq / Together AI / Custom Proxy
 
 ```bash
-export CUSTOM_API_URL="https://api.deepseek.com/v1"
-export CUSTOM_API_MODEL_NAME="deepseek-chat"
-export CUSTOM_API_KEY="your-deepseek-api-key"
-```
-
-#### OpenRouter / Groq / Together AI
-
-```bash
-# OpenRouter
-export CUSTOM_API_URL="https://openrouter.ai/api/v1"
-export CUSTOM_API_MODEL_NAME="anthropic/claude-3.7-sonnet"
-export CUSTOM_API_KEY="your-openrouter-key"
-
 # Groq
 export CUSTOM_API_URL="https://api.groq.com/openai/v1"
 export CUSTOM_API_MODEL_NAME="llama-3.3-70b-versatile"

@@ -147,6 +147,163 @@ export async function fetchAnthropicModels(
     .sort((a, b) => a.model_id.localeCompare(b.model_id));
 }
 
+// --- xAI ---------------------------------------------------------------
+// xAI's /v1/models list mixes chat/text models with image, video, speech,
+// and transcription model IDs (no type/modality field to filter on),
+// so filter by ID pattern: keep grok-* chat/reasoning models, exclude known non-text families.
+const XAI_MODEL_INCLUDE_REGEX = /^grok-/i;
+const XAI_MODEL_EXCLUDE_REGEX = /(imagine-image|imagine-video|-voice-|^grok-imagine)/i;
+
+export async function fetchXaiModels(
+  apiKey: string,
+  timeoutMs = DEFAULT_FETCH_TIMEOUT_MS,
+): Promise<ModelDescriptor[]> {
+  const response = await fetch('https://api.x.ai/v1/models', {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${apiKey}` },
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+
+  if (!response.ok) {
+    throw new Error(`xAI API request failed: HTTP ${response.status} (${response.statusText})`);
+  }
+
+  const payload = (await response.json()) as { data?: Array<{ id: string }> };
+  if (!Array.isArray(payload.data)) return [];
+
+  return payload.data
+    .filter(
+      (item) =>
+        typeof item.id === 'string' &&
+        XAI_MODEL_INCLUDE_REGEX.test(item.id) &&
+        !XAI_MODEL_EXCLUDE_REGEX.test(item.id),
+    )
+    .map((item) => ({ provider: 'xai' as const, model_id: item.id }))
+    .sort((a, b) => a.model_id.localeCompare(b.model_id));
+}
+
+// --- Mistral -------------------------------------------------------------
+// Mistral's /v1/models response is self-describing (capabilities.completion_chat),
+// so no regex is needed — filter on the capability flag directly and drop
+// archived / fine-tuned entries so the picker only shows base chat models.
+interface MistralModelCard {
+  id: string;
+  capabilities?: { completion_chat?: boolean };
+  archived?: boolean;
+  TYPE?: string;
+}
+
+export async function fetchMistralModels(
+  apiKey: string,
+  timeoutMs = DEFAULT_FETCH_TIMEOUT_MS,
+): Promise<ModelDescriptor[]> {
+  const response = await fetch('https://api.mistral.ai/v1/models', {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${apiKey}` },
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Mistral API request failed: HTTP ${response.status} (${response.statusText})`);
+  }
+
+  const payload = (await response.json()) as { data?: MistralModelCard[] };
+  if (!Array.isArray(payload.data)) return [];
+
+  return payload.data
+    .filter(
+      (item) =>
+        typeof item.id === 'string' &&
+        item.capabilities?.completion_chat === true &&
+        item.archived !== true &&
+        item.TYPE !== 'fine-tuned',
+    )
+    .map((item) => ({ provider: 'mistral' as const, model_id: item.id }))
+    .sort((a, b) => a.model_id.localeCompare(b.model_id));
+}
+
+// --- DeepSeek --------------------------------------------------------------
+// DeepSeek's list endpoint today only returns chat-capable text models.
+// Guard against unexpected future additions with a light deny-list.
+const DEEPSEEK_MODEL_EXCLUDE_REGEX = /(embed|rerank|moderation)/i;
+
+export async function fetchDeepSeekModels(
+  apiKey: string,
+  timeoutMs = DEFAULT_FETCH_TIMEOUT_MS,
+): Promise<ModelDescriptor[]> {
+  const response = await fetch('https://api.deepseek.com/models', {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${apiKey}` },
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `DeepSeek API request failed: HTTP ${response.status} (${response.statusText})`,
+    );
+  }
+
+  const payload = (await response.json()) as { data?: Array<{ id: string }> };
+  if (!Array.isArray(payload.data)) return [];
+
+  return payload.data
+    .filter((item) => typeof item.id === 'string' && !DEEPSEEK_MODEL_EXCLUDE_REGEX.test(item.id))
+    .map((item) => ({ provider: 'deepseek' as const, model_id: item.id }))
+    .sort((a, b) => a.model_id.localeCompare(b.model_id));
+}
+
+// --- OpenRouter --------------------------------------------------------------
+// OpenRouter's catalog is large (paginated) and mixes every modality.
+// Filter on architecture.output_modalities including "text".
+// IDs are namespaced (e.g. "openai/gpt-4") and preserved as-is.
+interface OpenRouterModelEntry {
+  id: string;
+  architecture?: { output_modalities?: string[] };
+}
+interface OpenRouterModelsPage {
+  data?: OpenRouterModelEntry[];
+  links?: { next?: string | null };
+}
+
+export async function fetchOpenRouterModels(
+  apiKey: string,
+  timeoutMs = DEFAULT_FETCH_TIMEOUT_MS,
+): Promise<ModelDescriptor[]> {
+  const results: ModelDescriptor[] = [];
+  let url: string | null = 'https://openrouter.ai/api/v1/models';
+
+  while (url) {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${apiKey}` },
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `OpenRouter API request failed: HTTP ${response.status} (${response.statusText})`,
+      );
+    }
+
+    const payload = (await response.json()) as OpenRouterModelsPage;
+    if (Array.isArray(payload.data)) {
+      for (const item of payload.data) {
+        if (
+          typeof item.id === 'string' &&
+          (item.architecture?.output_modalities?.includes('text') ?? true)
+        ) {
+          results.push({ provider: 'openrouter', model_id: item.id });
+        }
+      }
+    }
+
+    const next = payload.links?.next ?? null;
+    url = next ? new URL(next, 'https://openrouter.ai').toString() : null;
+  }
+
+  return results.sort((a, b) => a.model_id.localeCompare(b.model_id));
+}
+
 /**
  * Fetches and aggregates all available models based on configured environment variables.
  * For custom models, if all custom variables are set, 'Custom' is included in the list.
@@ -161,6 +318,10 @@ export async function fetchAvailableModels(
       gemini: { status: 'unconfigured', modelCount: 0 },
       anthropic: { status: 'unconfigured', modelCount: 0 },
       openai: { status: 'unconfigured', modelCount: 0 },
+      xai: { status: 'unconfigured', modelCount: 0 },
+      mistral: { status: 'unconfigured', modelCount: 0 },
+      deepseek: { status: 'unconfigured', modelCount: 0 },
+      openrouter: { status: 'unconfigured', modelCount: 0 },
       custom: { status: 'unconfigured', modelCount: 0 },
     },
   };
@@ -230,7 +391,91 @@ export async function fetchAvailableModels(
     );
   }
 
-  // 4. Custom OpenAI-compatible model
+  // 4. xAI
+  if (config.xaiApiKey) {
+    tasks.push(
+      fetchXaiModels(config.xaiApiKey, timeoutMs)
+        .then((models) => {
+          result.models.push(...models);
+          result.providers.xai = {
+            status: 'available',
+            modelCount: models.length,
+          };
+        })
+        .catch((err) => {
+          result.providers.xai = {
+            status: 'error',
+            modelCount: 0,
+            error: err instanceof Error ? err.message : String(err),
+          };
+        }),
+    );
+  }
+
+  // 5. Mistral
+  if (config.mistralApiKey) {
+    tasks.push(
+      fetchMistralModels(config.mistralApiKey, timeoutMs)
+        .then((models) => {
+          result.models.push(...models);
+          result.providers.mistral = {
+            status: 'available',
+            modelCount: models.length,
+          };
+        })
+        .catch((err) => {
+          result.providers.mistral = {
+            status: 'error',
+            modelCount: 0,
+            error: err instanceof Error ? err.message : String(err),
+          };
+        }),
+    );
+  }
+
+  // 6. DeepSeek
+  if (config.deepseekApiKey) {
+    tasks.push(
+      fetchDeepSeekModels(config.deepseekApiKey, timeoutMs)
+        .then((models) => {
+          result.models.push(...models);
+          result.providers.deepseek = {
+            status: 'available',
+            modelCount: models.length,
+          };
+        })
+        .catch((err) => {
+          result.providers.deepseek = {
+            status: 'error',
+            modelCount: 0,
+            error: err instanceof Error ? err.message : String(err),
+          };
+        }),
+    );
+  }
+
+  // 7. OpenRouter
+  if (config.openrouterApiKey) {
+    tasks.push(
+      fetchOpenRouterModels(config.openrouterApiKey, timeoutMs)
+        .then((models) => {
+          result.models.push(...models);
+          result.providers.openrouter = {
+            status: 'available',
+            modelCount: models.length,
+          };
+        })
+        .catch((err) => {
+          result.providers.openrouter = {
+            status: 'error',
+            modelCount: 0,
+            error: err instanceof Error ? err.message : String(err),
+          };
+        }),
+    );
+  }
+
+  // 8. Custom OpenAI-compatible model
   // If all custom variables are added (CUSTOM_API_KEY, CUSTOM_API_MODEL_NAME, CUSTOM_API_URL),
   // the model is listed using the configured model name
   if (config.custom.apiKey && config.custom.modelName && config.custom.baseURL) {

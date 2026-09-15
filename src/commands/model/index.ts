@@ -1,4 +1,4 @@
-import { saveSettings } from '../../config/index.js';
+import { ALL_PROVIDER_NAMES, saveSettings } from '../../config/index.js';
 import { fetchAvailableModels, type ModelDescriptor } from '../../models/index.js';
 import type { CommandContext, CommandResult, SlashCommand } from '../types.js';
 
@@ -31,7 +31,7 @@ export const modelCommand: SlashCommand = {
     let targetProvider: string | undefined;
     let targetModelId: string;
 
-    const validProviders = ['gemini', 'anthropic', 'openai', 'custom'];
+    const validProviders: readonly string[] = ALL_PROVIDER_NAMES;
 
     if (args.length === 1) {
       targetModelId = args[0].trim();

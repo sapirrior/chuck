@@ -1,7 +1,10 @@
 import { createAnthropic } from '@ai-sdk/anthropic';
+import { createDeepSeek } from '@ai-sdk/deepseek';
 import { createGoogle } from '@ai-sdk/google';
+import { createMistral } from '@ai-sdk/mistral';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
+import { createXai } from '@ai-sdk/xai';
 import type { LanguageModel } from 'ai';
 import {
   getAvailableProviders,
@@ -20,6 +23,10 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<ProviderName, string> = {
   gemini: 'gemini-2.5-flash',
   anthropic: 'claude-3-7-sonnet-20250219',
   openai: 'gpt-4o-mini',
+  xai: 'grok-4-fast-non-reasoning',
+  mistral: 'mistral-small-latest',
+  deepseek: 'deepseek-flash',
+  openrouter: 'openrouter/free',
   custom: 'default',
 };
 
@@ -28,12 +35,20 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<ProviderName, string> = {
  * Level 1: Gemini
  * Level 2: Anthropic
  * Level 3: OpenAI
- * Level 4: Custom OpenAI-compatible
+ * Level 4: xAI
+ * Level 5: Mistral
+ * Level 6: DeepSeek
+ * Level 7: OpenRouter
+ * Level 8: Custom OpenAI-compatible
  */
 export const PROVIDER_SELECTION_PRIORITY: readonly ProviderName[] = [
   'gemini',
   'anthropic',
   'openai',
+  'xai',
+  'mistral',
+  'deepseek',
+  'openrouter',
   'custom',
 ] as const;
 
@@ -100,7 +115,7 @@ export function resolveActiveModelSelection(
   const available = getAvailableProviders(config);
   if (available.length === 0) {
     throw new Error(
-      'No model providers configured. Please export GEMINI_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY, or CUSTOM_API_URL / CUSTOM_API_MODEL_NAME.',
+      'No model providers configured. Please export GEMINI_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY, XAI_API_KEY, MISTRAL_API_KEY, DEEPSEEK_API_KEY, OPENROUTER_API_KEY, or CUSTOM_API_URL / CUSTOM_API_MODEL_NAME.',
     );
   }
 
@@ -127,7 +142,7 @@ export function resolveActiveModelSelection(
 }
 
 /**
- * Instantiates an AI SDK LanguageModelV1 instance for the given selection.
+ * Instantiates an AI SDK LanguageModel instance for the given selection.
  */
 export function createModelInstance(
   selection: ModelSelection,
@@ -164,6 +179,52 @@ export function createModelInstance(
       return anthropic(selection.modelId);
     }
 
+    case 'xai': {
+      if (!config.xaiApiKey) {
+        throw new Error('XAI_API_KEY is not configured in the environment.');
+      }
+      const xai = createXai({
+        apiKey: config.xaiApiKey,
+      });
+      return xai(selection.modelId);
+    }
+
+    case 'mistral': {
+      if (!config.mistralApiKey) {
+        throw new Error('MISTRAL_API_KEY is not configured in the environment.');
+      }
+      const mistral = createMistral({
+        apiKey: config.mistralApiKey,
+      });
+      return mistral(selection.modelId);
+    }
+
+    case 'deepseek': {
+      if (!config.deepseekApiKey) {
+        throw new Error('DEEPSEEK_API_KEY is not configured in the environment.');
+      }
+      const deepSeek = createDeepSeek({
+        apiKey: config.deepseekApiKey,
+      });
+      return deepSeek(selection.modelId);
+    }
+
+    case 'openrouter': {
+      if (!config.openrouterApiKey) {
+        throw new Error('OPENROUTER_API_KEY is not configured in the environment.');
+      }
+      const openrouter = createOpenAICompatible({
+        name: 'openrouter',
+        baseURL: 'https://openrouter.ai/api/v1',
+        apiKey: config.openrouterApiKey,
+        headers: {
+          'HTTP-Referer': 'https://github.com/sapirrior/chuck',
+          'X-Title': 'chuck',
+        },
+      });
+      return openrouter(selection.modelId);
+    }
+
     case 'custom': {
       if (!config.custom.baseURL) {
         throw new Error('CUSTOM_API_URL is not configured in the environment.');
@@ -183,6 +244,10 @@ export function createModelInstance(
  */
 function inferProviderFromModelId(modelId: string): ProviderName | null {
   const lower = modelId.toLowerCase();
+
+  // Namespaced OpenRouter IDs, e.g. "openai/gpt-4", "anthropic/claude-sonnet-5"
+  if (lower.includes('/')) return 'openrouter';
+
   if (lower.startsWith('gemini-') || lower.startsWith('gemma-')) return 'gemini';
   if (lower.startsWith('claude-')) return 'anthropic';
   if (
@@ -192,6 +257,18 @@ function inferProviderFromModelId(modelId: string): ProviderName | null {
     lower.startsWith('chatgpt-')
   ) {
     return 'openai';
+  }
+  if (lower.startsWith('grok-')) return 'xai';
+  if (lower.startsWith('deepseek-')) return 'deepseek';
+  if (
+    lower.startsWith('mistral-') ||
+    lower.startsWith('magistral-') ||
+    lower.startsWith('pixtral-') ||
+    lower.startsWith('ministral-') ||
+    lower.startsWith('open-mistral-') ||
+    lower.startsWith('open-mixtral-')
+  ) {
+    return 'mistral';
   }
   return null;
 }
