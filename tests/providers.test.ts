@@ -7,6 +7,7 @@ const testDir = join(tmpdir(), 'chuck-test-' + Date.now());
 mkdirSync(testDir, { recursive: true });
 process.env.CHUCK_SETTINGS_DIR = join(testDir, 'settings');
 process.env.CHUCK_SESSIONS_DIR = join(testDir, 'sessions');
+process.env.CHUCK_LOGS_DIR = join(testDir, 'logs');
 
 import {
   ALL_PROVIDER_NAMES,
@@ -355,5 +356,23 @@ describe('Reasoning Effort & Session Metadata', () => {
       expect(parsed.doc.model.modelId).toBe('claude-3-7-sonnet-20250219');
       expect(parsed.doc.model.effort).toBeUndefined();
     }
+  });
+
+  it('should log structured errors to logs directory with date and time', async () => {
+    const { logError, getLogsRootDir } = await import('../src/errors/logger.js');
+    const { existsSync, readFileSync } = await import('node:fs');
+
+    const fakeError = new Error('Test API connection failure');
+    (fakeError as any).statusCode = 429;
+
+    const logPath = logError(fakeError, { sessionId: 'test-session-123' });
+    expect(logPath).toBeTruthy();
+    expect(existsSync(logPath)).toBe(true);
+
+    const content = readFileSync(logPath, 'utf-8');
+    expect(content).toContain('Test API connection failure');
+    expect(content).toContain('test-session-123');
+    expect(content).toContain('"category": "rate-limit"');
+    expect(content).toContain('"statusCode": 429');
   });
 });

@@ -7,6 +7,7 @@ import {
   type SessionData,
 } from '../session/index.js';
 import { saveSettings } from '../config/index.js';
+import { logError } from '../errors/index.js';
 import { runAgentTurn } from './agent-runner.js';
 import { SAFETY_STEP_CEILING } from './constants.js';
 import type { AgentEventListener } from './events.js';
@@ -255,6 +256,12 @@ export class AgentSession {
 
       return summary;
     } catch (err) {
+      logError(err, {
+        sessionId: this.sessionData.id,
+        model: this.getModel(),
+        hasPartialSummary: Boolean(summary),
+      });
+
       const responseMessages: ModelMessage[] = summary?.rawMessages ?? [];
       const turnMessages: ModelMessage[] = [userMessage, ...responseMessages];
 

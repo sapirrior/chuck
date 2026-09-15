@@ -138,7 +138,14 @@ export function classifyError(error: unknown): StructuredError {
   const msg = (error instanceof Error ? error.message : String(error)) || '';
   const lower = msg.toLowerCase();
 
-  if (lower.includes('401') || lower.includes('unauthorized') || lower.includes('user not found')) {
+  const statusCode = (error as any)?.statusCode ?? (error as any)?.status;
+
+  if (
+    statusCode === 401 ||
+    lower.includes('401') ||
+    lower.includes('unauthorized') ||
+    lower.includes('user not found')
+  ) {
     return {
       category: 'auth',
       statusCode: 401,
@@ -149,7 +156,12 @@ export function classifyError(error: unknown): StructuredError {
     };
   }
 
-  if (lower.includes('429') || lower.includes('rate limit') || lower.includes('quota')) {
+  if (
+    statusCode === 429 ||
+    lower.includes('429') ||
+    lower.includes('rate limit') ||
+    lower.includes('quota')
+  ) {
     return {
       category: 'rate-limit',
       statusCode: 429,
