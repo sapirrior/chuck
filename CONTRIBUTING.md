@@ -1,6 +1,6 @@
-# Contributing to Chuck
+# Contributing to Steward
 
-Thank you for your interest in contributing to `chuck`, the engineering agent! This guide covers everything you need to get started.
+Thank you for your interest in contributing to `steward`, the engineering agent! This guide covers everything you need to get started.
 
 ---
 
@@ -14,8 +14,8 @@ Thank you for your interest in contributing to `chuck`, the engineering agent! T
 
 ```bash
 # Clone the repo
-git clone https://github.com/sapirrior/chuck.git
-cd chuck
+git clone https://github.com/sapirrior/steward.git
+cd steward
 
 # Install dependencies
 bun install
@@ -31,9 +31,9 @@ bun run dev
 ```
 src/
 ├── engine/       # Agent loop, model orchestration, system prompt
-├── tools/        # Tool definitions exposed to the model (confined to .chuck/)
+├── tools/        # Tool definitions exposed to the model (confined to .steward/)
 ├── tui/          # Alternate-screen TUI engine, renderer, layout
-├── commands/     # Slash command system (/model, /clear, /resume, etc.)
+├── commands/     # Slash command system (/model, /effort, /clear, /resume, etc.)
 ├── config/       # Environment and settings
 ├── models/       # Model discovery and provider mapping
 ├── session/      # Canonical session storage and projections
@@ -51,7 +51,7 @@ src/
 | `bun run dev` | Run from source in watch mode |
 | `bun run start` | Run the CLI directly |
 | `bun run build` | Bundle to `./dist/cli.js` |
-| `bun run compile` | Compile to standalone binary `./dist/chuck` |
+| `bun run compile` | Compile to standalone binary `./dist/steward` |
 | `bun run format` | Check formatting |
 | `bun run format:fix` | Auto-fix formatting |
 | `bun test` | Run tests |
@@ -122,7 +122,7 @@ chore: upgrade ai sdk to 7.x
 
 ## Reporting Issues
 
-Open an issue on [GitHub Issues](https://github.com/sapirrior/chuck/issues) with:
+Open an issue on [GitHub Issues](https://github.com/sapirrior/steward/issues) with:
 - A clear description of the problem.
 - Steps to reproduce.
 - Expected vs actual behavior.

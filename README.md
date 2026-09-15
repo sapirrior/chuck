@@ -1,18 +1,18 @@
-# Chuck
+# Steward
 
 **The engineering agent that proposes before it touches your code.**  
-Blazing fast, model-agnostic, and crafted natively for developers who live in their shell.
+Fast, model-agnostic, and crafted for codebase investigation, architecture planning, and safe code proposals.
 
 ---
 
 > [!IMPORTANT]
-> **Active Development / Beta:** `chuck` is currently in active development. Features and interfaces are evolving quickly. Feedback and contributions are warmly welcomed.
+> **Active Development / Beta:** `steward` is currently in active development. Features and interfaces are evolving quickly. Feedback and contributions are warmly welcomed.
 
 ---
 
 ## Core Product Concepts & Guarantees
 
-Chuck operates on a fundamentally different philosophy than traditional destructive coding agents:
+Steward operates on a fundamentally different philosophy than traditional destructive coding agents:
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
@@ -24,7 +24,7 @@ Chuck operates on a fundamentally different philosophy than traditional destruct
                        No Direct File Mutations
                                   │
 ┌─────────────────────────────────▼────────────────────────────────┐
-│                       .chuck/ WORKSPACE                          │
+│                      .steward/ WORKSPACE                         │
 │                                                                  │
 │   ├── plans/           Architectural blueprints & task maps      │
 │   │   └── plan.md      (write_plan, rename_plan, delete_plan)    │
@@ -35,20 +35,20 @@ Chuck operates on a fundamentally different philosophy than traditional destruct
 ```
 
 ### 1. The Zero Host Mutation Guarantee
-* **Root Files are Untouchable:** Chuck does not have access to any tools capable of directly modifying, overwriting, or deleting files in your workspace root.
-* **Structural Path Confinement:** All write and delete operations are strictly resolved and confined within `.chuck/`. Attempts to traverse upward (`../`) or target absolute paths are rejected at the runtime boundary.
+* **Root Files are Untouchable:** Steward does not have access to any tools capable of directly modifying, overwriting, or deleting files in your workspace root.
+* **Structural Path Confinement:** All write and delete operations are strictly resolved and confined within `.steward/`. Attempts to traverse upward (`../`) or target absolute paths are rejected at the runtime boundary.
 * **Diff-Free & Risk-Free:** Review code proposals at your own pace without fear of uncommitted git tree pollution, accidental file corruption, or overwritten work.
 
 ### 2. Deep Investigation Before Execution
-* Chuck acts as a senior engineer joining your codebase cold: it investigates your repo, traces execution paths, identifies conventions, and generates complete, production-ready plans under `.chuck/plans/`.
+* Steward investigates your repository systematically, traces execution paths, identifies conventions, and generates complete, production-ready plans under `.steward/plans/`.
 
 ### 3. Isolated Artifact Proposals
-* When Chuck writes code, it creates full file proposals under `.chuck/artifacts/<path>`. You can easily compare, test, or copy these proposals into your codebase whenever you decide.
+* When Steward writes code, it creates full file proposals under `.steward/artifacts/<path>`. You can easily compare, test, or copy these proposals into your codebase whenever you decide.
 
 ---
 
 ```text
- ▛███▜   Chuck v0.1.4
+ ▛███▜   Steward v0.1.5
 ▀█████▀  AI can make mistakes. Verify important info.
  ▘▘ ▝▝
 
@@ -65,22 +65,22 @@ Chuck operates on a fundamentally different philosophy than traditional destruct
 ### Linux, macOS & Termux
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/sapirrior/chuck/main/installer/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/sapirrior/steward/main/installer/install.sh | bash
 ```
 
-_Automatically detects Linux (x64/ARM64), macOS (Apple Silicon/Intel), and Termux, installing `chuck` directly into your path._
+_Automatically detects Linux (x64/ARM64), macOS (Apple Silicon/Intel), and Termux, installing `steward` directly into your path._
 
 ### Windows (PowerShell)
 
 ```powershell
-irm https://raw.githubusercontent.com/sapirrior/chuck/main/installer/install.ps1 | iex
+irm https://raw.githubusercontent.com/sapirrior/steward/main/installer/install.ps1 | iex
 ```
 
 ### Install from Source
 
 ```bash
-git clone https://github.com/sapirrior/chuck.git
-cd chuck
+git clone https://github.com/sapirrior/steward.git
+cd steward
 bun install
 bun run start
 ```
@@ -89,7 +89,7 @@ bun run start
 
 ## Connect Your Models
 
-`chuck` works with leading cloud frontier models as well as local models and self-hosted endpoints.
+`steward` works with leading cloud frontier models as well as local models and self-hosted endpoints.
 
 ### 1. Cloud Providers & Unified Routers
 
@@ -122,7 +122,7 @@ export OPENROUTER_API_KEY="sk-or-v1-..."
 
 ### 2. Custom Endpoints & Local Models (Ollama, LM Studio, vLLM, Groq)
 
-Connect `chuck` to any custom OpenAI-compatible server or local model runner using `CUSTOM_API_URL`, `CUSTOM_API_MODEL_NAME`, and `CUSTOM_API_KEY`:
+Connect `steward` to any custom OpenAI-compatible server or local model runner using `CUSTOM_API_URL`, `CUSTOM_API_MODEL_NAME`, and `CUSTOM_API_KEY`:
 
 #### Local Ollama
 
@@ -155,7 +155,11 @@ export CUSTOM_API_KEY="your-groq-key"
 
 ### Switch Models on the Fly (`/model`)
 
-Type `/model` inside `chuck` to open the interactive model picker or use `/model <model_id>`. Instantly switch between configured providers and models; choices are automatically remembered and saved to `~/.chuck/settings.json`.
+Type `/model` inside `steward` to open the interactive model picker or use `/model <model_id>`. Instantly switch between configured providers and models; choices are automatically remembered and saved to `~/.steward/settings.json`.
+
+### Adjust Reasoning Effort (`/effort`)
+
+Use `/effort [0..6 | level]` to control thinking tokens on supported models (e.g. `/effort high`, `/effort none`).
 
 ### Mention Files with `@`
 
@@ -163,10 +167,10 @@ Type `@` followed by any filename (e.g. `@app.ts` or `@auth/login`) to fuzzy-sea
 
 ### Isolated Artifacts & Plans
  
-Chuck ships every plan and every file it writes into a workspace confined to `.chuck/` — a guarantee,
+Steward ships every plan and every file it writes into a workspace confined to `.steward/` — a guarantee,
 not a limitation:
-- **Plans (`.chuck/plans/`):** `write_plan`, `rename_plan`, `delete_plan`
-- **Artifacts (`.chuck/artifacts/`):** `write_artifact`, `edit_artifact`, `rename_artifact`, `delete_artifact`
+- **Plans (`.steward/plans/`):** `write_plan`, `rename_plan`, `delete_plan`
+- **Artifacts (`.steward/artifacts/`):** `write_artifact`, `edit_artifact`, `rename_artifact`, `delete_artifact`
 - **Investigation:** `read_file`, `find_files`, `search_text`, `list_dir`, `web_fetch`, `web_search`
 
 Your original host project files are never modified directly.
@@ -198,7 +202,7 @@ Your original host project files are never modified directly.
 | `/skills`        | Inspect discovered agent skills and capabilities |
 | `/clear`         | Clear conversation context and start fresh       |
 | `/rename <name>` | Rename current session                           |
-| `/exit`          | Exit `chuck`                                     |
+| `/exit`          | Exit `steward`                                   |
 
 ---
 
@@ -212,7 +216,7 @@ src/
 │   ├── primitives/   # Box, Text, SelectList, ModalBox, KeyReader
 │   ├── components/   # Header, PromptInput, StatusBar, StreamingView, Docks
 │   └── engine/       # DocumentTree, CellLayout, FrameBuffer
-├── commands/     # Slash commands (/model, /resume, /skills, /clear, etc.)
+├── commands/     # Slash commands (/model, /effort, /resume, /skills, /clear, etc.)
 ├── session/      # Canonical session storage v1 (ModelMessage[]), helpers & projections
 ├── skills/       # Dynamic skill discovery
 ├── theme/        # Theme palettes, TrueColor & ANSI fallbacks, figures

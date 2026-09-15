@@ -1,6 +1,6 @@
 import { existsSync, unlinkSync, rmSync, statSync } from 'node:fs';
 import { z } from 'zod';
-import { resolveChuckPath } from '../chuck-paths.js';
+import { resolveSafePath } from '../safe-paths.js';
 import type { ToolDefinition } from '../types.js';
 
 export const DeletePlanParamsSchema = z.object({
@@ -8,7 +8,7 @@ export const DeletePlanParamsSchema = z.object({
     .string()
     .optional()
     .describe(
-      'Relative path of the plan file inside .chuck/plans/ to delete (defaults to "plan.md")',
+      'Relative path of the plan file inside .steward/plans/ to delete (defaults to "plan.md")',
     ),
 });
 
@@ -24,7 +24,7 @@ export const deletePlanTool: ToolDefinition<typeof DeletePlanParamsSchema, Delet
   displayName: 'Delete Plan',
   icon: '🗑',
   description:
-    'Permanently deletes a plan file inside .chuck/plans/. CRITICAL: Only call this tool when the user has explicitly requested deletion. If not explicitly requested, warn the user about permanent data loss and ask for their consent first.',
+    'Permanently deletes a plan file inside .steward/plans/. CRITICAL: Only call this tool when the user has explicitly requested deletion. If not explicitly requested, warn the user about permanent data loss and ask for their consent first.',
   parameters: DeletePlanParamsSchema,
   confirmationPolicy: 'never',
 
@@ -32,7 +32,7 @@ export const deletePlanTool: ToolDefinition<typeof DeletePlanParamsSchema, Delet
 
   async execute(args, context): Promise<DeletePlanResult> {
     const planRelative = args.path && args.path.trim() ? args.path.trim() : 'plan.md';
-    const target = resolveChuckPath(context.cwd, planRelative, 'plan');
+    const target = resolveSafePath(context.cwd, planRelative, 'plan');
 
     if (!existsSync(target.resolvedPath)) {
       throw new Error(`Plan "${target.displayPath}" does not exist.`);

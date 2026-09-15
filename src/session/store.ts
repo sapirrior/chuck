@@ -25,13 +25,13 @@ import {
 import { parseSessionDocument } from './validate.js';
 
 /**
- * Resolves the base root directory for sessions: ~/.chuck/sessions (or overridden by CHUCK_SESSIONS_DIR)
+ * Resolves the base root directory for sessions: ~/.steward/sessions (or overridden by STEWARD_SESSIONS_DIR)
  */
 export function getSessionsRootDir(): string {
-  if (process.env.CHUCK_SESSIONS_DIR) {
-    return process.env.CHUCK_SESSIONS_DIR;
+  if (process.env.STEWARD_SESSIONS_DIR) {
+    return process.env.STEWARD_SESSIONS_DIR;
   }
-  return join(homedir(), '.chuck', 'sessions');
+  return join(homedir(), '.steward', 'sessions');
 }
 
 /**
@@ -53,7 +53,7 @@ export function generateSessionId(): string {
 }
 
 /**
- * Resolves the full file path for a session: ~/.chuck/sessions/<date>/<sessionId>.json
+ * Resolves the full file path for a session: ~/.steward/sessions/<date>/<sessionId>.json
  */
 export function getSessionFilePath(date: string, sessionId: string): string {
   return join(getSessionsRootDir(), date, `${sessionId}.json`);
@@ -88,7 +88,7 @@ export function createSession(model: ModelSelection, customId?: string): Session
 }
 
 /**
- * Quarantines a corrupted or malformed session file into ~/.chuck/sessions/<date>/.quarantine/<id>.json
+ * Quarantines a corrupted or malformed session file into ~/.steward/sessions/<date>/.quarantine/<id>.json
  */
 export function quarantineSessionFile(filePath: string, dateDir: string, fileName: string): string {
   const quarantineDir = join(dateDir, '.quarantine');
@@ -110,7 +110,7 @@ export function quarantineSessionFile(filePath: string, dateDir: string, fileNam
 }
 
 /**
- * Persists or updates a session JSON file atomically at ~/.chuck/sessions/<date>/<sessionId>.json.
+ * Persists or updates a session JSON file atomically at ~/.steward/sessions/<date>/<sessionId>.json.
  * Uses temp-file + fsync + atomic rename to prevent file corruption.
  */
 export function saveSession(session: SessionData): string {
@@ -240,7 +240,7 @@ export function loadSession(sessionIdOrPath: string): SessionData | null {
     }
   }
 
-  // Otherwise search date directories in ~/.chuck/sessions
+  // Otherwise search date directories in ~/.steward/sessions
   const rootDir = getSessionsRootDir();
   if (!existsSync(rootDir)) {
     return null;

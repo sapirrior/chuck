@@ -1,13 +1,13 @@
 import { writeFileSync } from 'node:fs';
 import { z } from 'zod';
-import { resolveChuckPath } from '../chuck-paths.js';
+import { resolveSafePath } from '../safe-paths.js';
 import type { ToolDefinition } from '../types.js';
 
 export const WritePlanParamsSchema = z.object({
   path: z
     .string()
     .optional()
-    .describe('Relative path for the plan file inside .chuck/plans/ (defaults to "plan.md")'),
+    .describe('Relative path for the plan file inside .steward/plans/ (defaults to "plan.md")'),
   content: z.string().describe('Full markdown text content of the plan'),
 });
 
@@ -25,7 +25,7 @@ export const writePlanTool: ToolDefinition<typeof WritePlanParamsSchema, WritePl
   displayName: 'Write Plan',
   icon: '📋',
   description:
-    'Writes an architectural, implementation, or investigation plan into .chuck/plans/ (defaults to .chuck/plans/plan.md).',
+    'Writes an architectural, implementation, or investigation plan into .steward/plans/ (defaults to .steward/plans/plan.md).',
   parameters: WritePlanParamsSchema,
   confirmationPolicy: 'never',
 
@@ -33,7 +33,7 @@ export const writePlanTool: ToolDefinition<typeof WritePlanParamsSchema, WritePl
 
   async execute(args, context): Promise<WritePlanResult> {
     const planRelative = args.path && args.path.trim() ? args.path.trim() : 'plan.md';
-    const { resolvedPath, displayPath } = resolveChuckPath(context.cwd, planRelative, 'plan');
+    const { resolvedPath, displayPath } = resolveSafePath(context.cwd, planRelative, 'plan');
     const content = args.content ?? '';
     const bytesWritten = Buffer.byteLength(content, 'utf-8');
     const linesWritten = content ? content.split(/\r?\n/).length : 0;

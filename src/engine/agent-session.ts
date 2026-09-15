@@ -245,7 +245,7 @@ export class AgentSession {
           (this.accumulatedUsage.cacheReadTokens ?? 0) + summary.usage.cacheReadTokens;
       }
 
-      // 6. Record and persist turn in session document (~/.chuck/sessions/<date>/<sessionId>.json)
+      // 6. Record and persist turn in session document (~/.steward/sessions/<date>/<sessionId>.json)
       const turnMessages: ModelMessage[] = [userMessage, ...responseMessages];
 
       recordSessionTurn(this.sessionData, {

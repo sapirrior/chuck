@@ -4,13 +4,13 @@ import { join } from 'node:path';
 import { classifyError } from './classifier.js';
 
 /**
- * Resolves the root directory for error logs: ~/.chuck/logs (or overridden by CHUCK_LOGS_DIR).
+ * Resolves the root directory for error logs: ~/.steward/logs (or overridden by STEWARD_LOGS_DIR).
  */
 export function getLogsRootDir(): string {
-  if (process.env.CHUCK_LOGS_DIR) {
-    return process.env.CHUCK_LOGS_DIR;
+  if (process.env.STEWARD_LOGS_DIR) {
+    return process.env.STEWARD_LOGS_DIR;
   }
-  return join(homedir(), '.chuck', 'logs');
+  return join(homedir(), '.steward', 'logs');
 }
 
 /**
@@ -31,7 +31,7 @@ export function getLogDateTime(d = new Date()): { date: string; time: string } {
 }
 
 /**
- * Appends or writes a structured error entry to ~/.chuck/logs/<date>/<time>.log.
+ * Appends or writes a structured error entry to ~/.steward/logs/<date>/<time>.log.
  * Returns the path to the written log file.
  */
 export function logError(error: unknown, contextInfo?: Record<string, unknown>): string {

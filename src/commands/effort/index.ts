@@ -48,7 +48,7 @@ export const effortCommand: SlashCommand = {
 
     return {
       handled: true,
-      message: `Reasoning effort set to "${parsed}" and saved to ~/.chuck/settings.json.`,
+      message: `Reasoning effort set to "${parsed}" and saved to ~/.steward/settings.json.`,
       data: { effort: parsed },
     };
   },

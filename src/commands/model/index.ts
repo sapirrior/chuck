@@ -4,7 +4,7 @@ import type { CommandContext, CommandResult, SlashCommand } from '../types.js';
 
 /**
  * /model slash command: opens interactive model picker dock when invoked with no args,
- * or switches model directly and persists preference to ~/.chuck/settings.json.
+ * or switches model directly and persists preference to ~/.steward/settings.json.
  */
 export const modelCommand: SlashCommand = {
   name: 'model',
@@ -76,7 +76,7 @@ export const modelCommand: SlashCommand = {
       modelId: selected.model_id,
     });
 
-    // 5. Save to ~/.chuck/settings.json
+    // 5. Save to ~/.steward/settings.json
     saveSettings({
       model: {
         provider: updatedSelection.provider,
@@ -87,7 +87,7 @@ export const modelCommand: SlashCommand = {
 
     return {
       handled: true,
-      message: `Active model switched to ${selected.provider}/${selected.model_id} and saved to ~/.chuck/settings.json.`,
+      message: `Active model switched to ${selected.provider}/${selected.model_id} and saved to ~/.steward/settings.json.`,
       data: { selected: updatedSelection },
     };
   },

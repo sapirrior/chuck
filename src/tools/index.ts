@@ -59,5 +59,5 @@ export * from './delete-artifact/index.js';
 export * from './write-plan/index.js';
 export * from './rename-plan/index.js';
 export * from './delete-plan/index.js';
-export * from './chuck-paths.js';
+export * from './safe-paths.js';
 export * from './types.js';

@@ -13,7 +13,7 @@ async function main() {
   const args = process.argv.slice(2);
 
   if (args.includes('--version') || args.includes('-v')) {
-    console.log(`chuck ${VERSION}`);
+    console.log(`steward ${VERSION}`);
     process.exit(0);
   }
 
@@ -28,7 +28,10 @@ async function main() {
     await app.start();
   } catch (err) {
     logError(err, { phase: 'initialization' });
-    console.error('Failed to initialize chuck:', err instanceof Error ? err.message : String(err));
+    console.error(
+      'Failed to initialize steward:',
+      err instanceof Error ? err.message : String(err),
+    );
     process.exit(1);
   }
 }

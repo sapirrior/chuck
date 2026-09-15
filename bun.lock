@@ -3,7 +3,7 @@
   "configVersion": 0,
   "workspaces": {
     "": {
-      "name": "chuck",
+      "name": "steward",
       "dependencies": {
         "@ai-sdk/anthropic": "^4.0.52",
         "@ai-sdk/google": "^4.0.67",

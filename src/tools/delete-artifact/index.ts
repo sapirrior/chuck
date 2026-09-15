@@ -1,12 +1,14 @@
 import { existsSync, unlinkSync, rmSync, statSync } from 'node:fs';
 import { z } from 'zod';
-import { resolveChuckPath } from '../chuck-paths.js';
+import { resolveSafePath } from '../safe-paths.js';
 import type { ToolDefinition } from '../types.js';
 
 export const DeleteArtifactParamsSchema = z.object({
   path: z
     .string()
-    .describe('Relative path of the artifact file or directory inside .chuck/artifacts/ to delete'),
+    .describe(
+      'Relative path of the artifact file or directory inside .steward/artifacts/ to delete',
+    ),
 });
 
 export type DeleteArtifactParams = z.infer<typeof DeleteArtifactParamsSchema>;
@@ -24,14 +26,14 @@ export const deleteArtifactTool: ToolDefinition<
   displayName: 'Delete Artifact',
   icon: '🗑',
   description:
-    'Permanently deletes an artifact file or directory inside .chuck/artifacts/. CRITICAL: Only call this tool when the user has explicitly requested deletion. If not explicitly requested, warn the user about permanent data loss and ask for their consent first.',
+    'Permanently deletes an artifact file or directory inside .steward/artifacts/. CRITICAL: Only call this tool when the user has explicitly requested deletion. If not explicitly requested, warn the user about permanent data loss and ask for their consent first.',
   parameters: DeleteArtifactParamsSchema,
   confirmationPolicy: 'never',
 
   summarizeArgs: (args) => JSON.stringify({ path: args.path }),
 
   async execute(args, context): Promise<DeleteArtifactResult> {
-    const target = resolveChuckPath(context.cwd, args.path, 'artifact');
+    const target = resolveSafePath(context.cwd, args.path, 'artifact');
 
     if (!existsSync(target.resolvedPath)) {
       throw new Error(`Artifact "${target.displayPath}" does not exist.`);

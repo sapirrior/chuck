@@ -3,11 +3,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'bun:test';
 
-const testDir = join(tmpdir(), 'chuck-test-' + Date.now());
+const testDir = join(tmpdir(), 'steward-test-' + Date.now());
 mkdirSync(testDir, { recursive: true });
-process.env.CHUCK_SETTINGS_DIR = join(testDir, 'settings');
-process.env.CHUCK_SESSIONS_DIR = join(testDir, 'sessions');
-process.env.CHUCK_LOGS_DIR = join(testDir, 'logs');
+process.env.STEWARD_SETTINGS_DIR = join(testDir, 'settings');
+process.env.STEWARD_SESSIONS_DIR = join(testDir, 'sessions');
+process.env.STEWARD_LOGS_DIR = join(testDir, 'logs');
 
 import {
   ALL_PROVIDER_NAMES,

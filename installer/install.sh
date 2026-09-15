@@ -9,9 +9,9 @@ CYAN='\033[0;36m'
 BOLD='\033[1m'
 NC='\033[0m'
 
-REPO="sapirrior/chuck"
+REPO="sapirrior/steward"
 
-echo -e "${CYAN}${BOLD}[+] Installing Chuck — Engineering Agent...${NC}"
+echo -e "${CYAN}${BOLD}[+] Installing Steward — Engineering Agent...${NC}"
 
 # Detect OS
 OS_RAW="$(uname -s)"
@@ -44,24 +44,24 @@ IS_TERMUX=false
 if [ -n "${PREFIX}" ] && [ -d "${PREFIX}/bin" ]; then
   IS_TERMUX=true
   INSTALL_DIR="${PREFIX}/bin"
-  SHARE_DIR="${PREFIX}/share/chuck"
-  ASSET_NAME="chuck-dist-cli.tar.gz"
+  SHARE_DIR="${PREFIX}/share/steward"
+  ASSET_NAME="steward-dist-cli.tar.gz"
 elif [ -d "$HOME/.local/bin" ] || mkdir -p "$HOME/.local/bin" 2>/dev/null; then
   INSTALL_DIR="$HOME/.local/bin"
-  ASSET_NAME="chuck-${OS}-${ARCH}.tar.gz"
+  ASSET_NAME="steward-${OS}-${ARCH}.tar.gz"
 else
   INSTALL_DIR="/usr/local/bin"
-  ASSET_NAME="chuck-${OS}-${ARCH}.tar.gz"
+  ASSET_NAME="steward-${OS}-${ARCH}.tar.gz"
 fi
 
 mkdir -p "${INSTALL_DIR}"
 DOWNLOAD_URL="https://github.com/${REPO}/releases/latest/download/${ASSET_NAME}"
 
 echo -e "  ${BLUE}•${NC} Platform:     ${BOLD}${OS}-${ARCH}$([ "$IS_TERMUX" = true ] && echo " (Termux)")${NC}"
-echo -e "  ${BLUE}•${NC} Install path: ${BOLD}${INSTALL_DIR}/chuck${NC}"
+echo -e "  ${BLUE}•${NC} Install path: ${BOLD}${INSTALL_DIR}/steward${NC}"
 echo -e "  ${BLUE}•${NC} Downloading:  ${CYAN}${DOWNLOAD_URL}${NC}"
 
-TMP_DIR="$(mktemp -d 2>/dev/null || mktemp -d -t 'chuck-install')"
+TMP_DIR="$(mktemp -d 2>/dev/null || mktemp -d -t 'steward-install')"
 cleanup() {
   rm -rf "${TMP_DIR}"
 }
@@ -88,11 +88,11 @@ if [ "$IS_TERMUX" = true ]; then
   fi
   mv "${TMP_DIR}/cli.js" "${SHARE_DIR}/cli.js"
 
-  cat << EOF > "${INSTALL_DIR}/chuck"
+  cat << EOF > "${INSTALL_DIR}/steward"
 #!${INSTALL_DIR}/sh
 CLI_PATH="${SHARE_DIR}/cli.js"
 if [ ! -f "\${CLI_PATH}" ]; then
-  CLI_PATH="\${PREFIX:-/data/data/com.termux/files/usr}/share/chuck/cli.js"
+  CLI_PATH="\${PREFIX:-/data/data/com.termux/files/usr}/share/steward/cli.js"
 fi
 
 if command -v bun >/dev/null 2>&1; then
@@ -104,20 +104,20 @@ else
   exit 1
 fi
 EOF
-  chmod +x "${INSTALL_DIR}/chuck"
+  chmod +x "${INSTALL_DIR}/steward"
   if command -v termux-fix-shebang >/dev/null 2>&1; then
-    termux-fix-shebang "${INSTALL_DIR}/chuck" 2>/dev/null || true
+    termux-fix-shebang "${INSTALL_DIR}/steward" 2>/dev/null || true
   fi
 else
-  if [ ! -f "${TMP_DIR}/chuck" ]; then
-    echo -e "${RED}[x] Failed to extract chuck binary from archive.${NC}"
+  if [ ! -f "${TMP_DIR}/steward" ]; then
+    echo -e "${RED}[x] Failed to extract steward binary from archive.${NC}"
     exit 1
   fi
-  chmod +x "${TMP_DIR}/chuck"
-  mv "${TMP_DIR}/chuck" "${INSTALL_DIR}/chuck"
+  chmod +x "${TMP_DIR}/steward"
+  mv "${TMP_DIR}/steward" "${INSTALL_DIR}/steward"
 fi
 
-echo -e "${GREEN}${BOLD}[✔] Successfully installed chuck to ${INSTALL_DIR}/chuck!${NC}"
+echo -e "${GREEN}${BOLD}[✔] Successfully installed steward to ${INSTALL_DIR}/steward!${NC}"
 
 # Check PATH
 case ":$PATH:" in
@@ -131,4 +131,4 @@ case ":$PATH:" in
     ;;
 esac
 
-echo -e "Run ${BOLD}chuck${NC} to get started."
+echo -e "Run ${BOLD}steward${NC} to get started."

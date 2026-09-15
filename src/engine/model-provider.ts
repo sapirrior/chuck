@@ -94,7 +94,7 @@ export const PROVIDER_SELECTION_PRIORITY: readonly ProviderName[] = [
 
 /**
  * Resolves the active model selection based on explicit user choices,
- * saved user preferences (~/.chuck/settings.json), and configured environment credentials.
+ * saved user preferences (~/.steward/settings.json), and configured environment credentials.
  */
 export function resolveActiveModelSelection(
   requested?: Partial<ModelSelection>,
@@ -149,7 +149,7 @@ export function resolveActiveModelSelection(
     }
   }
 
-  // 4. Saved user preference in ~/.chuck/settings.json
+  // 4. Saved user preference in ~/.steward/settings.json
   if (savedModel && hasProviderConfig(savedModel.provider, config)) {
     return {
       provider: savedModel.provider,
@@ -267,8 +267,8 @@ export function createModelInstance(
         baseURL: 'https://openrouter.ai/api/v1',
         apiKey: config.openrouterApiKey,
         headers: {
-          'HTTP-Referer': 'https://github.com/sapirrior/chuck',
-          'X-Title': 'chuck',
+          'HTTP-Referer': 'https://github.com/sapirrior/steward',
+          'X-Title': 'steward',
         },
       });
       return openrouter(selection.modelId);

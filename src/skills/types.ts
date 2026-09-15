@@ -3,5 +3,5 @@ export interface Skill {
   description: string;
   filePath: string;
   dirPath: string;
-  source: 'workspace' | 'user-agents' | 'user-chuck';
+  source: 'workspace' | 'user-agents' | 'user-steward';
 }

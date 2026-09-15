@@ -15,7 +15,7 @@ export const skillsCommand: SlashCommand = {
     if (skills.length === 0) {
       return {
         handled: true,
-        message: 'No skills found in .agents/skills/, ~/.agents/skills/, or ~/.chuck/skills/',
+        message: 'No skills found in .agents/skills/, ~/.agents/skills/, or ~/.steward/skills/',
       };
     }
 

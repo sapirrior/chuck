@@ -1,14 +1,14 @@
 import { existsSync, renameSync } from 'node:fs';
 import { z } from 'zod';
-import { resolveChuckPath } from '../chuck-paths.js';
+import { resolveSafePath } from '../safe-paths.js';
 import type { ToolDefinition } from '../types.js';
 
 export const RenamePlanParamsSchema = z.object({
   old_path: z
     .string()
     .optional()
-    .describe('Existing relative path of the plan inside .chuck/plans/ (defaults to "plan.md")'),
-  new_path: z.string().describe('New relative path for the plan inside .chuck/plans/'),
+    .describe('Existing relative path of the plan inside .steward/plans/ (defaults to "plan.md")'),
+  new_path: z.string().describe('New relative path for the plan inside .steward/plans/'),
 });
 
 export type RenamePlanParams = z.infer<typeof RenamePlanParamsSchema>;
@@ -24,7 +24,7 @@ export const renamePlanTool: ToolDefinition<typeof RenamePlanParamsSchema, Renam
   displayName: 'Rename Plan',
   icon: '🔀',
   description:
-    'Renames or moves a plan file inside .chuck/plans/. CRITICAL: Only call this tool when the user has explicitly requested to rename/move a plan. If not explicitly requested, warn the user first and ask for their consent.',
+    'Renames or moves a plan file inside .steward/plans/. CRITICAL: Only call this tool when the user has explicitly requested to rename/move a plan. If not explicitly requested, warn the user first and ask for their consent.',
   parameters: RenamePlanParamsSchema,
   confirmationPolicy: 'never',
 
@@ -33,8 +33,8 @@ export const renamePlanTool: ToolDefinition<typeof RenamePlanParamsSchema, Renam
 
   async execute(args, context): Promise<RenamePlanResult> {
     const oldRelative = args.old_path && args.old_path.trim() ? args.old_path.trim() : 'plan.md';
-    const source = resolveChuckPath(context.cwd, oldRelative, 'plan');
-    const destination = resolveChuckPath(context.cwd, args.new_path, 'plan');
+    const source = resolveSafePath(context.cwd, oldRelative, 'plan');
+    const destination = resolveSafePath(context.cwd, args.new_path, 'plan');
 
     if (!existsSync(source.resolvedPath)) {
       throw new Error(`Plan "${source.displayPath}" does not exist.`);

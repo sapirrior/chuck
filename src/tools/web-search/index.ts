@@ -93,7 +93,7 @@ async function searchDuckDuckGoDirect(
   const response = await fetch(url, {
     method: 'GET',
     headers: {
-      'User-Agent': `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 (chuck-agent/${VERSION}; +https://github.com/sapirrior/chuck)`,
+      'User-Agent': `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 (steward-agent/${VERSION}; +https://github.com/sapirrior/steward)`,
       Accept:
         'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
       'Accept-Language': 'en-US,en;q=0.5',

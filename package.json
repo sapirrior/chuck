@@ -1,6 +1,6 @@
 {
-  "name": "chuck",
-  "version": "0.1.4",
+  "name": "steward",
+  "version": "0.1.5",
   "description": "Engineering agent for codebase investigation, planning, and safe code proposals — nothing lands until you approve it.",
   "author": "sapirrior",
   "license": "MIT",
@@ -9,14 +9,14 @@
   ],
   "type": "module",
   "bin": {
-    "chuck": "./dist/cli.js"
+    "steward": "./dist/cli.js"
   },
   "scripts": {
     "dev": "bun --watch src/cli.ts",
     "start": "bun src/cli.ts",
     "prepublishOnly": "bun run build",
     "build": "bun build src/cli.ts --outdir ./dist --target node",
-    "compile": "bun build --compile --minify src/cli.ts --outfile ./dist/chuck",
+    "compile": "bun build --compile --minify src/cli.ts --outfile ./dist/steward",
     "format": "bun ./node_modules/prettier/bin/prettier.cjs --check \"src/**/*.{ts,js}\"",
     "format:fix": "bun ./node_modules/prettier/bin/prettier.cjs --write \"src/**/*.{ts,js}\"",
     "test": "bun test"

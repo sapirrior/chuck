@@ -13,31 +13,31 @@ export interface SavedModelSettings {
 }
 
 /**
- * Persistent user settings stored in ~/.chuck/settings.json
+ * Persistent user settings stored in ~/.steward/settings.json
  */
 export interface UserSettings {
   model?: SavedModelSettings;
 }
 
 /**
- * Resolves the directory path for chuck configuration (~/.chuck or overridden by CHUCK_SETTINGS_DIR).
+ * Resolves the directory path for steward configuration (~/.steward or overridden by STEWARD_SETTINGS_DIR).
  */
 export function getSettingsDir(): string {
-  if (process.env.CHUCK_SETTINGS_DIR) {
-    return process.env.CHUCK_SETTINGS_DIR;
+  if (process.env.STEWARD_SETTINGS_DIR) {
+    return process.env.STEWARD_SETTINGS_DIR;
   }
-  return join(homedir(), '.chuck');
+  return join(homedir(), '.steward');
 }
 
 /**
- * Resolves the path to the user's settings file (~/.chuck/settings.json).
+ * Resolves the path to the user's settings file (~/.steward/settings.json).
  */
 export function getSettingsPath(): string {
   return join(getSettingsDir(), 'settings.json');
 }
 
 /**
- * Safely loads user settings from ~/.chuck/settings.json.
+ * Safely loads user settings from ~/.steward/settings.json.
  * Returns default empty object if the file does not exist or cannot be parsed.
  */
 export function loadSettings(): UserSettings {
@@ -59,7 +59,7 @@ export function loadSettings(): UserSettings {
 }
 
 /**
- * Saves and updates user settings in ~/.chuck/settings.json.
+ * Saves and updates user settings in ~/.steward/settings.json.
  */
 export function saveSettings(updates: Partial<UserSettings>): UserSettings {
   const dirPath = getSettingsDir();
@@ -80,7 +80,7 @@ export function saveSettings(updates: Partial<UserSettings>): UserSettings {
 }
 
 /**
- * Returns the persisted model selection from ~/.chuck/settings.json if present.
+ * Returns the persisted model selection from ~/.steward/settings.json if present.
  */
 export function getSavedModel(): SavedModelSettings | undefined {
   const settings = loadSettings();
@@ -99,7 +99,7 @@ export function getSavedModel(): SavedModelSettings | undefined {
 }
 
 /**
- * Persists the user's selected model to ~/.chuck/settings.json.
+ * Persists the user's selected model to ~/.steward/settings.json.
  */
 export function saveModelSelection(selection: SavedModelSettings): void {
   saveSettings({

@@ -1,12 +1,12 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { z } from 'zod';
-import { resolveChuckPath } from '../chuck-paths.js';
+import { resolveSafePath } from '../safe-paths.js';
 import type { ToolDefinition } from '../types.js';
 
 export const EditArtifactParamsSchema = z.object({
   path: z
     .string()
-    .describe('Relative path for the artifact inside .chuck/artifacts/ (e.g. "src/engine.ts")'),
+    .describe('Relative path for the artifact inside .steward/artifacts/ (e.g. "src/engine.ts")'),
   old_string: z.string().describe('Exact unique string block to replace in the artifact'),
   new_string: z.string().describe('Replacement string block'),
 });
@@ -25,14 +25,14 @@ export const editArtifactTool: ToolDefinition<typeof EditArtifactParamsSchema, E
     displayName: 'Edit Artifact',
     icon: '✎',
     description:
-      'Edits an existing artifact file inside .chuck/artifacts/ by replacing an exact unique occurrence of old_string with new_string. Never edits the host project.',
+      'Edits an existing artifact file inside .steward/artifacts/ by replacing an exact unique occurrence of old_string with new_string. Never edits the host project.',
     parameters: EditArtifactParamsSchema,
     confirmationPolicy: 'never',
 
     summarizeArgs: (args) => JSON.stringify({ path: args.path }),
 
     async execute(args, context): Promise<EditArtifactResult> {
-      const { resolvedPath, displayPath } = resolveChuckPath(context.cwd, args.path, 'artifact');
+      const { resolvedPath, displayPath } = resolveSafePath(context.cwd, args.path, 'artifact');
 
       if (!existsSync(resolvedPath)) {
         throw new Error(`Artifact file "${displayPath}" does not exist.`);

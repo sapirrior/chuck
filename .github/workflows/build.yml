@@ -64,27 +64,27 @@ jobs:
           mkdir -p release-assets
 
           echo "Compiling for Linux x64..."
-          bun build --compile --minify --target=bun-linux-x64 ./src/cli.ts --outfile ./bin-linux-x64/chuck
-          tar -czf release-assets/chuck-linux-x64.tar.gz -C ./bin-linux-x64 chuck
+          bun build --compile --minify --target=bun-linux-x64 ./src/cli.ts --outfile ./bin-linux-x64/steward
+          tar -czf release-assets/steward-linux-x64.tar.gz -C ./bin-linux-x64 steward
 
           echo "Compiling for Linux ARM64..."
-          bun build --compile --minify --target=bun-linux-arm64 ./src/cli.ts --outfile ./bin-linux-arm64/chuck
-          tar -czf release-assets/chuck-linux-arm64.tar.gz -C ./bin-linux-arm64 chuck
+          bun build --compile --minify --target=bun-linux-arm64 ./src/cli.ts --outfile ./bin-linux-arm64/steward
+          tar -czf release-assets/steward-linux-arm64.tar.gz -C ./bin-linux-arm64 steward
 
           echo "Compiling for macOS x64..."
-          bun build --compile --minify --target=bun-darwin-x64 ./src/cli.ts --outfile ./bin-darwin-x64/chuck
-          tar -czf release-assets/chuck-darwin-x64.tar.gz -C ./bin-darwin-x64 chuck
+          bun build --compile --minify --target=bun-darwin-x64 ./src/cli.ts --outfile ./bin-darwin-x64/steward
+          tar -czf release-assets/steward-darwin-x64.tar.gz -C ./bin-darwin-x64 steward
 
           echo "Compiling for macOS ARM64 (Apple Silicon)..."
-          bun build --compile --minify --target=bun-darwin-arm64 ./src/cli.ts --outfile ./bin-darwin-arm64/chuck
-          tar -czf release-assets/chuck-darwin-arm64.tar.gz -C ./bin-darwin-arm64 chuck
+          bun build --compile --minify --target=bun-darwin-arm64 ./src/cli.ts --outfile ./bin-darwin-arm64/steward
+          tar -czf release-assets/steward-darwin-arm64.tar.gz -C ./bin-darwin-arm64 steward
 
           echo "Compiling for Windows x64..."
-          bun build --compile --minify --target=bun-windows-x64 ./src/cli.ts --outfile ./bin-windows-x64/chuck.exe
-          zip -j release-assets/chuck-windows-x64.zip ./bin-windows-x64/chuck.exe
+          bun build --compile --minify --target=bun-windows-x64 ./src/cli.ts --outfile ./bin-windows-x64/steward.exe
+          zip -j release-assets/steward-windows-x64.zip ./bin-windows-x64/steward.exe
 
           echo "Packaging Node-compatible bundle..."
-          tar -czf release-assets/chuck-dist-cli.tar.gz -C ./dist cli.js
+          tar -czf release-assets/steward-dist-cli.tar.gz -C ./dist cli.js
 
       - name: Generate Checksums
         working-directory: release-assets
@@ -96,7 +96,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: release-assets/*
-          name: 'Chuck v${{ needs.verify-version.outputs.version }}'
+          name: 'Steward v${{ needs.verify-version.outputs.version }}'
           tag_name: ${{ github.ref_name }}
           generate_release_notes: true
           draft: false

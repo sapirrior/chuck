@@ -77,7 +77,7 @@ interface ScanTarget {
  * Discovers skills across:
  * 1. .agents/skills/ (Workspace)
  * 2. ~/.agents/skills/ (User home)
- * 3. ~/.chuck/skills/ (User chuck home)
+ * 3. ~/.steward/skills/ (User steward home)
  *
  * Higher priority locations override lower priority locations on name conflict.
  */
@@ -85,7 +85,7 @@ export function discoverSkills(cwd: string = process.cwd()): Skill[] {
   const targets: ScanTarget[] = [
     { dir: join(cwd, '.agents', 'skills'), source: 'workspace' },
     { dir: join(homedir(), '.agents', 'skills'), source: 'user-agents' },
-    { dir: join(homedir(), '.chuck', 'skills'), source: 'user-chuck' },
+    { dir: join(homedir(), '.steward', 'skills'), source: 'user-steward' },
   ];
 
   const skillMap = new Map<string, Skill>();
