@@ -14,8 +14,8 @@ Thank you for your interest in contributing to `chuck`, the engineering agent! T
 
 ```bash
 # Clone the repo
-git clone https://github.com/sapirrior/xd.git
-cd xd
+git clone https://github.com/sapirrior/chuck.git
+cd chuck
 
 # Install dependencies
 bun install
@@ -122,7 +122,7 @@ chore: upgrade ai sdk to 7.x
 
 ## Reporting Issues
 
-Open an issue on [GitHub Issues](https://github.com/sapirrior/xd/issues) with:
+Open an issue on [GitHub Issues](https://github.com/sapirrior/chuck/issues) with:
 - A clear description of the problem.
 - Steps to reproduce.
 - Expected vs actual behavior.
