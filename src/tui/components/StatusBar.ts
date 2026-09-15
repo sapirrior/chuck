@@ -8,6 +8,7 @@ export interface StatusBarProps {
   model: {
     provider: string;
     modelId: string;
+    effort?: string;
   };
   usage: TokenUsage;
   isBusy: boolean;
@@ -18,6 +19,7 @@ export interface StatusBarState {
   model: {
     provider: string;
     modelId: string;
+    effort?: string;
   };
   usage: TokenUsage;
   isBusy: boolean;
@@ -66,10 +68,17 @@ export default class StatusBar extends Component<StatusBarProps, StatusBarState>
       left = chalk.dim('? for shortcuts');
     }
 
-    let right = '';
+    const parts: string[] = [];
     if (usage && usage.totalTokens > 0) {
-      right = themeColor(theme.textMuted)(`${formatTokens(usage.totalTokens)} tokens`);
+      parts.push(`${formatTokens(usage.totalTokens)} tokens`);
     }
+
+    const effort = model?.effort ?? 'provider-default';
+    const effortDisplay = effort === 'provider-default' ? 'default' : effort;
+    parts.push(effortDisplay);
+
+    const right =
+      parts.length > 0 ? themeColor(theme.textMuted)(parts.join(` ${figures.bullet} `)) : '';
 
     return Box({ direction: 'row', justify: 'space-between', width: maxCols, overflow: 'hidden' }, [
       Text(left, { overflow: 'hidden' }),

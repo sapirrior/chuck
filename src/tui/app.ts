@@ -343,6 +343,13 @@ export class TUIApp {
       if (cmdResult.message) {
         this.engine.commit('system', formatSystemMessage(cmdResult.message));
       }
+
+      const updatedModel = this.session.getModel();
+      this.header.props.model = updatedModel;
+      this.statusBar.update({
+        model: updatedModel,
+        usage: this.session.session.totalUsage,
+      });
       return;
     }
 
