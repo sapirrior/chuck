@@ -1,7 +1,13 @@
 import { isStepCount, streamText, type LanguageModel, type ModelMessage } from 'ai';
 import { SAFETY_STEP_CEILING } from './constants.js';
 import type { AgentEventListener } from './events.js';
-import type { TokenUsage, ToolResultInfo, TurnStopReason, TurnSummary } from './types.js';
+import type {
+  ReasoningEffort,
+  TokenUsage,
+  ToolResultInfo,
+  TurnStopReason,
+  TurnSummary,
+} from './types.js';
 
 export interface RunAgentTurnOptions {
   model: LanguageModel;
@@ -10,6 +16,7 @@ export interface RunAgentTurnOptions {
   tools?: Record<string, any>;
   maxSteps?: number;
   temperature?: number;
+  reasoningEffort?: ReasoningEffort;
   abortSignal?: AbortSignal;
   onEvent?: AgentEventListener;
 }
@@ -45,6 +52,9 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<TurnSu
       abortSignal: options.abortSignal,
       stopWhen: isStepCount(maxSteps),
       ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
+      ...(options.reasoningEffort && options.reasoningEffort !== 'provider-default'
+        ? { reasoning: options.reasoningEffort }
+        : {}),
     });
 
     for await (const chunk of result.stream) {

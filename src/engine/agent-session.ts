@@ -3,14 +3,22 @@ import {
   createSession,
   recordSessionTurn,
   renameSession,
+  saveSession,
   type SessionData,
 } from '../session/index.js';
+import { saveSettings } from '../config/index.js';
 import { runAgentTurn } from './agent-runner.js';
 import { SAFETY_STEP_CEILING } from './constants.js';
 import type { AgentEventListener } from './events.js';
 import { createModelInstance, resolveActiveModelSelection } from './model-provider.js';
 import { buildSystemPrompt } from './system-prompt.js';
-import type { ModelSelection, SessionConfig, TokenUsage, TurnSummary } from './types.js';
+import type {
+  ModelSelection,
+  ReasoningEffort,
+  SessionConfig,
+  TokenUsage,
+  TurnSummary,
+} from './types.js';
 
 export interface SubmitPromptOptions {
   tools?: Record<string, any>;
@@ -44,6 +52,7 @@ export class AgentSession {
       this.config = {
         provider: existingSession.model.provider,
         modelId: existingSession.model.modelId,
+        reasoningEffort: existingSession.model.effort ?? 'provider-default',
         temperature: initialConfig?.temperature,
         maxSteps: initialConfig?.maxSteps ?? SAFETY_STEP_CEILING,
       };
@@ -63,6 +72,7 @@ export class AgentSession {
       this.config = {
         provider: selection.provider,
         modelId: selection.modelId,
+        reasoningEffort: selection.effort ?? 'provider-default',
         temperature: initialConfig?.temperature,
         maxSteps: initialConfig?.maxSteps ?? SAFETY_STEP_CEILING,
       };
@@ -89,10 +99,21 @@ export class AgentSession {
    * Switches the active model dynamically (e.g. via /model command).
    */
   public setModel(requested: Partial<ModelSelection>): ModelSelection {
-    const selection = resolveActiveModelSelection(requested);
+    const selection = resolveActiveModelSelection({
+      provider: requested.provider,
+      modelId: requested.modelId,
+      effort: requested.effort ?? this.config.reasoningEffort,
+    });
     this.config.provider = selection.provider;
     this.config.modelId = selection.modelId;
+    this.config.reasoningEffort = selection.effort ?? 'provider-default';
     this.model = createModelInstance(selection);
+
+    // Update active session metadata & persist
+    this.sessionData.model = { ...selection };
+    this.sessionData.updatedAt = new Date().toISOString();
+    saveSession(this.sessionData);
+
     return selection;
   }
 
@@ -103,7 +124,35 @@ export class AgentSession {
     return {
       provider: this.config.provider,
       modelId: this.config.modelId,
+      effort: this.config.reasoningEffort ?? 'provider-default',
     };
+  }
+
+  /**
+   * Returns current reasoning effort level.
+   */
+  public getEffort(): ReasoningEffort {
+    return this.config.reasoningEffort ?? 'provider-default';
+  }
+
+  /**
+   * Sets the reasoning effort level, updates session metadata and persists preference.
+   */
+  public setEffort(effort: ReasoningEffort): ReasoningEffort {
+    this.config.reasoningEffort = effort;
+    this.sessionData.model.effort = effort;
+    this.sessionData.updatedAt = new Date().toISOString();
+    saveSession(this.sessionData);
+
+    saveSettings({
+      model: {
+        provider: this.config.provider,
+        modelId: this.config.modelId,
+        effort,
+      },
+    });
+
+    return effort;
   }
 
   /**
@@ -161,6 +210,7 @@ export class AgentSession {
         tools: options.tools,
         maxSteps: this.config.maxSteps,
         temperature: this.config.temperature,
+        reasoningEffort: this.config.reasoningEffort,
         abortSignal: this.activeAbortController.signal,
         onEvent: options.onEvent,
       });

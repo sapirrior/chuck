@@ -3,9 +3,13 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { ProviderName } from './env.js';
 
+export type ReasoningEffort =
+  'provider-default' | 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
+
 export interface SavedModelSettings {
   provider: ProviderName;
   modelId: string;
+  effort?: ReasoningEffort;
 }
 
 /**
@@ -16,19 +20,23 @@ export interface UserSettings {
 }
 
 /**
- * Resolves the path to the user's settings file (~/.chuck/settings.json).
+ * Resolves the directory path for chuck configuration (~/.chuck or overridden by CHUCK_SETTINGS_DIR / XD_SETTINGS_DIR).
  */
-export function getSettingsPath(): string {
-  const home = homedir();
-  return join(home, '.chuck', 'settings.json');
+export function getSettingsDir(): string {
+  if (process.env.CHUCK_SETTINGS_DIR) {
+    return process.env.CHUCK_SETTINGS_DIR;
+  }
+  if (process.env.XD_SETTINGS_DIR) {
+    return process.env.XD_SETTINGS_DIR;
+  }
+  return join(homedir(), '.chuck');
 }
 
 /**
- * Resolves the directory path for chuck configuration (~/.chuck).
+ * Resolves the path to the user's settings file (~/.chuck/settings.json).
  */
-export function getSettingsDir(): string {
-  const home = homedir();
-  return join(home, '.chuck');
+export function getSettingsPath(): string {
+  return join(getSettingsDir(), 'settings.json');
 }
 
 /**
@@ -87,6 +95,7 @@ export function getSavedModel(): SavedModelSettings | undefined {
     return {
       provider: settings.model.provider,
       modelId: settings.model.modelId,
+      effort: settings.model.effort ?? 'provider-default',
     };
   }
   return undefined;
@@ -100,6 +109,7 @@ export function saveModelSelection(selection: SavedModelSettings): void {
     model: {
       provider: selection.provider,
       modelId: selection.modelId,
+      effort: selection.effort ?? 'provider-default',
     },
   });
 }

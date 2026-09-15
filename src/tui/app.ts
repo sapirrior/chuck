@@ -205,17 +205,17 @@ export class TUIApp {
       models,
       currentModel,
       onSelect: (selected) => {
-        this.session.setModel({
+        const updated = this.session.setModel({
           provider: selected.provider,
           modelId: selected.model_id,
         });
         saveSettings({
           model: {
-            provider: selected.provider,
-            modelId: selected.model_id,
+            provider: updated.provider,
+            modelId: updated.modelId,
+            effort: updated.effort,
           },
         });
-        const updated = this.session.getModel();
         this.header.props.model = updated;
         this.statusBar.update({ model: updated });
         this.engine.commit(

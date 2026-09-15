@@ -1,4 +1,13 @@
+import { mkdirSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'bun:test';
+
+const testDir = join(tmpdir(), 'chuck-test-' + Date.now());
+mkdirSync(testDir, { recursive: true });
+process.env.CHUCK_SETTINGS_DIR = join(testDir, 'settings');
+process.env.CHUCK_SESSIONS_DIR = join(testDir, 'sessions');
+
 import {
   ALL_PROVIDER_NAMES,
   getAvailableProviders,
@@ -84,36 +93,45 @@ describe('Provider Configuration & Discovery', () => {
     expect(resolveActiveModelSelection({ modelId: 'openai/gpt-4o-mini' }, config)).toEqual({
       provider: 'openrouter',
       modelId: 'openai/gpt-4o-mini',
+      effort: 'provider-default',
     });
-    expect(resolveActiveModelSelection({ modelId: 'anthropic/claude-3-7-sonnet' }, config)).toEqual({
-      provider: 'openrouter',
-      modelId: 'anthropic/claude-3-7-sonnet',
-    });
+    expect(resolveActiveModelSelection({ modelId: 'anthropic/claude-3-7-sonnet' }, config)).toEqual(
+      {
+        provider: 'openrouter',
+        modelId: 'anthropic/claude-3-7-sonnet',
+        effort: 'provider-default',
+      },
+    );
 
     // xAI
     expect(resolveActiveModelSelection({ modelId: 'grok-4-fast-non-reasoning' }, config)).toEqual({
       provider: 'xai',
       modelId: 'grok-4-fast-non-reasoning',
+      effort: 'provider-default',
     });
 
     // DeepSeek
     expect(resolveActiveModelSelection({ modelId: 'deepseek-flash' }, config)).toEqual({
       provider: 'deepseek',
       modelId: 'deepseek-flash',
+      effort: 'provider-default',
     });
 
     // Mistral
     expect(resolveActiveModelSelection({ modelId: 'mistral-small-latest' }, config)).toEqual({
       provider: 'mistral',
       modelId: 'mistral-small-latest',
+      effort: 'provider-default',
     });
     expect(resolveActiveModelSelection({ modelId: 'magistral-small-2507' }, config)).toEqual({
       provider: 'mistral',
       modelId: 'magistral-small-2507',
+      effort: 'provider-default',
     });
     expect(resolveActiveModelSelection({ modelId: 'pixtral-12b-2409' }, config)).toEqual({
       provider: 'mistral',
       modelId: 'pixtral-12b-2409',
+      effort: 'provider-default',
     });
   });
 
@@ -155,7 +173,11 @@ describe('Provider Model Discovery Filtering', () => {
       new Response(
         JSON.stringify({
           data: [
-            { id: 'mistral-small-latest', capabilities: { completion_chat: true }, archived: false },
+            {
+              id: 'mistral-small-latest',
+              capabilities: { completion_chat: true },
+              archived: false,
+            },
             { id: 'mistral-embed', capabilities: { completion_chat: false }, archived: false },
             { id: 'old-chat', capabilities: { completion_chat: true }, archived: true },
             { id: 'ft-chat', capabilities: { completion_chat: true }, TYPE: 'fine-tuned' },
@@ -240,5 +262,98 @@ describe('Provider Model Discovery Filtering', () => {
 
     // Restore fetch
     globalThis.fetch = originalFetch;
+  });
+});
+
+describe('Reasoning Effort & Session Metadata', () => {
+  it('should parse numeric 0-6 and string reasoning efforts', async () => {
+    const { parseReasoningEffort } = await import('../src/engine/model-provider.js');
+
+    expect(parseReasoningEffort(0)).toBe('provider-default');
+    expect(parseReasoningEffort(1)).toBe('none');
+    expect(parseReasoningEffort(2)).toBe('minimal');
+    expect(parseReasoningEffort(3)).toBe('low');
+    expect(parseReasoningEffort(4)).toBe('medium');
+    expect(parseReasoningEffort(5)).toBe('high');
+    expect(parseReasoningEffort(6)).toBe('xhigh');
+
+    expect(parseReasoningEffort('0')).toBe('provider-default');
+    expect(parseReasoningEffort('1')).toBe('none');
+    expect(parseReasoningEffort('default')).toBe('provider-default');
+    expect(parseReasoningEffort('none')).toBe('none');
+    expect(parseReasoningEffort('off')).toBe('none');
+    expect(parseReasoningEffort('low')).toBe('low');
+    expect(parseReasoningEffort('med')).toBe('medium');
+    expect(parseReasoningEffort('medium')).toBe('medium');
+    expect(parseReasoningEffort('high')).toBe('high');
+    expect(parseReasoningEffort('max')).toBe('xhigh');
+    expect(parseReasoningEffort('xhigh')).toBe('xhigh');
+    expect(parseReasoningEffort('invalid')).toBeUndefined();
+  });
+
+  it('should update sessionData.model when setModel is called on AgentSession', async () => {
+    process.env['OPENAI_API_KEY'] = 'sk-mock-key';
+    process.env['GEMINI_API_KEY'] = 'mock-gemini-key';
+
+    const { AgentSession } = await import('../src/engine/agent-session.js');
+    const session = new AgentSession({ provider: 'openai', modelId: 'gpt-4o-mini' });
+
+    expect(session.getModel().provider).toBe('openai');
+    expect(session.session.model.provider).toBe('openai');
+    expect(session.session.model.modelId).toBe('gpt-4o-mini');
+
+    // Switch model to gemini
+    session.setModel({ provider: 'gemini', modelId: 'gemini-2.5-flash' });
+
+    // Verify BOTH getModel and sessionData.model are updated!
+    expect(session.getModel().provider).toBe('gemini');
+    expect(session.getModel().modelId).toBe('gemini-2.5-flash');
+    expect(session.session.model.provider).toBe('gemini');
+    expect(session.session.model.modelId).toBe('gemini-2.5-flash');
+  });
+
+  it('should update reasoning effort on AgentSession and sessionData.model', async () => {
+    process.env['OPENAI_API_KEY'] = 'sk-mock-key';
+
+    const { AgentSession } = await import('../src/engine/agent-session.js');
+    const session = new AgentSession({ provider: 'openai', modelId: 'gpt-4o-mini' });
+
+    expect(session.getEffort()).toBe('provider-default');
+    expect(session.session.model.effort).toBe('provider-default');
+
+    session.setEffort('high');
+    expect(session.getEffort()).toBe('high');
+    expect(session.session.model.effort).toBe('high');
+  });
+
+  it('should parse legacy session schemas without effort gracefully', async () => {
+    const { parseSessionDocument } = await import('../src/session/validate.js');
+
+    const legacyRaw = JSON.stringify({
+      schemaVersion: 1,
+      id: 'legacy-session-1',
+      name: 'Legacy Session',
+      date: '2026-09-15',
+      createdAt: '2026-09-15T00:00:00.000Z',
+      updatedAt: '2026-09-15T00:00:00.000Z',
+      model: {
+        provider: 'anthropic',
+        modelId: 'claude-3-7-sonnet-20250219',
+      },
+      totalUsage: {
+        inputTokens: 10,
+        outputTokens: 5,
+        totalTokens: 15,
+      },
+      turns: [],
+    });
+
+    const parsed = parseSessionDocument(legacyRaw);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.doc.model.provider).toBe('anthropic');
+      expect(parsed.doc.model.modelId).toBe('claude-3-7-sonnet-20250219');
+      expect(parsed.doc.model.effort).toBeUndefined();
+    }
   });
 });

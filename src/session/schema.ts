@@ -34,9 +34,14 @@ export const TokenUsageSchema = z.object({
   cacheWriteTokens: z.number().optional(),
 });
 
+export const ReasoningEffortSchema = z
+  .enum(['provider-default', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh'])
+  .optional();
+
 export const ModelSelectionSchema = z.object({
   provider: z.string() as z.ZodType<any>,
   modelId: z.string(),
+  effort: ReasoningEffortSchema,
 });
 
 export const SessionTurnSchema = z.object({

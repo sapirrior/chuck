@@ -70,8 +70,8 @@ export const modelCommand: SlashCommand = {
         (m: ModelDescriptor) => m.model_id.toLowerCase() === targetModelId.toLowerCase(),
       ) ?? matches[0];
 
-    // 4. Update session
-    context.session.setModel({
+    // 4. Update session (this also updates session metadata and persists session.json)
+    const updatedSelection = context.session.setModel({
       provider: selected.provider,
       modelId: selected.model_id,
     });
@@ -79,15 +79,16 @@ export const modelCommand: SlashCommand = {
     // 5. Save to ~/.chuck/settings.json
     saveSettings({
       model: {
-        provider: selected.provider,
-        modelId: selected.model_id,
+        provider: updatedSelection.provider,
+        modelId: updatedSelection.modelId,
+        effort: updatedSelection.effort,
       },
     });
 
     return {
       handled: true,
-      message: `Active model switched to ${selected.provider}/${selected.modelId} and saved to ~/.chuck/settings.json.`,
-      data: { selected },
+      message: `Active model switched to ${selected.provider}/${selected.model_id} and saved to ~/.chuck/settings.json.`,
+      data: { selected: updatedSelection },
     };
   },
 };

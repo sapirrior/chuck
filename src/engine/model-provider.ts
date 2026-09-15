@@ -30,6 +30,46 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<ProviderName, string> = {
   custom: 'default',
 };
 
+export const DEFAULT_REASONING_EFFORT: ReasoningEffort = 'provider-default';
+
+export const REASONING_EFFORT_MAP: Record<number | string, ReasoningEffort> = {
+  0: 'provider-default',
+  1: 'none',
+  2: 'minimal',
+  3: 'low',
+  4: 'medium',
+  5: 'high',
+  6: 'xhigh',
+  '0': 'provider-default',
+  '1': 'none',
+  '2': 'minimal',
+  '3': 'low',
+  '4': 'medium',
+  '5': 'high',
+  '6': 'xhigh',
+  default: 'provider-default',
+  'provider-default': 'provider-default',
+  none: 'none',
+  off: 'none',
+  disabled: 'none',
+  minimal: 'minimal',
+  low: 'low',
+  med: 'medium',
+  medium: 'medium',
+  high: 'high',
+  max: 'xhigh',
+  xhigh: 'xhigh',
+};
+
+/**
+ * Parses user input (numeric 0-6 or string name) to canonical ReasoningEffort.
+ */
+export function parseReasoningEffort(input?: string | number): ReasoningEffort | undefined {
+  if (input === undefined || input === null) return undefined;
+  const key = typeof input === 'string' ? input.trim().toLowerCase() : input;
+  return REASONING_EFFORT_MAP[key];
+}
+
 /**
  * Priority hierarchy for selecting a default provider when multiple are configured.
  * Level 1: Gemini
@@ -60,6 +100,10 @@ export function resolveActiveModelSelection(
   requested?: Partial<ModelSelection>,
   config: EnvConfig = getEnvConfig(),
 ): ModelSelection {
+  const savedModel = getSavedModel();
+  const effort: ReasoningEffort =
+    requested?.effort ?? savedModel?.effort ?? DEFAULT_REASONING_EFFORT;
+
   // 1. Explicit provider and modelId
   if (requested?.provider && requested?.modelId) {
     if (!hasProviderConfig(requested.provider, config)) {
@@ -70,6 +114,7 @@ export function resolveActiveModelSelection(
     return {
       provider: requested.provider,
       modelId: requested.modelId,
+      effort,
     };
   }
 
@@ -88,6 +133,7 @@ export function resolveActiveModelSelection(
     return {
       provider: requested.provider,
       modelId,
+      effort,
     };
   }
 
@@ -98,16 +144,17 @@ export function resolveActiveModelSelection(
       return {
         provider: inferredProvider,
         modelId: requested.modelId,
+        effort,
       };
     }
   }
 
   // 4. Saved user preference in ~/.chuck/settings.json
-  const savedModel = getSavedModel();
   if (savedModel && hasProviderConfig(savedModel.provider, config)) {
     return {
       provider: savedModel.provider,
       modelId: savedModel.modelId,
+      effort: requested?.effort ?? savedModel.effort ?? DEFAULT_REASONING_EFFORT,
     };
   }
 
@@ -129,6 +176,7 @@ export function resolveActiveModelSelection(
       return {
         provider,
         modelId,
+        effort,
       };
     }
   }
@@ -138,6 +186,7 @@ export function resolveActiveModelSelection(
   return {
     provider: fallbackProvider,
     modelId: DEFAULT_MODELS_BY_PROVIDER[fallbackProvider],
+    effort,
   };
 }
 

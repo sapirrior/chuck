@@ -1,4 +1,5 @@
 import { clearCommand } from './clear/index.js';
+import { effortCommand } from './effort/index.js';
 import { exitCommand, quitCommand } from './exit/index.js';
 import { modelCommand } from './model/index.js';
 import { renameCommand } from './rename/index.js';
@@ -63,6 +64,7 @@ export class CommandRegistry {
 
 export const builtInCommands: SlashCommand[] = [
   modelCommand,
+  effortCommand,
   clearCommand,
   exitCommand,
   quitCommand,

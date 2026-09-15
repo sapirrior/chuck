@@ -193,6 +193,7 @@ Your original host project files are never modified directly.
 | Command          | Action                                           |
 | :--------------- | :----------------------------------------------- |
 | `/model`         | Switch active LLM provider or model              |
+| `/effort`        | Set reasoning effort level (0: default ... 6: max) |
 | `/resume`        | Browse and resume previous conversation sessions |
 | `/skills`        | Inspect discovered agent skills and capabilities |
 | `/clear`         | Clear conversation context and start fresh       |

@@ -4,11 +4,18 @@ import type { ProviderName } from '../config/index.js';
 export type { ProviderName };
 
 /**
- * Model selection identifier specifying provider and model ID.
+ * Reasoning / thinking effort level for models.
+ */
+export type ReasoningEffort =
+  'provider-default' | 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
+
+/**
+ * Model selection identifier specifying provider, model ID, and optional reasoning effort.
  */
 export interface ModelSelection {
   provider: ProviderName;
   modelId: string;
+  effort?: ReasoningEffort;
 }
 
 /**
@@ -51,6 +58,7 @@ export type AgentMessage = ModelMessage;
 export interface SessionConfig {
   provider: ProviderName;
   modelId: string;
+  reasoningEffort?: ReasoningEffort;
   temperature?: number;
   maxSteps?: number;
 }
