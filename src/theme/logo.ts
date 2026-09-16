@@ -4,7 +4,7 @@ import stringWidth from 'string-width';
  * Unicode ANSI art logo lines for the header.
  * Each line is consistently padded to guarantee uniform column alignment.
  */
-export const LOGO_LINES = [' ▛███▜ ', '▀█████▀', ' ▘▘ ▝▝ '] as const;
+export const LOGO_LINES = [' ▄▄▄▄▄ ', '▀▙███▟▀', ' ▘▘ ▝▝ '] as const;
 
 /**
  * Maximum visible width of the logo block.

@@ -1,5 +1,5 @@
-[?2026h[H[J ▛███▜   Steward v0.2.0
-▀█████▀  anthropic/claude-3-5-sonnet-20241022 · API Usage Billing
+[?2026h[H[J ▄▄▄▄▄   Steward v0.2.0
+▀▙███▟▀  anthropic/claude-3-5-sonnet-20241022 · API Usage Billing
  ▘▘ ▝▝   /workspace/steward
 
 ────────────────────────────────────────────────────────────────────────────────
