@@ -1,6 +1,6 @@
 {
   "name": "steward",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Engineering agent for codebase investigation, planning, and safe code proposals — nothing lands until you approve it.",
   "author": "sapirrior",
   "license": "MIT",
@@ -23,24 +23,24 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^4.0.52",
-    "@ai-sdk/deepseek": "^3.0.44",
-    "@ai-sdk/google": "^4.0.67",
-    "@ai-sdk/mistral": "^4.0.43",
-    "@ai-sdk/openai": "^4.0.65",
-    "@ai-sdk/openai-compatible": "^3.0.47",
-    "@ai-sdk/xai": "^4.0.58",
-    "ai": "^7.0.97",
-    "chalk": "^6.0.0",
-    "cli-highlight": "^2.1.11",
-    "get-east-asian-width": "^1.6.0",
-    "marked": "^18.0.12",
-    "string-width": "^8.2.2",
-    "strip-ansi": "^7.2.0",
-    "zod": "^4.6.1"
+    "@ai-sdk/anthropic": "4.0.52",
+    "@ai-sdk/deepseek": "3.0.44",
+    "@ai-sdk/google": "4.0.67",
+    "@ai-sdk/mistral": "4.0.43",
+    "@ai-sdk/openai": "4.0.65",
+    "@ai-sdk/openai-compatible": "3.0.47",
+    "@ai-sdk/xai": "4.0.58",
+    "ai": "7.0.97",
+    "chalk": "6.0.0",
+    "cli-highlight": "2.1.11",
+    "get-east-asian-width": "1.6.0",
+    "marked": "18.0.12",
+    "string-width": "8.2.2",
+    "strip-ansi": "7.2.0",
+    "zod": "4.6.1"
   },
   "devDependencies": {
-    "@types/bun": "^1.4.2",
-    "prettier": "*"
+    "@types/bun": "1.4.2",
+    "prettier": "3.9.6"
   }
 }

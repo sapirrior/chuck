@@ -1,0 +1,24 @@
+[?2026h[H[JAccessing workspace:
+
+/workspace/steward
+
+You should only proceed if you trust this workspace. Accessing untrusted
+workspaces may allow malicious code in the repository to compromise security or
+mislead the agent.
+
+Steward will be able to read files in this folder to investigate and plan.
+Generated code and plans are written to .steward/ for your review — nothing else
+here is modified.
+
+Security guide
+
+  1. Yes, I trust this folder
+❯ 2. No, exit
+
+Enter to confirm · Esc to cancel
+
+
+
+
+
+[?25l[?2026l

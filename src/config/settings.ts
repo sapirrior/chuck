@@ -1,6 +1,6 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve, sep } from 'node:path';
 import type { ProviderName } from './env.js';
 
 export type ReasoningEffort =
@@ -12,11 +12,16 @@ export interface SavedModelSettings {
   effort?: ReasoningEffort;
 }
 
+export interface TrustedFolderRecord {
+  trustedAt: string;
+}
+
 /**
  * Persistent user settings stored in ~/.steward/settings.json
  */
 export interface UserSettings {
   model?: SavedModelSettings;
+  trustedFolders?: Record<string, TrustedFolderRecord>;
 }
 
 /**
@@ -107,6 +112,70 @@ export function saveModelSelection(selection: SavedModelSettings): void {
       provider: selection.provider,
       modelId: selection.modelId,
       effort: selection.effort ?? 'provider-default',
+    },
+  });
+}
+
+/**
+ * Normalizes a folder path for consistent trust lookups and storage.
+ * Resolves symlinks, strips trailing separators, and adjusts case for case-insensitive OSes.
+ */
+export function normalizeFolderPath(inputPath: string): string {
+  let absolute = resolve(inputPath);
+  try {
+    absolute = realpathSync(absolute);
+  } catch {
+    // Fall back to resolved absolute path if realpathSync throws
+  }
+
+  // Strip trailing path separator unless it is root (e.g. "/" or "C:\")
+  if (absolute.length > 1 && absolute.endsWith(sep)) {
+    absolute = absolute.slice(0, -1);
+  }
+
+  // Lowercase for darwin / win32 to handle case-insensitive filesystem matching
+  if (process.platform === 'darwin' || process.platform === 'win32') {
+    return absolute.toLowerCase();
+  }
+
+  return absolute;
+}
+
+/**
+ * Checks whether a folder (or any of its ancestor directories) is trusted in ~/.steward/settings.json.
+ */
+export function isFolderTrusted(absolutePath: string): boolean {
+  const normalized = normalizeFolderPath(absolutePath);
+  const settings = loadSettings();
+  const trusted = settings.trustedFolders ?? {};
+
+  if (trusted[normalized]) {
+    return true;
+  }
+
+  // Check recursive trust: if an ancestor of this folder is trusted
+  for (const trustedKey of Object.keys(trusted)) {
+    const prefix = trustedKey.endsWith(sep) ? trustedKey : `${trustedKey}${sep}`;
+    if (normalized.startsWith(prefix)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Marks a folder as trusted in ~/.steward/settings.json.
+ */
+export function trustFolder(absolutePath: string): void {
+  const normalized = normalizeFolderPath(absolutePath);
+  const current = loadSettings();
+  saveSettings({
+    trustedFolders: {
+      ...(current.trustedFolders ?? {}),
+      [normalized]: {
+        trustedAt: new Date().toISOString(),
+      },
     },
   });
 }

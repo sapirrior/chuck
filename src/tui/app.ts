@@ -6,11 +6,12 @@ import type { ToolContext } from '../tools/types.js';
 import type { ModelDescriptor } from '../models/index.js';
 import type { SessionData } from '../session/types.js';
 import { listSessions, loadSession, rehydrateSessionHistory } from '../session/index.js';
-import { saveSettings } from '../config/index.js';
+import { saveSettings, isFolderTrusted, trustFolder } from '../config/index.js';
 import Header from './components/Header.js';
 import StatusBar from './components/StatusBar.js';
 import StreamingView from './components/StreamingView.js';
 import PromptInput from './components/PromptInput.js';
+import TrustGate from './components/TrustGate.js';
 import ModelPicker from './components/docks/ModelPicker.js';
 import SessionMenu from './components/docks/SessionMenu.js';
 import ShortcutsMenu from './components/docks/ShortcutsMenu.js';
@@ -92,6 +93,29 @@ export class TUIApp {
   }
 
   public async start(): Promise<void> {
+    if (isFolderTrusted(this.cwd)) {
+      this.proceedStart();
+      return;
+    }
+
+    this.engine.ensureAlternateScreen();
+    const trustGate = new TrustGate({
+      cwd: this.cwd,
+      onDecision: (trusted) => {
+        if (trusted) {
+          trustFolder(this.cwd);
+          this.engine.unmount(trustGate);
+          this.proceedStart();
+        } else {
+          this.exit();
+        }
+      },
+    });
+
+    this.engine.mount(trustGate, { kind: 'custom' });
+  }
+
+  private proceedStart(): void {
     this.engine.ensureAlternateScreen();
 
     // Commit Header at the top of history
