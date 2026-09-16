@@ -5,13 +5,8 @@ import { searchTextTool } from './search-text/index.js';
 import { listDirTool } from './list-dir/index.js';
 import { webFetchTool } from './web-fetch/index.js';
 import { webSearchTool } from './web-search/index.js';
-import { writeArtifactTool } from './write-artifact/index.js';
-import { editArtifactTool } from './edit-artifact/index.js';
-import { renameArtifactTool } from './rename-artifact/index.js';
-import { deleteArtifactTool } from './delete-artifact/index.js';
-import { writePlanTool } from './write-plan/index.js';
-import { renamePlanTool } from './rename-plan/index.js';
-import { deletePlanTool } from './delete-plan/index.js';
+import { writeFileTool } from './write-file/index.js';
+import { editFileTool } from './edit-file/index.js';
 import type { ToolContext, ToolDefinition } from './types.js';
 
 export const builtInTools: ToolDefinition<any, any>[] = [
@@ -21,13 +16,8 @@ export const builtInTools: ToolDefinition<any, any>[] = [
   listDirTool,
   webFetchTool,
   webSearchTool,
-  writeArtifactTool,
-  editArtifactTool,
-  renameArtifactTool,
-  deleteArtifactTool,
-  writePlanTool,
-  renamePlanTool,
-  deletePlanTool,
+  writeFileTool,
+  editFileTool,
 ];
 
 // Register all built-in tools into defaultToolCatalog
@@ -52,12 +42,6 @@ export * from './search-text/index.js';
 export * from './list-dir/index.js';
 export * from './web-fetch/index.js';
 export * from './web-search/index.js';
-export * from './write-artifact/index.js';
-export * from './edit-artifact/index.js';
-export * from './rename-artifact/index.js';
-export * from './delete-artifact/index.js';
-export * from './write-plan/index.js';
-export * from './rename-plan/index.js';
-export * from './delete-plan/index.js';
-export * from './safe-paths.js';
+export * from './write-file/index.js';
+export * from './edit-file/index.js';
 export * from './types.js';

@@ -1,27 +1,27 @@
 # Steward
 
-[![Version](https://img.shields.io/badge/version-v0.2.2-D77757.svg)](https://github.com/sapirrior/steward/releases)
+[![Version](https://img.shields.io/badge/version-v0.2.4-D77757.svg)](https://github.com/sapirrior/steward/releases)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Runtime](https://img.shields.io/badge/runtime-Bun-fbf0df.svg?logo=bun)](https://bun.sh)
 [![Platforms](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Termux%20%7C%20Windows-lightgrey.svg)](#quick-install)
 
-**The engineering agent that proposes before it touches your code.**
+**The engineering agent with direct workspace mutation and guaranteed rewind checkpointing.**
 
 ---
 
-Most AI coding agents are reckless. You give them a prompt, and within seconds they're blindly overwriting your working tree, making half-baked edits across five files, and leaving you to untangle the mess in `git diff`. 
+Most AI coding agents are reckless. You give them a prompt, and within seconds they're blindly overwriting files with no way to cleanly undo the changes if things go wrong.
 
-**Steward is built on a different premise: AI should act like a senior engineer pairing with you, not a runaway script.**
+**Steward is built on a different premise: AI should act like a senior engineer pairing with you, with automatic pre-mutation safety and instant rollback.**
 
-Steward investigates your codebase thoroughly, drafts clear architectural plans, and generates complete, production-ready code proposals safely isolated in `.steward/`. Your original files remain untouched until you review and decide to apply them.
+Steward investigates your codebase thoroughly, directly creates and edits files with targeted operations, and durably checkpoints all file preimages in a content-addressed store (CAS) before touching disk. If you ever want to step back, `/rewind` instantly rolls back both your conversation history and workspace files to any prior turn.
 
 ```text
  ▄▄▄▄▄   Steward
-▀▙███▟▀  Propose before touching code. Zero git pollution.
+▀▙███▟▀  Direct workspace editing. Guaranteed rewind checkpointing.
  ▘▘ ▝▝ 
 
 ────────────────────────────────────────────────────────────────────────────────
-> Investigate our auth flow and draft a plan for refresh token rotation
+> Refactor the authentication service to use JWT refresh token rotation
 ────────────────────────────────────────────────────────────────────────────────
 ? for shortcuts                                            claude-3-7-sonnet
 ```
@@ -30,14 +30,14 @@ Steward investigates your codebase thoroughly, drafts clear architectural plans,
 
 ## The Steward Approach
 
-### 🛡️ The Zero-Anxiety Guarantee
-Never worry about an AI destroying your uncommitted changes or modifying production code unexpectedly.
-* **Isolated Proposals:** All plans land in `.steward/plans/` and all generated code proposals land in `.steward/artifacts/`.
-* **Host Files Remain Untouchable:** Steward has zero tools to directly mutate your host project files.
-* **Workspace Trust Gate:** Prompts for your explicit confirmation before accessing unfamiliar repositories, keeping your workspace secure.
+### 🛡️ Guaranteed Rewind Checkpointing
+Never worry about losing code or corrupted changes.
+* **Automatic Pre-Mutation Checkpoints:** Every edit via `write_file` or `edit_file` captures and persists a SHA-256 content-addressed preimage before writing a single byte.
+* **Transactional `/rewind`:** Roll back conversation and workspace files to any prior state. Discarded turns are restored in reverse chronological order with conflict preflight checks.
+* **Workspace Trust Gate:** Prompts for explicit confirmation before accessing unfamiliar repositories, keeping your workspace secure.
 
 ### 🧠 Deep Investigation First
-Steward reads and understands your real code, traces execution flow, checks your actual dependencies, and adopts your codebase's naming conventions and style before writing a single line.
+Steward reads and understands your real code, traces execution flow, checks your actual dependencies, and adopts your codebase's naming conventions and style before making changes.
 
 ### ⚡ Senior Partner Persona
 No robotic disclaimers or endless preambles. When you say *"hey"*, Steward asks what you're working on. When you ask a question, it investigates in parallel and reports the exact diagnosis.
@@ -108,12 +108,16 @@ export CUSTOM_API_KEY="ollama"
 
 ---
 
-## How It Works
+## Slash Commands
 
-1. **Launch:** Run `steward` in any project folder.
-2. **Explore & Plan:** Ask Steward to diagnose a bug, explore an unfamiliar codebase, or design a new feature.
-3. **Review Proposals:** Open `.steward/plans/plan.md` to review the architecture blueprint, or inspect `.steward/artifacts/` to view clean, complete code proposals.
-4. **Apply on Your Terms:** Copy or merge the proposals when you are ready.
+* `/rewind` — Browse past conversation turns and restore code + session history to any point
+* `/model` — Switch active model or AI provider
+* `/effort` — Adjust model reasoning/thinking effort level
+* `/clear` — Clear the conversation and start a new session
+* `/resume` — Browse and resume a previous session
+* `/rename` — Rename the current session
+* `/skills` — List discovered skills
+* `/exit` (or `/quit`) — Exit Steward
 
 ---
 

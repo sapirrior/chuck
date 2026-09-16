@@ -5,5 +5,6 @@ export * from './clear/index.js';
 export * from './exit/index.js';
 export * from './resume/index.js';
 export * from './rename/index.js';
+export * from './rewind/index.js';
 export * from './skills/index.js';
 export * from './registry.js';

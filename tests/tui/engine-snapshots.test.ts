@@ -8,6 +8,7 @@ import ShortcutsMenu from '../../src/tui/components/docks/ShortcutsMenu.js';
 import ModelPicker from '../../src/tui/components/docks/ModelPicker.js';
 import SessionMenu from '../../src/tui/components/docks/SessionMenu.js';
 import EffortPicker from '../../src/tui/components/docks/EffortPicker.js';
+import RewindMenu from '../../src/tui/components/docks/RewindMenu.js';
 import TrustGate from '../../src/tui/components/TrustGate.js';
 import { formatAssistantMessage, formatToolStatus } from '../../src/tui/utils/message-formatter.js';
 import { captureHeadlessRender, assertGoldenMatch } from './harness.js';
@@ -537,5 +538,80 @@ describe('TUI Engine Headless Golden Snapshots', () => {
 
     engine.cleanupSync();
     assertGoldenMatch('trust-gate-yes', result.rawAnsi);
+  });
+
+  it('golden: dock-rewind-menu (RewindMenu dock open at 80 and 120 cols)', () => {
+    const dummySession = {
+      id: 'sess-rewind-1234',
+      name: 'Testing Rewind Menu',
+      date: '2026-09-16',
+      createdAt: '2026-09-16T10:00:00.000Z',
+      updatedAt: '2026-09-16T10:30:00.000Z',
+      model: dummyModel,
+      totalUsage: { inputTokens: 100, outputTokens: 200, totalTokens: 300 },
+      turns: [
+        {
+          id: 'turn-1',
+          timestamp: '2026-09-16T10:05:00.000Z',
+          status: 'complete',
+          usage: { inputTokens: 30, outputTokens: 60, totalTokens: 90 },
+          messages: [{ role: 'user', content: 'Create src/components/Button.tsx' }],
+        },
+        {
+          id: 'turn-2',
+          timestamp: '2026-09-16T10:15:00.000Z',
+          status: 'complete',
+          usage: { inputTokens: 40, outputTokens: 80, totalTokens: 120 },
+          messages: [{ role: 'user', content: 'Refactor Button styles and add primary variant' }],
+        },
+        {
+          id: 'turn-3',
+          timestamp: '2026-09-16T10:25:00.000Z',
+          status: 'complete',
+          usage: { inputTokens: 30, outputTokens: 60, totalTokens: 90 },
+          messages: [{ role: 'user', content: 'Add unit test suite for Button component' }],
+        },
+      ],
+    } as any;
+
+    const engine80 = new TerminalEngine();
+    const rewindMenu80 = new RewindMenu({
+      session: dummySession,
+      cwd: '/workspace/steward',
+      onSelect: () => {},
+      onCancel: () => {},
+    });
+
+    engine80.mount(rewindMenu80, { kind: 'dock' });
+
+    const result80 = captureHeadlessRender(
+      (renderer) => {
+        return renderer.render(engine80.tree, 0, true);
+      },
+      { cols: 80, rows: 24 },
+    );
+
+    engine80.cleanupSync();
+    assertGoldenMatch('dock-rewind-menu', result80.rawAnsi);
+
+    const engine120 = new TerminalEngine();
+    const rewindMenu120 = new RewindMenu({
+      session: dummySession,
+      cwd: '/workspace/steward',
+      onSelect: () => {},
+      onCancel: () => {},
+    });
+
+    engine120.mount(rewindMenu120, { kind: 'dock' });
+
+    const result120 = captureHeadlessRender(
+      (renderer) => {
+        return renderer.render(engine120.tree, 0, true);
+      },
+      { cols: 120, rows: 24 },
+    );
+
+    engine120.cleanupSync();
+    assertGoldenMatch('dock-rewind-menu-120', result120.rawAnsi);
   });
 });

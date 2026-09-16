@@ -19,8 +19,6 @@ describe('System Prompt Structure & Invariants', () => {
       '</tools>',
       '<workflow>',
       '</workflow>',
-      '<artifacts>',
-      '</artifacts>',
       '<communication>',
       '</communication>',
       '<slash_commands>',
@@ -36,23 +34,44 @@ describe('System Prompt Structure & Invariants', () => {
     }
   });
 
-  it('should not contain any legacy or removed section tags', () => {
+  it('should contain direct mutation and rewind tools and instructions', () => {
     const prompt = buildSystemPrompt({
       cwd: '/workspace/steward',
       skills: [],
     });
 
-    const removedTags = [
+    expect(prompt).toContain('write_file');
+    expect(prompt).toContain('edit_file');
+    expect(prompt).toContain('/rewind');
+    expect(prompt).toContain('checkpoint');
+  });
+
+  it('should not contain any legacy or removed artifact/plan tools or tags', () => {
+    const prompt = buildSystemPrompt({
+      cwd: '/workspace/steward',
+      skills: [],
+    });
+
+    const removedSymbols = [
+      'write_artifact',
+      'edit_artifact',
+      'rename_artifact',
+      'delete_artifact',
+      'write_plan',
+      'rename_plan',
+      'delete_plan',
+      '.steward/artifacts',
+      '.steward/plans',
       '<non_destructive_guarantee>',
       '<investigation_workflow>',
       '<code_and_conventions>',
       '<tool_policy>',
       '<artifact_lifecycle>',
-      '<communication_style>',
+      '<artifacts>',
     ];
 
-    for (const tag of removedTags) {
-      expect(prompt).not.toContain(tag);
+    for (const symbol of removedSymbols) {
+      expect(prompt).not.toContain(symbol);
     }
   });
 

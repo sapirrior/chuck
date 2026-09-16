@@ -158,11 +158,11 @@ export function saveSession(session: SessionData): string {
  */
 export function recordSessionTurn(
   session: SessionData,
-  turnData: Omit<SessionTurn, 'id' | 'timestamp'>,
+  turnData: Omit<SessionTurn, 'id' | 'timestamp'> & { id?: string; timestamp?: string },
 ): SessionData {
   const turn: SessionTurn = {
-    id: randomUUID(),
-    timestamp: new Date().toISOString(),
+    id: turnData.id || randomUUID(),
+    timestamp: turnData.timestamp || new Date().toISOString(),
     ...turnData,
   };
 

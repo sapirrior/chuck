@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { LanguageModel, ModelMessage } from 'ai';
 import {
   createSession,
@@ -6,6 +7,9 @@ import {
   saveSession,
   type SessionData,
 } from '../session/index.js';
+import { MutationCheckpointTracker, globalMutationLockManager } from '../checkpoint/index.js';
+import { defaultToolCatalog } from '../tools/index.js';
+import type { ToolContext } from '../tools/types.js';
 import { saveSettings } from '../config/index.js';
 import { logError } from '../errors/index.js';
 import { runAgentTurn } from './agent-runner.js';
@@ -22,7 +26,8 @@ import type {
 } from './types.js';
 
 export interface SubmitPromptOptions {
-  tools?: Record<string, any>;
+  cwd?: string;
+  tools?: Record<string, any> | ((context: ToolContext) => Record<string, any>);
   extraInstructions?: string;
   onEvent?: AgentEventListener;
 }
@@ -198,6 +203,31 @@ export class AgentSession {
     this.isGenerating = true;
     this.activeAbortController = new AbortController();
 
+    const turnId = randomUUID();
+    const cwd = options.cwd ?? process.cwd();
+    const tracker = new MutationCheckpointTracker({
+      workspaceRoot: cwd,
+      sessionId: this.sessionData.id,
+      lockManager: globalMutationLockManager,
+    });
+    await tracker.beginTurn(turnId, this.sessionData.turns.length + 1);
+
+    const toolContext: ToolContext = {
+      cwd,
+      abortSignal: this.activeAbortController.signal,
+      checkpointTracker: tracker,
+      mutationLocks: globalMutationLockManager,
+    };
+
+    let activeTools: Record<string, any> | undefined;
+    if (typeof options.tools === 'function') {
+      activeTools = (options.tools as any)(toolContext);
+    } else if (options.tools) {
+      activeTools = options.tools;
+    } else {
+      activeTools = defaultToolCatalog.toAISDKTools(toolContext);
+    }
+
     const instructions = buildSystemPrompt({
       extraInstructions: options.extraInstructions,
     });
@@ -210,7 +240,7 @@ export class AgentSession {
         model: this.model,
         messages: this.messages,
         instructions,
-        tools: options.tools,
+        tools: activeTools,
         maxSteps: this.config.maxSteps,
         temperature: this.config.temperature,
         reasoningEffort: this.config.reasoningEffort,
@@ -251,10 +281,13 @@ export class AgentSession {
       const turnMessages: ModelMessage[] = [userMessage, ...responseMessages];
 
       recordSessionTurn(this.sessionData, {
+        id: turnId,
         status: 'complete',
         usage: summary.usage,
         messages: turnMessages,
       });
+
+      await tracker.commitTurn(turnId, 'complete');
 
       return summary;
     } catch (err) {
@@ -269,12 +302,15 @@ export class AgentSession {
 
       if (summary) {
         recordSessionTurn(this.sessionData, {
+          id: turnId,
           status: 'interrupted',
           usage: summary.usage,
           messages: turnMessages,
         });
+        await tracker.commitTurn(turnId, 'interrupted');
       } else {
         recordSessionTurn(this.sessionData, {
+          id: turnId,
           status: 'errored',
           usage: {
             inputTokens: 0,
@@ -283,6 +319,7 @@ export class AgentSession {
           },
           messages: [userMessage],
         });
+        await tracker.commitTurn(turnId, 'errored');
       }
       throw err;
     } finally {

@@ -16,6 +16,8 @@ import ModelPicker from './components/docks/ModelPicker.js';
 import SessionMenu from './components/docks/SessionMenu.js';
 import ShortcutsMenu from './components/docks/ShortcutsMenu.js';
 import EffortPicker from './components/docks/EffortPicker.js';
+import RewindMenu, { type RewindItem } from './components/docks/RewindMenu.js';
+import { executeRewind } from '../checkpoint/index.js';
 import {
   formatSystemMessage,
   formatAssistantMessage,
@@ -43,7 +45,8 @@ export class TUIApp {
   private promptInput: PromptInput;
   private statusBar: StatusBar;
 
-  private activeModal: ModelPicker | SessionMenu | ShortcutsMenu | EffortPicker | null = null;
+  private activeModal:
+    ModelPicker | SessionMenu | ShortcutsMenu | EffortPicker | RewindMenu | null = null;
   private ctrlCPending = false;
   private ctrlCTimer: NodeJS.Timeout | null = null;
   private isBusy = false;
@@ -362,6 +365,50 @@ export class TUIApp {
     this.engine.mount(this.statusBar);
   }
 
+  private openRewindMenu(): void {
+    if (this.activeModal) this.closeModal();
+    this.engine.unmount(this.promptInput);
+    this.engine.unmount(this.statusBar);
+
+    const menu = new RewindMenu({
+      session: this.session.session,
+      cwd: this.cwd,
+      onSelect: async (item) => {
+        this.closeModal();
+        if (item.isCurrent) {
+          this.engine.commit(
+            'system',
+            formatSystemMessage('Already at current state; no turns discarded.'),
+          );
+          return;
+        }
+
+        const res = await executeRewind({
+          session: this.session.session,
+          targetTurnId: item.turnId,
+          workspaceRoot: this.cwd,
+        });
+
+        if (res.success) {
+          this.switchToSession(res.rewoundSession);
+          this.engine.commit(
+            'system',
+            formatSystemMessage(
+              `Rewound to turn ${item.turnIndex + 1} (${res.restoredFilesCount} file(s) restored, ${res.discardedTurnsCount} turn(s) discarded).`,
+            ),
+          );
+        } else {
+          this.engine.commit('system', formatSystemMessage(`Rewind failed: ${res.error}`));
+        }
+      },
+      onCancel: () => this.closeModal(),
+    });
+
+    this.activeModal = menu;
+    this.engine.mount(menu, { kind: 'dock' });
+    this.engine.mount(this.statusBar);
+  }
+
   private handleAbort(): void {
     if (this.isBusy) {
       this.session.abort();
@@ -391,6 +438,11 @@ export class TUIApp {
       }
 
       this.engine.commitPrompt(text);
+
+      if (cmdResult.data?.showRewind) {
+        this.openRewindMenu();
+        return;
+      }
 
       if (cmdResult.data?.showModelPicker) {
         this.openModelPicker(cmdResult.data.models ?? []);
@@ -437,15 +489,9 @@ export class TUIApp {
     let accumulatedText = '';
     const activeToolStartTimes = new Map<string, number>();
 
-    const toolContext: ToolContext = {
-      cwd: this.cwd,
-    };
-
-    const tools = defaultToolCatalog.toAISDKTools(toolContext);
-
     try {
       await this.session.submitPrompt(text, {
-        tools,
+        cwd: this.cwd,
         onEvent: (event) => {
           switch (event.type) {
             case 'reasoning-delta': {

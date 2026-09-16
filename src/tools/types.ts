@@ -1,4 +1,5 @@
 import type { z } from 'zod';
+import type { MutationCheckpointTracker, MutationLockManager } from '../checkpoint/index.js';
 
 /**
  * Execution context passed to tools during execution.
@@ -6,6 +7,8 @@ import type { z } from 'zod';
 export interface ToolContext {
   cwd: string;
   abortSignal?: AbortSignal;
+  checkpointTracker?: MutationCheckpointTracker;
+  mutationLocks?: MutationLockManager;
 }
 
 /**

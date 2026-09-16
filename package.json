@@ -1,7 +1,7 @@
 {
   "name": "steward",
-  "version": "0.2.3",
-  "description": "Engineering agent for codebase investigation, planning, and safe code proposals — nothing lands until you approve it.",
+  "version": "0.2.4",
+  "description": "Engineering agent for codebase investigation, direct file mutation, and guaranteed rewind checkpointing.",
   "author": "sapirrior",
   "license": "MIT",
   "files": [
