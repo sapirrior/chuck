@@ -36,8 +36,9 @@ const STATUS_WORDS = [
 ];
 
 export default class PromptInput extends Component<PromptInputProps, PromptInputState> {
-  override wrap = false;
-  override clip = false;
+  override wrap = true;
+  override clip = true;
+  override ellipsis = false;
 
   private history: string[] = [];
   private draft = '';

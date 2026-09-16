@@ -1,0 +1,24 @@
+[?2026h[H[J ▛███▜   Steward v0.2.0
+▀█████▀  anthropic/claude-3-5-sonnet-20241022 · API Usage Billing
+ ▘▘ ▝▝   /workspace/steward
+
+────────────────────────────────────────────────────────────────────────────────
+❯ This is a very long prompt sentence that definitely exceeds standard terminal
+eighty columns width and should soft-wrap cleanly across multiple visual rows
+with correct cursor mapping.
+────────────────────────────────────────────────────────────────────────────────
+? for shortcuts                                                          default
+
+
+
+
+
+
+
+
+
+
+
+
+
+[?25h[7;48H[?2026l

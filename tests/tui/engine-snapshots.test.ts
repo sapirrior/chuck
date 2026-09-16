@@ -84,6 +84,42 @@ describe('TUI Engine Headless Golden Snapshots', () => {
     assertGoldenMatch('prompt-multiline-cursor', result.rawAnsi);
   });
 
+  it('golden: prompt-long-wrapped (long prompt text wrapping across visual rows)', () => {
+    const engine = new TerminalEngine();
+    const header = new Header({
+      version: '0.2.0',
+      cwd: '/workspace/steward',
+      model: dummyModel,
+    });
+    const prompt = new PromptInput({
+      onSubmit: () => {},
+    });
+    prompt.setState({
+      value:
+        'This is a very long prompt sentence that definitely exceeds standard terminal eighty columns width and should soft-wrap cleanly across multiple visual rows with correct cursor mapping.',
+      cursorPos: 125,
+    });
+    const statusBar = new StatusBar({
+      model: dummyModel,
+      usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+      isBusy: false,
+    });
+
+    engine.mount(header, { kind: 'custom' });
+    engine.mount(prompt, { kind: 'input', keepCursorVisible: true });
+    engine.mount(statusBar, { kind: 'custom' });
+
+    const result = captureHeadlessRender(
+      (renderer) => {
+        return renderer.render(engine.tree, 0, true);
+      },
+      { cols: 80, rows: 24 },
+    );
+
+    engine.cleanupSync();
+    assertGoldenMatch('prompt-long-wrapped', result.rawAnsi);
+  });
+
   it('golden: prompt-esc-pending (prompt with escPending banner)', () => {
     const engine = new TerminalEngine();
     const prompt = new PromptInput({
