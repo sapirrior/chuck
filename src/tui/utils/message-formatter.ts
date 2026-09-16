@@ -7,18 +7,11 @@ import {
   formatMarkdown,
   stripAnsi,
   getStatusBullet,
+  truncateMiddle,
 } from './format.js';
 import { wrapVisualLine } from '../engine/cell-layout.js';
-import { prefixedLine } from '../primitives/PrefixedLine.js';
 import type { ToolExecutionStatus } from '../types.js';
 import type { StructuredError } from '../../errors/index.js';
-
-function truncateMiddle(text: string, maxLength = 48): string {
-  if (!text || text.length <= maxLength) return text;
-  const leftChars = Math.floor((maxLength - 1) / 2);
-  const rightChars = Math.ceil((maxLength - 1) / 2);
-  return `${text.slice(0, leftChars)}…${text.slice(text.length - rightChars)}`;
-}
 
 export function formatUserMessage(content: string, targetWidth?: number): string[] {
   const theme = getTheme();
@@ -75,6 +68,10 @@ export function formatAssistantMessage(content: string): string[] {
         rawLines.pop();
       }
 
+      if (rawLines.length > 0) {
+        lines.push('');
+      }
+
       for (let i = 0; i < rawLines.length; i++) {
         const l = rawLines[i] ?? '';
         if (!l.trim()) {
@@ -103,10 +100,12 @@ export function formatToolStatus(options: {
   durationMs?: number;
   error?: string;
   toolOutput?: string;
+  targetWidth?: number;
 }): string[] {
-  const { toolName, displayName, icon, argsSummary, status, error } = options;
+  const { toolName, displayName, icon, argsSummary, status, error, targetWidth } = options;
   const theme = getTheme();
-  const fullTermWidth = process.stdout.columns || 80;
+  const fullTermWidth =
+    typeof targetWidth === 'number' && targetWidth > 0 ? targetWidth : process.stdout.columns || 80;
 
   const bullet = getStatusBullet(status);
   const dispName = displayName ?? icon ?? toolName;
@@ -134,7 +133,9 @@ export function formatToolStatus(options: {
   }
 
   const cleanFirstLine = rawArg.split('\n')[0] ?? '';
-  const truncatedArg = truncateMiddle(cleanFirstLine, 48);
+  const maxArgLen = Math.max(10, fullTermWidth - dispName.length - 8);
+  const truncatedArg =
+    cleanFirstLine.length > maxArgLen ? truncateMiddle(cleanFirstLine, maxArgLen) : cleanFirstLine;
 
   let mainLine = `${bullet} ${dispName}`;
   if (truncatedArg) {

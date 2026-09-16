@@ -141,19 +141,26 @@ export class TUIApp {
             }
           } else if (msg.role === 'assistant') {
             if (typeof msg.content === 'string' && msg.content) {
-              this.engine.commit('assistant-message', formatAssistantMessage(msg.content));
+              this.engine.commit('assistant-message', formatAssistantMessage(msg.content), {
+                hangingIndent: 2,
+              });
             } else if (Array.isArray(msg.content)) {
               for (const part of msg.content) {
                 if (part.type === 'text' && part.text) {
-                  this.engine.commit('assistant-message', formatAssistantMessage(part.text));
+                  this.engine.commit('assistant-message', formatAssistantMessage(part.text), {
+                    hangingIndent: 2,
+                  });
                 } else if (part.type === 'tool-call') {
                   this.engine.commit(
                     'tool-result',
-                    formatToolStatus({
-                      toolName: part.toolName,
-                      argsSummary: JSON.stringify(part.args ?? {}),
-                      status: 'completed',
-                    }),
+                    (w) =>
+                      formatToolStatus({
+                        toolName: part.toolName,
+                        argsSummary: JSON.stringify(part.args ?? {}),
+                        status: 'completed',
+                        targetWidth: w,
+                      }),
+                    { hangingIndent: 2 },
                   );
                 }
               }
@@ -279,21 +286,27 @@ export class TUIApp {
       } else if (item.type === 'system') {
         this.engine.commit('system', formatSystemMessage(item.content));
       } else if (item.type === 'tool' && item.toolData) {
+        const toolData = item.toolData;
         this.engine.commit(
           'tool-result',
-          formatToolStatus({
-            toolName: item.toolData.toolName,
-            displayName: item.toolData.displayName,
-            icon: item.toolData.icon,
-            argsSummary: item.toolData.argsSummary,
-            status: item.toolData.status,
-            durationMs: item.toolData.durationMs,
-            error: item.toolData.error,
-            toolOutput: item.toolData.toolOutput,
-          }),
+          (w) =>
+            formatToolStatus({
+              toolName: toolData.toolName,
+              displayName: toolData.displayName,
+              icon: toolData.icon,
+              argsSummary: toolData.argsSummary,
+              status: toolData.status,
+              durationMs: toolData.durationMs,
+              error: toolData.error,
+              toolOutput: toolData.toolOutput,
+              targetWidth: w,
+            }),
+          { hangingIndent: 2 },
         );
       } else if (item.type === 'assistant') {
-        this.engine.commit('assistant-message', formatAssistantMessage(item.content));
+        this.engine.commit('assistant-message', formatAssistantMessage(item.content), {
+          hangingIndent: 2,
+        });
       }
     }
 
@@ -447,7 +460,9 @@ export class TUIApp {
             case 'tool-call': {
               // Flush any prior accumulated assistant text before tool execution log
               if (accumulatedText.trim()) {
-                this.engine.commit('assistant-message', formatAssistantMessage(accumulatedText));
+                this.engine.commit('assistant-message', formatAssistantMessage(accumulatedText), {
+                  hangingIndent: 2,
+                });
                 accumulatedText = '';
                 this.streamingView.reset();
               }
@@ -469,30 +484,41 @@ export class TUIApp {
 
               const toolDef = defaultToolCatalog.get(event.toolResult.name);
 
+              const toolName = event.toolResult.name;
+              const displayName = toolDef?.displayName;
+              const icon = toolDef?.icon;
+              const argsSummary = JSON.stringify(event.toolResult.args);
+              const status = event.toolResult.isError ? 'failed' : 'completed';
+              const error = event.toolResult.isError
+                ? typeof event.toolResult.result === 'object' && event.toolResult.result !== null
+                  ? ((event.toolResult.result as any).message ??
+                    JSON.stringify(event.toolResult.result))
+                  : String(event.toolResult.result)
+                : undefined;
+
               this.engine.commit(
                 'tool-result',
-                formatToolStatus({
-                  toolName: event.toolResult.name,
-                  displayName: toolDef?.displayName,
-                  icon: toolDef?.icon,
-                  argsSummary: JSON.stringify(event.toolResult.args),
-                  status: event.toolResult.isError ? 'failed' : 'completed',
-                  durationMs,
-                  error: event.toolResult.isError
-                    ? typeof event.toolResult.result === 'object' &&
-                      event.toolResult.result !== null
-                      ? ((event.toolResult.result as any).message ??
-                        JSON.stringify(event.toolResult.result))
-                      : String(event.toolResult.result)
-                    : undefined,
-                }),
+                (w) =>
+                  formatToolStatus({
+                    toolName,
+                    displayName,
+                    icon,
+                    argsSummary,
+                    status,
+                    durationMs,
+                    error,
+                    targetWidth: w,
+                  }),
+                { hangingIndent: 2 },
               );
               break;
             }
             case 'turn-complete': {
               this.streamingView.setActiveTool(null);
               if (accumulatedText.trim()) {
-                this.engine.commit('assistant-message', formatAssistantMessage(accumulatedText));
+                this.engine.commit('assistant-message', formatAssistantMessage(accumulatedText), {
+                  hangingIndent: 2,
+                });
               }
               accumulatedText = '';
               this.streamingView.reset();
@@ -526,7 +552,9 @@ export class TUIApp {
       const structured = classifyError(err);
       if (structured.category === 'aborted') {
         if (accumulatedText.trim()) {
-          this.engine.commit('assistant-message', formatAssistantMessage(accumulatedText));
+          this.engine.commit('assistant-message', formatAssistantMessage(accumulatedText), {
+            hangingIndent: 2,
+          });
         }
         accumulatedText = '';
         this.streamingView.reset();

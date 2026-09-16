@@ -45,6 +45,13 @@ export function extractThinking(text: string): { thinking?: string; response?: s
   return { response: text };
 }
 
+export function truncateMiddle(text: string, maxLength: number): string {
+  if (!text || text.length <= maxLength) return text;
+  const leftChars = Math.floor((maxLength - 1) / 2);
+  const rightChars = Math.ceil((maxLength - 1) / 2);
+  return `${text.slice(0, leftChars)}…${text.slice(text.length - rightChars)}`;
+}
+
 export function truncateToWidth(styledText: string, maxWidth: number): string {
   if (maxWidth <= 0) return '';
   if (stringWidth(stripAnsi(styledText)) <= maxWidth) return styledText;

@@ -1,6 +1,6 @@
 import Component from '../engine/Component.js';
 import { figures } from '../../theme/index.js';
-import { chalk, formatMarkdown, getStatusBullet } from '../utils/format.js';
+import { chalk, formatMarkdown, getStatusBullet, truncateMiddle } from '../utils/format.js';
 import { wrapVisualLine } from '../engine/cell-layout.js';
 
 export interface ActiveToolCall {
@@ -86,7 +86,7 @@ export default class StreamingView extends Component<{}, StreamingViewState> {
 
     const termWidth = width ?? process.stdout.columns ?? 80;
     const maxCols = Math.max(1, termWidth);
-    const textWidth = Math.max(1, Math.min(96, maxCols) - 2);
+    const textWidth = Math.max(1, maxCols - 2);
 
     const lines: string[] = [];
 
@@ -110,16 +110,21 @@ export default class StreamingView extends Component<{}, StreamingViewState> {
 
       let line = `${bullet} ${toolName}`;
       if (targetArg) {
-        line += `${chalk.dim('(')}${chalk.dim(targetArg.slice(0, 48))}${chalk.dim(')')}`;
+        const maxArgLen = Math.max(10, maxCols - toolName.length - 8);
+        const truncatedArg =
+          targetArg.length > maxArgLen ? truncateMiddle(targetArg, maxArgLen) : targetArg;
+        line += `${chalk.dim('(')}${chalk.dim(truncatedArg)}${chalk.dim(')')}`;
       }
       lines.push(line);
 
       if (activeTool.recentLines && activeTool.recentLines.length > 0) {
         const toShow = activeTool.recentLines.slice(-10);
+        const maxLogLen = Math.max(10, maxCols - 6);
         for (let i = 0; i < toShow.length; i++) {
           const l = toShow[i] ?? '';
           const p = i === 0 ? `  ${chalk.dim('└ ')}` : '    ';
-          lines.push(`${p}${chalk.dim(l.slice(0, 80))}`);
+          const truncatedLog = l.length > maxLogLen ? `${l.slice(0, maxLogLen - 1)}…` : l;
+          lines.push(`${p}${chalk.dim(truncatedLog)}`);
         }
       } else {
         lines.push(`  ${chalk.dim('└ Running...')}`);

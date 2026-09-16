@@ -68,6 +68,46 @@ export class TextNode implements ComponentNode {
   }
 }
 
+export class ResponsiveHistoryNode implements ComponentNode {
+  id: string;
+  kind: 'custom' = 'custom';
+  renderFn: (width: number) => string[];
+  wrap: boolean;
+  clip: boolean;
+  ellipsis?: boolean;
+  hangingIndent?: number;
+  private _cachedWidth = -1;
+  private _cachedLines: string[] = [];
+
+  constructor(
+    id: string,
+    renderFn: (width: number) => string[],
+    wrap = false,
+    clip = true,
+    hangingIndent?: number,
+  ) {
+    this.id = id;
+    this.renderFn = renderFn;
+    this.wrap = wrap;
+    this.clip = clip;
+    this.hangingIndent = hangingIndent;
+  }
+
+  invalidateCache(): void {
+    this._cachedWidth = -1;
+    this._cachedLines = [];
+  }
+
+  getLines(width: number, forceAll = false): string[] {
+    if (!forceAll && width === this._cachedWidth && this._cachedLines.length > 0) {
+      return this._cachedLines;
+    }
+    this._cachedWidth = width;
+    this._cachedLines = this.renderFn(width);
+    return this._cachedLines;
+  }
+}
+
 export class UserMessageNode implements ComponentNode {
   id: string;
   kind: 'custom' = 'custom';
@@ -146,6 +186,32 @@ export class DocumentTree {
 
   addUserMessage(content: string): UserMessageNode {
     const node = new UserMessageNode(`user-node-${this.idCounter++}`, content);
+    this.historyNodes.push(node);
+    if (this.lastHistoryWidth > 0) {
+      const cached = historyLayoutCache.getOrCompute(node.id, this.lastHistoryWidth, () => {
+        const { rows } = measureNode(node, this.lastHistoryWidth);
+        return rows;
+      });
+      for (const r of cached.physicalRows) {
+        this.cachedHistoryRows.push(r);
+      }
+    }
+    return node;
+  }
+
+  addResponsive(
+    renderFn: (width: number) => string[],
+    wrap = false,
+    clip = true,
+    hangingIndent?: number,
+  ): ResponsiveHistoryNode {
+    const node = new ResponsiveHistoryNode(
+      `resp-node-${this.idCounter++}`,
+      renderFn,
+      wrap,
+      clip,
+      hangingIndent,
+    );
     this.historyNodes.push(node);
     if (this.lastHistoryWidth > 0) {
       const cached = historyLayoutCache.getOrCompute(node.id, this.lastHistoryWidth, () => {

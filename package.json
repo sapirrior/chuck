@@ -1,6 +1,6 @@
 {
   "name": "steward",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Engineering agent for codebase investigation, planning, and safe code proposals — nothing lands until you approve it.",
   "author": "sapirrior",
   "license": "MIT",

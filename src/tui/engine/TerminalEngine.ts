@@ -260,14 +260,24 @@ export default class TerminalEngine {
       | 'logo'
       | 'prompt'
       | 'system',
-    lines: string[],
+    linesOrFn: string[] | ((width: number) => string[]),
+    opts?: { wrap?: boolean; clip?: boolean; maxReadableWidth?: number; hangingIndent?: number },
   ): void {
     this.ensureAlternateScreen();
-    this.history.push(kind, lines);
-    const maxReadableWidth = kind === 'assistant-message' ? 100 : undefined;
-    const isWrappable = kind !== 'logo' && kind !== 'header' && kind !== 'footer';
-    const hangingIndent = kind === 'assistant-message' ? 4 : undefined;
-    this.tree.addText(lines, isWrappable, maxReadableWidth, hangingIndent);
+    const isWrappable = opts?.wrap ?? (kind !== 'logo' && kind !== 'header' && kind !== 'footer');
+    if (typeof linesOrFn === 'function') {
+      const initialLines = linesOrFn(process.stdout.columns || 80);
+      this.history.push(kind, initialLines);
+      this.tree.addResponsive(
+        linesOrFn,
+        isWrappable,
+        opts?.clip ?? !isWrappable,
+        opts?.hangingIndent,
+      );
+    } else {
+      this.history.push(kind, linesOrFn);
+      this.tree.addText(linesOrFn, isWrappable, opts?.maxReadableWidth, opts?.hangingIndent);
+    }
     this.requestFrame();
   }
 
