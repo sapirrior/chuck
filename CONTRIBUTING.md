@@ -52,9 +52,10 @@ src/
 | `bun run start` | Run the CLI directly |
 | `bun run build` | Bundle to `./dist/cli.js` |
 | `bun run compile` | Compile to standalone binary `./dist/steward` |
-| `bun run format` | Check formatting |
+| `bun run format` | Check formatting with Prettier |
 | `bun run format:fix` | Auto-fix formatting |
-| `bun test` | Run tests |
+| `bun run lint:boundaries` | Check TUI 3-layer boundary rules |
+| `bun test` | Run tests (including headless golden snapshot suite) |
 
 ---
 
@@ -75,6 +76,14 @@ src/
 | Files & Directories | `kebab-case` | `agent-runner.ts` |
 | Types & Interfaces | `PascalCase` | `AgentContext` |
 | Functions & Variables | `camelCase` | `runAgentLoop` |
+
+### TUI Architecture & Rules
+- All code under `src/tui/` must strictly adhere to [`src/tui/Rules.txt`](src/tui/Rules.txt).
+- **Layer 0 (Core/Layout):** Frozen engine (`TerminalEngine`, `DocumentTree`, `StateRenderer`, `ScreenBuffer`, `cell-layout.ts`). Content-blind, handles cells and Mode 2026 synchronized output.
+- **Layer 1 (Primitives):** Generic composition blocks (`Box`, `Text`, `PrefixedLine`, `SelectList`, `ModalBox`, `KeyReader`).
+- **Layer 2 (Components):** Domain UI components (`Header.tsx`, `StatusBar.tsx`, `PromptInput.tsx`, `StreamingView.tsx`, `ShortcutsMenu.tsx`, `ModelPicker.tsx`, `SessionMenu.tsx`).
+- **Declarative JSX:** Components use `.tsx` with our lightweight zero-dependency JSX runtime (`<Box>`, `<Text>`).
+- **Headless Snapshots:** All visual frames are protected by golden snapshot tests (`tests/tui/engine-snapshots.test.ts`). Run `UPDATE_GOLDENS=1 bun test` only when intentionally making approved UI changes.
 
 ---
 

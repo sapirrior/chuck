@@ -2,13 +2,13 @@ import Component from '../../engine/Component.js';
 import { Box, Text, renderModalBox } from '../../primitives/index.js';
 import { chalk } from '../../utils/format.js';
 
-export interface HelpMenuProps {
+export interface ShortcutsMenuProps {
   onClose: () => void;
 }
 
-export default class HelpMenu extends Component<HelpMenuProps> {
-  override overflow = 'hidden' as const;
-  override truncation = 'clip' as const;
+export default class ShortcutsMenu extends Component<ShortcutsMenuProps> {
+  override wrap = false;
+  override clip = true;
 
   private removeInputListener: (() => void) | null = null;
 
@@ -55,10 +55,12 @@ export default class HelpMenu extends Component<HelpMenuProps> {
       const leftFormatted = `  ${chalk.white(left.key.padEnd(11))} ${chalk.dim(left.desc.padEnd(18))}`;
       const rightFormatted = `${chalk.white(right.key.padEnd(13))} ${chalk.dim(right.desc)}`;
 
-      return Box({ direction: 'row', justify: 'flex-start', width: maxCols }, [
-        Text(leftFormatted),
-        Text(rightFormatted),
-      ]);
+      return (
+        <Box direction="row" justify="start" width={maxCols}>
+          <Text>{leftFormatted}</Text>
+          <Text>{rightFormatted}</Text>
+        </Box>
+      );
     });
 
     return renderModalBox({

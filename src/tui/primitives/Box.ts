@@ -22,8 +22,9 @@ export interface BoxProps {
   paddingTop?: number;
   paddingBottom?: number;
 
-  overflow?: 'wrap' | 'hidden' | 'visible';
-  truncation?: 'clip' | 'none';
+  wrap?: boolean;
+  clip?: boolean;
+  ellipsis?: boolean;
 }
 
 export type BoxChild = BoxElement | TextElement | string | null | undefined;
@@ -98,10 +99,8 @@ export class BoxElement {
     // Apply borders
     const finalLines = this.applyBorders(contentLines, maxCols, border);
 
-    const overflow = this.props.overflow ?? 'hidden';
-    const truncation = this.props.truncation ?? (overflow === 'hidden' ? 'clip' : 'none');
-
-    if (truncation === 'clip') {
+    const isClipped = this.props.clip ?? false;
+    if (isClipped) {
       return finalLines.map((l) => truncateToWidth(l, maxCols));
     }
     return finalLines;

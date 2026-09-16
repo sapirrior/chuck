@@ -35,8 +35,8 @@ function formatTokens(n: number): string {
 }
 
 export default class StatusBar extends Component<StatusBarProps, StatusBarState> {
-  override overflow = 'hidden' as const;
-  override truncation = 'clip' as const;
+  override wrap = false;
+  override clip = true;
 
   constructor(props: StatusBarProps) {
     super(props);
@@ -80,9 +80,13 @@ export default class StatusBar extends Component<StatusBarProps, StatusBarState>
     const right =
       parts.length > 0 ? themeColor(theme.textMuted)(parts.join(` ${figures.bullet} `)) : '';
 
-    return Box({ direction: 'row', justify: 'space-between', width: maxCols, overflow: 'hidden' }, [
-      Text(left, { overflow: 'hidden' }),
-      Text(right, { overflow: 'hidden' }),
-    ]).render(maxCols);
+    const element = (
+      <Box direction="row" justify="space-between" width={maxCols} clip={true}>
+        <Text clip={true}>{left}</Text>
+        <Text clip={true}>{right}</Text>
+      </Box>
+    );
+
+    return element.render(maxCols);
   }
 }

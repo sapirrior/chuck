@@ -86,4 +86,21 @@ export function truncateToWidth(styledText: string, maxWidth: number): string {
   return result.includes('\x1b') && !result.endsWith('\x1b[0m') ? result + '\x1b[0m' : result;
 }
 
+export function getStatusBullet(
+  status: 'completed' | 'failed' | 'running' | 'streaming',
+  pulse = false,
+): string {
+  const theme = getTheme();
+  if (status === 'completed') {
+    return themeColor(theme.success)(figures.blackCircle);
+  }
+  if (status === 'failed') {
+    return themeColor(theme.error)(figures.blackCircle);
+  }
+  if (pulse) {
+    return chalk.white.bold(figures.blackCircle);
+  }
+  return chalk.dim(figures.blackCircle);
+}
+
 export { stripAnsi, getTheme, figures, chalk };

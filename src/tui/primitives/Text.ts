@@ -16,9 +16,11 @@ export interface TextProps {
 
   // Layout & Alignment
   align?: 'left' | 'center' | 'right';
-  overflow?: 'wrap' | 'hidden' | 'visible';
-  truncation?: 'clip' | 'ellipsis' | 'none';
+  wrap?: boolean;
+  clip?: boolean;
+  ellipsis?: boolean;
   maxWidth?: number;
+  hangingIndent?: number;
 }
 
 export class TextElement {
@@ -58,16 +60,18 @@ export class TextElement {
       }
     }
 
-    const overflow = this.props.overflow ?? 'wrap';
-    const truncation = this.props.truncation ?? (overflow === 'hidden' ? 'clip' : 'none');
+    const isWrappable = this.props.wrap ?? true;
+    const isClipped = this.props.clip ?? false;
 
     let lines: string[];
-    if (overflow === 'wrap') {
+    if (isWrappable) {
       const vLines = styled.split('\n');
-      lines = vLines.flatMap((vl) => (vl ? wrapVisualLine(vl, effWidth) : ['']));
+      lines = vLines.flatMap((vl) =>
+        vl ? wrapVisualLine(vl, effWidth, this.props.hangingIndent ?? 0) : [''],
+      );
     } else {
       const vLines = styled.split('\n');
-      if (truncation === 'clip' || truncation === 'ellipsis') {
+      if (isClipped) {
         lines = vLines.map((vl) => truncateToWidth(vl, effWidth));
       } else {
         lines = vLines;

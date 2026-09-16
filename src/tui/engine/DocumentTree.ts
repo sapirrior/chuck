@@ -5,6 +5,10 @@ import { historyLayoutCache } from './HistoryLayoutCache.js';
 export interface ComponentNode {
   id: string;
   kind: 'text' | 'spinner' | 'input' | 'select' | 'dock' | 'custom';
+  wrap: boolean;
+  clip: boolean;
+  ellipsis?: boolean;
+  hangingIndent?: number;
   getLines(width: number, forceAll?: boolean): string[];
   /**
    * Optional: logical cursor location { logicalLineIndex, characterOffsetWithinLine }.
@@ -21,16 +25,30 @@ export class TextNode implements ComponentNode {
   id: string;
   kind: 'text' = 'text';
   lines: string[];
-  wrappable: boolean;
+  wrap: boolean;
+  clip: boolean;
+  ellipsis?: boolean;
+  hangingIndent?: number;
   maxReadableWidth?: number;
   private _cachedWidth = -1;
   private _cachedWrapped: string[] = [];
 
-  constructor(id: string, lines: string[], wrappable = true, maxReadableWidth?: number) {
+  constructor(
+    id: string,
+    lines: string[],
+    wrap = true,
+    maxReadableWidth?: number,
+    hangingIndent?: number,
+    clip = false,
+    ellipsis = false,
+  ) {
     this.id = id;
     this.lines = lines;
-    this.wrappable = wrappable;
+    this.wrap = wrap;
+    this.clip = clip;
+    this.ellipsis = ellipsis;
     this.maxReadableWidth = maxReadableWidth;
+    this.hangingIndent = hangingIndent;
   }
 
   invalidateCache(): void {
@@ -39,11 +57,13 @@ export class TextNode implements ComponentNode {
   }
 
   getLines(width: number, forceAll = false): string[] {
-    if (!this.wrappable) return this.lines;
+    if (!this.wrap) return this.lines;
     const effectiveWidth = this.maxReadableWidth ? Math.min(width, this.maxReadableWidth) : width;
     if (!forceAll && effectiveWidth === this._cachedWidth) return this._cachedWrapped;
     this._cachedWidth = effectiveWidth;
-    this._cachedWrapped = this.lines.flatMap((line) => wrapVisualLine(line, effectiveWidth));
+    this._cachedWrapped = this.lines.flatMap((line) =>
+      wrapVisualLine(line, effectiveWidth, this.hangingIndent ?? 0),
+    );
     return this._cachedWrapped;
   }
 }
@@ -52,9 +72,9 @@ export class UserMessageNode implements ComponentNode {
   id: string;
   kind: 'custom' = 'custom';
   content: string;
-  wrappable = false;
-  overflow = 'hidden' as const;
-  truncation = 'clip' as const;
+  wrap = false;
+  clip = true;
+  ellipsis = false;
   private _cachedWidth = -1;
   private _cachedColumns = -1;
   private _cachedLines: string[] = [];
@@ -94,8 +114,23 @@ export class DocumentTree {
   private cachedHistoryRows: PhysicalRow[] = [];
   private lastHistoryWidth = -1;
 
-  addText(lines: string[], wrappable = true, maxReadableWidth?: number): TextNode {
-    const node = new TextNode(`node-${this.idCounter++}`, lines, wrappable, maxReadableWidth);
+  addText(
+    lines: string[],
+    wrap = true,
+    maxReadableWidth?: number,
+    hangingIndent?: number,
+    clip = false,
+    ellipsis = false,
+  ): TextNode {
+    const node = new TextNode(
+      `node-${this.idCounter++}`,
+      lines,
+      wrap,
+      maxReadableWidth,
+      hangingIndent,
+      clip,
+      ellipsis,
+    );
     this.historyNodes.push(node);
     if (this.lastHistoryWidth > 0) {
       const cached = historyLayoutCache.getOrCompute(node.id, this.lastHistoryWidth, () => {

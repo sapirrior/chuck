@@ -43,18 +43,21 @@ export default class SessionMenu extends SelectList<SessionData> {
         ].filter(Boolean);
         const meta = metaParts.join(' • ');
 
-        return Box({ direction: 'column', width: maxCols }, [
-          Text(`${pointer}${cleanTitle}`, {
-            color: isSelected ? selColor : chalk.white,
-            overflow: 'hidden',
-            truncation: 'ellipsis',
-          }),
-          Text(`  ${meta}`, {
-            dim: true,
-            overflow: 'hidden',
-            truncation: 'ellipsis',
-          }),
-        ]);
+        return (
+          <Box direction="column" width={maxCols}>
+            <Text
+              color={isSelected ? selColor : chalk.white}
+              wrap={false}
+              clip={true}
+              ellipsis={true}
+            >
+              {`${pointer}${cleanTitle}`}
+            </Text>
+            <Text dim={true} wrap={false} clip={true} ellipsis={true}>
+              {`  ${meta}`}
+            </Text>
+          </Box>
+        );
       },
     });
   }

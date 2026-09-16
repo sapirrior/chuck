@@ -155,6 +155,7 @@ export function wrapVisualLineWithCursor(
   text: string,
   maxCols: number,
   targetCharOffset: number | null,
+  hangingIndent: number | string = 0,
 ): WrapResultWithCursor {
   // A logical "line" must never contain a raw line break — normalize
   // defensively; upstream producers are responsible for pre-splitting.
@@ -179,35 +180,12 @@ export function wrapVisualLineWithCursor(
     };
   }
 
-  const plainText = stripAnsi(text);
-  let continuationIndent = '';
-  if (
-    plainText.startsWith(' ● ') ||
-    plainText.startsWith(' • ') ||
-    plainText.startsWith(' * ') ||
-    plainText.startsWith(' - ')
-  ) {
-    continuationIndent = '   ';
-  } else if (
-    plainText.startsWith('  ● ') ||
-    plainText.startsWith('  • ') ||
-    plainText.startsWith('  * ') ||
-    plainText.startsWith('  - ')
-  ) {
-    continuationIndent = '    ';
-  } else if (plainText.startsWith('    ')) {
-    continuationIndent = '    ';
-  } else if (plainText.startsWith('   ')) {
-    continuationIndent = '   ';
-  } else if (
-    plainText.startsWith('  ') ||
-    plainText.startsWith('> ') ||
-    plainText.startsWith('❯ ') ||
-    plainText.startsWith('› ') ||
-    plainText.startsWith('! ')
-  ) {
-    continuationIndent = '  ';
-  }
+  const continuationIndent =
+    typeof hangingIndent === 'number'
+      ? hangingIndent > 0
+        ? ' '.repeat(hangingIndent)
+        : ''
+      : (hangingIndent ?? '');
 
   const tokens = tokenizeAnsi(text);
   const chunks = groupIntoChunks(tokens);
@@ -460,15 +438,23 @@ export function wrapVisualLineWithCursor(
  * Wraps `text` into lines that do not exceed `maxCols` display columns using word-boundary wrapping.
  * Automatically preserves and applies hanging indentation across wrapped lines.
  */
-export function wrapVisualLine(text: string, maxCols: number): string[] {
-  return wrapVisualLineWithCursor(text, maxCols, null).segments;
+export function wrapVisualLine(
+  text: string,
+  maxCols: number,
+  hangingIndent: number | string = 0,
+): string[] {
+  return wrapVisualLineWithCursor(text, maxCols, null, hangingIndent).segments;
 }
 
 /**
  * Backward-compatible alias for wrapVisualLine.
  */
-export function wrapByVisualWidth(text: string, maxCols: number): string[] {
-  return wrapVisualLine(text, maxCols);
+export function wrapByVisualWidth(
+  text: string,
+  maxCols: number,
+  hangingIndent: number | string = 0,
+): string[] {
+  return wrapVisualLine(text, maxCols, hangingIndent);
 }
 
 /**
@@ -483,25 +469,16 @@ export function measureNode(
   const logicalLines = node.getLines(contentWidth, forceAll);
   const rows: PhysicalRow[] = [];
 
-  const overflow = 'overflow' in node ? (node as any).overflow : undefined;
-  const isWrappable =
-    overflow !== undefined
-      ? overflow === 'wrap'
-      : 'wrappable' in node
-        ? Boolean((node as any).wrappable)
-        : true;
-
-  const truncation = 'truncation' in node ? (node as any).truncation : undefined;
+  const isWrappable = node.wrap;
+  const isClipped = node.clip;
+  const hangingIndent = node.hangingIndent ?? 0;
   const logicalCursor = node.getLogicalCursor ? node.getLogicalCursor() : null;
 
   let cursorWithinNode: { row: number; column: number } | null = null;
 
   for (let lIdx = 0; lIdx < logicalLines.length; lIdx++) {
     const rawLine = logicalLines[lIdx] ?? '';
-    const line =
-      !isWrappable && (truncation === 'clip' || truncation === 'ellipsis')
-        ? truncateToWidth(rawLine, contentWidth)
-        : rawLine;
+    const line = !isWrappable && isClipped ? truncateToWidth(rawLine, contentWidth) : rawLine;
 
     const targetCharOffset =
       logicalCursor && logicalCursor.logicalLineIndex === lIdx
@@ -509,7 +486,7 @@ export function measureNode(
         : null;
 
     const { segments, cursorInLine } = isWrappable
-      ? wrapVisualLineWithCursor(line, contentWidth, targetCharOffset)
+      ? wrapVisualLineWithCursor(line, contentWidth, targetCharOffset, hangingIndent)
       : {
           segments: [line],
           cursorInLine:

@@ -1,7 +1,15 @@
 import stringWidth from 'string-width';
 import { getTheme, figures } from '../../theme/index.js';
-import { themeColor, themeBgColor, chalk, formatMarkdown } from './format.js';
+import {
+  themeColor,
+  themeBgColor,
+  chalk,
+  formatMarkdown,
+  stripAnsi,
+  getStatusBullet,
+} from './format.js';
 import { wrapVisualLine } from '../engine/cell-layout.js';
+import { prefixedLine } from '../primitives/PrefixedLine.js';
 import type { ToolExecutionStatus } from '../types.js';
 import type { StructuredError } from '../../errors/index.js';
 
@@ -100,14 +108,7 @@ export function formatToolStatus(options: {
   const theme = getTheme();
   const fullTermWidth = process.stdout.columns || 80;
 
-  // Completed tool bullet is green ●, error/failed is red ●, running is dim/white ●
-  let bullet = chalk.dim(figures.blackCircle);
-  if (status === 'completed') {
-    bullet = themeColor(theme.success)(figures.blackCircle);
-  } else if (status === 'failed') {
-    bullet = themeColor(theme.error)(figures.blackCircle);
-  }
-
+  const bullet = getStatusBullet(status);
   const dispName = displayName ?? icon ?? toolName;
 
   // Extract primary single-line argument

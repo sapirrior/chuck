@@ -212,10 +212,12 @@ Your original host project files are never modified directly.
 src/
 ├── engine/       # Agent execution loop, multi-provider model routing, system prompt
 ├── tools/        # Confined tools (artifacts, plans, search, inspect, fetch)
-├── tui/          # Alternate-screen renderer, ScreenBuffer, declarative layout
-│   ├── primitives/   # Box, Text, SelectList, ModalBox, KeyReader
-│   ├── components/   # Header, PromptInput, StatusBar, StreamingView, Docks
-│   └── engine/       # DocumentTree, CellLayout, FrameBuffer
+├── tui/          # Alternate-screen TUI (Mode 2026 sync output & diff rendering)
+│   ├── engine/       # Layer 0 (Frozen): TerminalEngine, DocumentTree, FrameBuffer, cell-layout
+│   ├── primitives/   # Layer 1: Box, Text, PrefixedLine, SelectList, ModalBox, KeyReader
+│   ├── components/   # Layer 2: Header, PromptInput, StatusBar, StreamingView, Docks (.tsx)
+│   ├── jsx-runtime.ts# Lightweight zero-dependency JSX element factory
+│   └── Rules.txt     # Architectural laws & layer boundary invariants
 ├── commands/     # Slash commands (/model, /effort, /resume, /skills, /clear, etc.)
 ├── session/      # Canonical session storage v1 (ModelMessage[]), helpers & projections
 ├── skills/       # Dynamic skill discovery

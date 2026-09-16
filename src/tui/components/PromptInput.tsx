@@ -36,8 +36,8 @@ const STATUS_WORDS = [
 ];
 
 export default class PromptInput extends Component<PromptInputProps, PromptInputState> {
-  override overflow = 'hidden' as const;
-  override truncation = 'none' as const;
+  override wrap = false;
+  override clip = false;
 
   private history: string[] = [];
   private draft = '';
@@ -439,48 +439,21 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
     }
   }
 
-  override getLogicalCursor(): {
-    logicalLineIndex: number;
-    characterOffsetWithinLine: number;
-  } | null {
-    if (this.state.disabled) return null;
-
-    const prefixLen = 2;
-    let baseLineIndex = 0;
-    if (this.state.escPending) baseLineIndex += 1;
-    baseLineIndex += 1; // Top border
-
-    const vLines = this.state.value.split('\n');
-    let currentOffset = 0;
-
-    for (let i = 0; i < vLines.length; i++) {
-      const line = vLines[i] ?? '';
-      const lineLen = line.length;
-      const isLast = i === vLines.length - 1;
-      const lineEndOffset = currentOffset + lineLen;
-
-      if (
-        this.state.cursorPos >= currentOffset &&
-        (this.state.cursorPos <= lineEndOffset || isLast)
-      ) {
-        return {
-          logicalLineIndex: baseLineIndex + i,
-          characterOffsetWithinLine: prefixLen + (this.state.cursorPos - currentOffset),
-        };
-      }
-      currentOffset = lineEndOffset + 1;
-    }
-
-    return { logicalLineIndex: baseLineIndex, characterOffsetWithinLine: prefixLen };
+  override render(width?: number): string[] {
+    return this.renderWithCursor(width).lines;
   }
 
-  override render(width?: number): string[] {
+  override renderWithCursor(width?: number): {
+    lines: string[];
+    cursor: { logicalLineIndex: number; characterOffsetWithinLine: number } | null;
+  } {
     const theme = getTheme();
     const termWidth = width ?? process.stdout.columns ?? 80;
     const maxCols = Math.max(1, termWidth);
     const dividerWidth = maxCols;
     const {
       value,
+      cursorPos,
       disabled,
       escPending,
       spinnerFrame,
@@ -491,6 +464,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
     } = this.state;
 
     const lines: string[] = [];
+    let cursor: { logicalLineIndex: number; characterOffsetWithinLine: number } | null = null;
 
     if (escPending) {
       lines.push(themeColor(theme.permission)('Press Esc again to clear'));
@@ -525,7 +499,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
       lines.push(borderColor(figures.horizontalLine.repeat(dividerWidth)));
       lines.push(chalk.dim('Generating response… (Esc to stop)'));
       lines.push(borderColor(figures.horizontalLine.repeat(dividerWidth)));
-      return lines;
+      return { lines, cursor: null };
     }
 
     // Top Border (embeds History text in white on the border without extra lines)
@@ -539,25 +513,48 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
       lines.push(borderColor(figures.horizontalLine.repeat(dividerWidth)));
     }
 
-    // Input prompt line
+    // Input prompt line(s)
     const chevColor = themeColor(theme.userChevron);
     const pointer = chevColor(`${figures.pointerBold} `);
+    const prefixLen = 2;
 
     if (value.length === 0) {
+      cursor = {
+        logicalLineIndex: lines.length,
+        characterOffsetWithinLine: prefixLen,
+      };
       lines.push(truncateToWidth(`${pointer}${chalk.dim('Type your message...')}`, maxCols));
     } else {
       const vLines = value.split('\n');
+      let currentOffset = 0;
+
       for (let i = 0; i < vLines.length; i++) {
         const l = vLines[i] ?? '';
+        const lineLen = l.length;
+        const isLast = i === vLines.length - 1;
+        const lineEndOffset = currentOffset + lineLen;
+
+        if (
+          cursor === null &&
+          cursorPos >= currentOffset &&
+          (cursorPos <= lineEndOffset || isLast)
+        ) {
+          cursor = {
+            logicalLineIndex: lines.length,
+            characterOffsetWithinLine: prefixLen + (cursorPos - currentOffset),
+          };
+        }
+
         const p = i === 0 ? pointer : '  ';
         lines.push(`${p}${chalk.white(l)}`);
+        currentOffset = lineEndOffset + 1;
       }
     }
 
     // Bottom Border
     lines.push(borderColor(figures.horizontalLine.repeat(dividerWidth)));
 
-    // Inline CommandPalette (Screenshot 135447)
+    // Inline CommandPalette
     const isSlashMode = value.startsWith('/') && !value.includes(' ');
     const matchingCommands: SlashCommand[] = isSlashMode
       ? defaultCommandRegistry
@@ -598,6 +595,6 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
       }
     }
 
-    return lines;
+    return { lines, cursor };
   }
 }

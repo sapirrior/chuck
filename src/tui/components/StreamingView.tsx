@@ -1,6 +1,6 @@
 import Component from '../engine/Component.js';
-import { getTheme, figures } from '../../theme/index.js';
-import { themeColor, chalk, formatMarkdown } from '../utils/format.js';
+import { figures } from '../../theme/index.js';
+import { chalk, formatMarkdown, getStatusBullet } from '../utils/format.js';
 import { wrapVisualLine } from '../engine/cell-layout.js';
 
 export interface ActiveToolCall {
@@ -19,8 +19,8 @@ export interface StreamingViewState {
 }
 
 export default class StreamingView extends Component<{}, StreamingViewState> {
-  override overflow = 'wrap' as const;
-  override truncation = 'none' as const;
+  override wrap = true;
+  override clip = false;
   private pulseTimer: NodeJS.Timeout | null = null;
 
   constructor() {
@@ -58,7 +58,7 @@ export default class StreamingView extends Component<{}, StreamingViewState> {
     if ((this.state.isStreaming || this.state.activeTool) && !this.pulseTimer) {
       this.pulseTimer = setInterval(() => {
         this.setState({ pulseFrame: this.state.pulseFrame + 1 });
-      }, 150);
+      }, 120);
     } else if (!this.state.isStreaming && !this.state.activeTool && this.pulseTimer) {
       clearInterval(this.pulseTimer);
       this.pulseTimer = null;
@@ -92,11 +92,7 @@ export default class StreamingView extends Component<{}, StreamingViewState> {
 
     // 1. Ongoing active tool call (streaming live output)
     if (activeTool) {
-      // Blinking white bullet for in-progress tool call
-      const isBright = pulseFrame % 2 === 0;
-      const bullet = isBright
-        ? chalk.white.bold(figures.blackCircle)
-        : chalk.dim(figures.blackCircle);
+      const bullet = getStatusBullet('running', pulseFrame % 2 === 0);
       const toolName = activeTool.name.charAt(0).toUpperCase() + activeTool.name.slice(1);
 
       let targetArg = '';

@@ -24,7 +24,7 @@ All application source code resides in `src/`. Source code maintains strict sepa
 - **Agent Core / Orchestration (`src/engine/`):** Model loops, context management, prompt construction.
 - **Tools (`src/tools/`):** Action and tool definitions exposed to the model (`write_artifact`, `edit_artifact`, `write_plan`, `read_file`, `find_files`, `search_text`, `list_dir`, `web_fetch`, `web_search`). Artifacts and plans are strictly confined to `.steward/`.
 - **Session (`src/session/`):** Canonical session schema v1 storing ordered `ModelMessage[]`. Derived UI projections are computed at runtime.
-- **TUI (`src/tui/`):** Alternate-screen engine, diff-free minimal rendering, layout, and overlay components.
+- **TUI (`src/tui/`):** Alternate-screen engine, diff-free minimal rendering, layout, and overlay components. Strictly follows the 3-layer architecture and frozen engine contract defined in [`src/tui/Rules.txt`](src/tui/Rules.txt). Components are written in declarative JSX (`.tsx`).
 
 ## 4. Commands
 
@@ -38,7 +38,8 @@ Standard scripts defined in `package.json`:
 | `bun run compile` | Compile to a standalone binary `./dist/steward` |
 | `bun run format` | Check formatting with Prettier |
 | `bun run format:fix` | Auto-fix formatting |
-| `bun test` | Run tests |
+| `bun run lint:boundaries` | Check TUI 3-layer architecture boundary rules |
+| `bun test` | Run tests (including headless golden snapshot suite) |
 
 ## 5. Rules & Boundaries
 

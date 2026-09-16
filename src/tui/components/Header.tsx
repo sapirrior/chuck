@@ -17,8 +17,8 @@ export interface HeaderProps {
 }
 
 export default class Header extends Component<HeaderProps> {
-  override overflow = 'visible' as const;
-  override truncation = 'none' as const;
+  override wrap = false;
+  override clip = false;
 
   private formatCwd(rawPath?: string): string {
     if (!rawPath) return '~';
@@ -41,23 +41,23 @@ export default class Header extends Component<HeaderProps> {
     const modelTag = `${modelObj.provider}/${modelObj.modelId}`;
     const cwdFormatted = this.formatCwd(this.props.cwd ?? process.cwd());
 
-    return Box({ direction: 'column', overflow: 'visible', truncation: 'none' }, [
-      Text(`${logoL0}  ${chalk.white.bold('Steward')} ${chalk.dim(`v${version}`)}`, {
-        overflow: 'visible',
-        truncation: 'none',
-      }),
-      Text(
-        `${logoL1}  ${chalk.dim(modelTag)} ${chalk.dim('·')} ${chalk.dim('API Usage Billing')}`,
-        {
-          overflow: 'visible',
-          truncation: 'none',
-        },
-      ),
-      Text(`${logoL2}  ${chalk.dim(cwdFormatted)}`, {
-        overflow: 'visible',
-        truncation: 'none',
-      }),
-      Text('', { overflow: 'visible', truncation: 'none' }),
-    ]).render(80);
+    const element = (
+      <Box direction="column" wrap={false} clip={false}>
+        <Text wrap={false} clip={false}>
+          {`${logoL0}  ${chalk.white.bold('Steward')} ${chalk.dim(`v${version}`)}`}
+        </Text>
+        <Text wrap={false} clip={false}>
+          {`${logoL1}  ${chalk.dim(modelTag)} ${chalk.dim('·')} ${chalk.dim('API Usage Billing')}`}
+        </Text>
+        <Text wrap={false} clip={false}>
+          {`${logoL2}  ${chalk.dim(cwdFormatted)}`}
+        </Text>
+        <Text wrap={false} clip={false}>
+          {''}
+        </Text>
+      </Box>
+    );
+
+    return element.render(80);
   }
 }

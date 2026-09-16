@@ -14,6 +14,18 @@ class ComponentNodeAdapter implements ComponentNode {
     this.kind = kind;
   }
 
+  get wrap(): boolean {
+    return this.comp.wrap;
+  }
+
+  get clip(): boolean {
+    return this.comp.clip;
+  }
+
+  get ellipsis(): boolean {
+    return this.comp.ellipsis;
+  }
+
   getLines(width: number, forceAll?: boolean): string[] {
     return this.comp._getLines(width, forceAll);
   }
@@ -254,7 +266,8 @@ export default class TerminalEngine {
     this.history.push(kind, lines);
     const maxReadableWidth = kind === 'assistant-message' ? 100 : undefined;
     const isWrappable = kind !== 'logo' && kind !== 'header' && kind !== 'footer';
-    this.tree.addText(lines, isWrappable, maxReadableWidth);
+    const hangingIndent = kind === 'assistant-message' ? 4 : undefined;
+    this.tree.addText(lines, isWrappable, maxReadableWidth, hangingIndent);
     this.requestFrame();
   }
 

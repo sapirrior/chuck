@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "baseUrl": ".",
+    "paths": {
+      "steward/tui/*": ["./src/tui/*"],
+      "steward/tui/jsx-runtime": ["./src/tui/jsx-runtime.ts"],
+      "steward/tui/jsx-dev-runtime": ["./src/tui/jsx-dev-runtime.ts"]
+    },
+    "jsx": "react-jsx",
+    "jsxImportSource": "steward/tui",
+    "strict": true,
+    "skipLibCheck": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src/**/*", "tests/**/*"]
+}

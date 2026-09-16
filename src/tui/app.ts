@@ -13,7 +13,7 @@ import StreamingView from './components/StreamingView.js';
 import PromptInput from './components/PromptInput.js';
 import ModelPicker from './components/docks/ModelPicker.js';
 import SessionMenu from './components/docks/SessionMenu.js';
-import HelpMenu from './components/docks/HelpMenu.js';
+import ShortcutsMenu from './components/docks/ShortcutsMenu.js';
 import {
   formatSystemMessage,
   formatAssistantMessage,
@@ -41,7 +41,7 @@ export class TUIApp {
   private promptInput: PromptInput;
   private statusBar: StatusBar;
 
-  private activeModal: ModelPicker | SessionMenu | HelpMenu | null = null;
+  private activeModal: ModelPicker | SessionMenu | ShortcutsMenu | null = null;
   private ctrlCPending = false;
   private ctrlCTimer: NodeJS.Timeout | null = null;
   private isBusy = false;
@@ -99,67 +99,72 @@ export class TUIApp {
     // Rehydrate previous session turns if any
     const turns = this.session.session.turns;
     if (turns.length > 0) {
-      const items = rehydrateSessionHistory(this.session.session);
-      for (const item of items) {
-        if (item.type === 'user') {
-          this.engine.commitPrompt(item.content);
-        } else if (item.type === 'system') {
-          this.engine.commit('system', formatSystemMessage(item.content));
-        } else if (item.type === 'tool' && item.toolData) {
-          const toolDef = defaultToolCatalog.get(item.toolData.toolName);
-          this.engine.commit(
-            'tool-result',
-            formatToolStatus({
-              toolName: item.toolData.toolName,
-              displayName: item.toolData.displayName ?? toolDef?.displayName,
-              icon: item.toolData.icon ?? toolDef?.icon,
-              argsSummary: item.toolData.argsSummary,
-              status: item.toolData.status,
-              durationMs: item.toolData.durationMs,
-              error: item.toolData.error,
-              toolOutput: item.toolData.toolOutput,
-            }),
-          );
-        } else if (item.type === 'assistant') {
-          this.engine.commit('assistant-message', formatAssistantMessage(item.content));
+      for (const turn of turns) {
+        for (const msg of turn.messages) {
+          if (msg.role === 'user') {
+            const promptText =
+              typeof msg.content === 'string'
+                ? msg.content
+                : Array.isArray(msg.content)
+                  ? msg.content
+                      .filter((p: any) => p.type === 'text')
+                      .map((p: any) => p.text)
+                      .join('\n')
+                  : '';
+            if (promptText) {
+              this.engine.commitPrompt(promptText);
+            }
+          } else if (msg.role === 'assistant') {
+            if (typeof msg.content === 'string' && msg.content) {
+              this.engine.commit('assistant-message', formatAssistantMessage(msg.content));
+            } else if (Array.isArray(msg.content)) {
+              for (const part of msg.content) {
+                if (part.type === 'text' && part.text) {
+                  this.engine.commit('assistant-message', formatAssistantMessage(part.text));
+                } else if (part.type === 'tool-call') {
+                  this.engine.commit(
+                    'tool-result',
+                    formatToolStatus({
+                      toolName: part.toolName,
+                      argsSummary: JSON.stringify(part.args ?? {}),
+                      status: 'completed',
+                    }),
+                  );
+                }
+              }
+            }
+          }
         }
       }
     }
 
     // Mount live interactive components at the bottom
-    this.engine.mount(this.streamingView);
+    this.engine.mount(this.streamingView, { kind: 'custom' });
     this.engine.mount(this.promptInput, { keepCursorVisible: true, kind: 'input' });
-    this.engine.mount(this.statusBar);
+    this.engine.mount(this.statusBar, { kind: 'custom' });
 
-    // Global Ctrl+C handler
+    // Handle global keybindings
     this.engine.addInputListener((chunk) => {
       const str = chunk.toString();
+
+      // Ctrl+C double-tap handling
       if (str === '\x03') {
-        // Ctrl+C
-        if (this.isBusy) {
-          this.session.abort();
-          return true;
-        }
-
-        if (this.activeModal) {
-          this.closeModal();
-          return true;
-        }
-
         if (this.ctrlCPending) {
           if (this.ctrlCTimer) clearTimeout(this.ctrlCTimer);
+          this.ctrlCPending = false;
           this.exit();
-        } else {
-          this.ctrlCPending = true;
-          this.statusBar.update({ exitPending: true });
-          if (this.ctrlCTimer) clearTimeout(this.ctrlCTimer);
-          this.ctrlCTimer = setTimeout(() => {
-            this.ctrlCPending = false;
-            this.statusBar.update({ exitPending: false });
-          }, 1500);
+          return true;
         }
+
+        this.ctrlCPending = true;
+        this.statusBar.update({ exitPending: true });
+        this.ctrlCTimer = setTimeout(() => {
+          this.ctrlCPending = false;
+          this.statusBar.update({ exitPending: false });
+        }, 1500);
         return true;
       }
+
       return false;
     });
   }
@@ -175,7 +180,7 @@ export class TUIApp {
   }
 
   private toggleHelp(): void {
-    if (this.activeModal instanceof HelpMenu) {
+    if (this.activeModal instanceof ShortcutsMenu) {
       this.closeModal();
       return;
     }
@@ -187,7 +192,7 @@ export class TUIApp {
     this.engine.unmount(this.promptInput);
     this.engine.unmount(this.statusBar);
 
-    const help = new HelpMenu({
+    const help = new ShortcutsMenu({
       onClose: () => this.closeModal(),
     });
     this.activeModal = help;

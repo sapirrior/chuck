@@ -25,9 +25,7 @@ export function renderModalBox(options: ModalBoxOptions): string[] {
   const elements: (BoxElement | TextElement | string)[] = [];
 
   // Top rule
-  elements.push(
-    Text(lavHeader(figures.horizontalLine.repeat(dividerWidth)), { overflow: 'hidden' }),
-  );
+  elements.push(Text(lavHeader(figures.horizontalLine.repeat(dividerWidth)), { clip: true }));
 
   // Header Title Row
   if (options.subtitle) {
@@ -48,9 +46,7 @@ export function renderModalBox(options: ModalBoxOptions): string[] {
       ? chalk.white(options.queryInput.query)
       : chalk.dim(options.queryInput.placeholder);
     elements.push(Text(`${pointer}${queryDisplay}`));
-    elements.push(
-      Text(dashRule(figures.horizontalLine.repeat(dividerWidth)), { overflow: 'hidden' }),
-    );
+    elements.push(Text(dashRule(figures.horizontalLine.repeat(dividerWidth)), { clip: true }));
   }
 
   // Content children
@@ -63,7 +59,7 @@ export function renderModalBox(options: ModalBoxOptions): string[] {
     elements.push(Text(chalk.dim.italic(options.footer)));
   }
 
-  const modalBox = Box({ direction: 'column', width: maxCols, overflow: 'hidden' }, elements);
+  const modalBox = Box({ direction: 'column', width: maxCols, clip: true }, elements);
   return modalBox.render(maxCols);
 }
 

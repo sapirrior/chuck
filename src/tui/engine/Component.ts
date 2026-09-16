@@ -1,8 +1,3 @@
-import type TerminalEngine from './TerminalEngine.js';
-
-export type ComponentOverflow = 'wrap' | 'hidden' | 'visible';
-export type ComponentTruncation = 'clip' | 'ellipsis' | 'none';
-
 /**
  * Base Component class.
  * All UI widgets (Prompt, Docks, StreamingView, Header, StatusBar) inherit from this.
@@ -18,20 +13,14 @@ export default class Component<
   _lastWidth?: number;
   _cachedLines: string[] = [];
 
-  /**
-   * Overflow handling:
-   * - 'wrap': text lines are permitted to wrap across rows (used for PromptInput, StreamingView, chat history).
-   * - 'hidden': text lines must stay single-row and not expand horizontally or vertically.
-   */
-  overflow: ComponentOverflow = 'hidden';
+  /** true = word-wrap across rows, false = single row */
+  wrap = false;
 
-  /**
-   * Truncation handling:
-   * - 'clip': hard truncate any line exceeding width to avoid overflowing borders or docks.
-   * - 'ellipsis': truncate with ellipsis (…) if exceeding width.
-   * - 'none': keep line content as-is (used when overflow: 'wrap' handles wrapping downstream).
-   */
-  truncation: ComponentTruncation = 'clip';
+  /** true = truncate to width, false = never cut */
+  clip = true;
+
+  /** Optional ellipsis (...) when clipped */
+  ellipsis = false;
 
   constructor(props: Props = {} as Props) {
     this.props = props;
@@ -65,12 +54,16 @@ export default class Component<
     }
   }
 
+  _cachedCursor: { logicalLineIndex: number; characterOffsetWithinLine: number } | null = null;
+
   /**
    * Returns lines array, using cache if clean and width matches.
    */
   _getLines(width?: number, forceRedraw = false): string[] {
     if (this._dirty || forceRedraw || (width !== undefined && width !== this._lastWidth)) {
-      this._cachedLines = this.render(width);
+      const result = this.renderWithCursor(width);
+      this._cachedLines = result.lines;
+      this._cachedCursor = result.cursor ?? null;
       this._lastWidth = width;
       this._dirty = false;
     }
@@ -82,12 +75,14 @@ export default class Component<
   }
 
   /**
-   * Optional: return { logicalLineIndex, characterOffsetWithinLine } for cursor placement.
-   * null = no custom cursor for this component.
-   * Physical row/col coordinate translation is computed canonically by cell-layout.
+   * Return { logicalLineIndex, characterOffsetWithinLine } for cursor placement.
+   * Derived directly from single-pass renderWithCursor().
    */
   getLogicalCursor(): { logicalLineIndex: number; characterOffsetWithinLine: number } | null {
-    return null;
+    if (this._dirty) {
+      this._getLines(this._lastWidth);
+    }
+    return this._cachedCursor;
   }
 
   /** Lifecycle hooks */
@@ -106,6 +101,19 @@ export default class Component<
 
   onResize(_newWidth: number, _newHeight: number): void {
     this.markDirty();
+  }
+
+  /**
+   * Single-pass render method that produces both lines and cursor position.
+   */
+  renderWithCursor(width?: number): {
+    lines: string[];
+    cursor?: { logicalLineIndex: number; characterOffsetWithinLine: number } | null;
+  } {
+    return {
+      lines: this.render(width),
+      cursor: null,
+    };
   }
 
   render(_width?: number): string[] {

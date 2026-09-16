@@ -22,8 +22,8 @@ export interface SelectListState {
 }
 
 export class SelectList<T> extends Component<SelectListProps<T>, SelectListState> {
-  override overflow = 'hidden' as const;
-  override truncation = 'clip' as const;
+  override wrap = false;
+  override clip = true;
 
   private removeInputListener: (() => void) | null = null;
 

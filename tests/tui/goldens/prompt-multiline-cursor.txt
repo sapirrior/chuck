@@ -1,0 +1,24 @@
+[?2026h[H[J ▛███▜   Steward v0.1.5
+▀█████▀  anthropic/claude-3-5-sonnet-20241022 · API Usage Billing
+ ▘▘ ▝▝   /workspace/steward
+
+────────────────────────────────────────────────────────────────────────────────
+❯ First line of prompt
+  Second line with cursor
+  Third line
+────────────────────────────────────────────────────────────────────────────────
+? for shortcuts                                             165 tokens · default
+
+
+
+
+
+
+
+
+
+
+
+
+
+[?25h[7;14H[?2026l

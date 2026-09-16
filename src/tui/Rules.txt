@@ -1,0 +1,529 @@
+STEWARD TUI — MASTER RULES
+═══════════════════════════════════════════════════════════════════════════════
+Version: permanent. This file is the single source of truth for all work done
+under src/tui/. It is not a "guideline" or a "best practice doc" — it is the
+contract that keeps this codebase maintainable. Read it entirely before making
+any edit. If a rule seems wrong, change the rule explicitly in its own commit
+with a written rationale; do not quietly route around it.
+
+The engine was the most-edited file in the codebase history, re-opened every
+time a feature shipped. These rules exist to make that impossible by design,
+not by discipline.
+
+═══════════════════════════════════════════════════════════════════════════════
+WHY THIS TUI IS CUSTOM AND WHY THAT MATTERS
+═══════════════════════════════════════════════════════════════════════════════
+steward does NOT use Ink, Blessed, React, or any other third-party TUI
+framework. It has its own from-scratch terminal rendering engine. This is a
+deliberate choice: frameworks bring reconcilers, fibers, synthetic event loops,
+and large dependency trees that interfere with Mode 2026 Synchronized Output
+(the protocol that prevents flicker on rapid updates).
+
+The cost of this choice is maintenance overhead. Every behaviour you get "for
+free" from Ink must be deliberately implemented and tested here. The rules
+below are the guard rails that keep that overhead bounded. Ignore them and the
+engine becomes the bottleneck again — every feature that ships causes a cascade
+of engine edits, regressions, and golden-snapshot rewrites.
+
+Key facts every contributor must internalize:
+
+  1. There is NO virtual DOM, NO reconciler, NO fiber. `setState()` on a
+     Component sets `_dirty = true` and calls `engine.requestFrame()`, which
+     schedules a microtask-based debounced re-render. The next render pass
+     calls `component.getLines(width)`, which invokes `renderWithCursor(width)`
+     if dirty, caches the result, and returns the cached lines on subsequent
+     calls within the same frame.
+
+  2. The terminal is written to ONCE per frame via Mode 2026 Synchronized
+     Output (CSI ?2026h / CSI ?2026l). Do not call process.stdout.write()
+     yourself from any component or primitive — you will break sync output.
+
+  3. Line ownership is absolute. TerminalEngine.render() owns the entire
+     screen. No component "owns" a row number — the engine assigns rows by
+     summing component line counts at render time. Never hard-code a row
+     offset anywhere.
+
+  4. The render pipeline is:
+       Component.renderWithCursor(width)
+         → string[] lines + optional cursor
+         → TerminalEngine passes lines to DocumentTree / HistoryStore
+         → StateRenderer diffs against last frame (FrameBuffer)
+         → ScreenBuffer emits only changed cells as ANSI bytes
+     Do not short-circuit any step of this pipeline.
+
+  5. Width is always passed in. Never call process.stdout.columns from inside
+     render() or renderWithCursor(). Width is injected by the engine at render
+     time and the component must use it. This is what makes the resize-reflow
+     golden test possible.
+
+═══════════════════════════════════════════════════════════════════════════════
+RULE 1 — THREE LAYERS, HARD BOUNDARIES
+═══════════════════════════════════════════════════════════════════════════════
+Every file under src/tui/ belongs to exactly one layer. Know yours before you
+write a single line. The dependency arrows point in ONE direction only:
+Layer 2 → Layer 1 → (nothing in src/tui/). Layer 0 is independent.
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │ LAYER 0 — ENGINE & LAYOUT                                               │
+  │ src/tui/engine/    src/tui/layout/                                      │
+  │                                                                         │
+  │ Files: TerminalEngine, DocumentTree, HistoryStore, HistoryLayoutCache,  │
+  │        StateRenderer, FrameBuffer, ScreenBuffer, cell-layout.ts         │
+  │                                                                         │
+  │ Job:   Turn an ordered list of pre-rendered string[] lines into         │
+  │        terminal bytes. Manage scroll state. Handle resize. Place the    │
+  │        cursor. Emit Mode 2026 sync frames. Diff cells.                  │
+  │                                                                         │
+  │ Knows: ANSI/SGR escape sequences. Cell widths (via get-east-asian-      │
+  │        width). Visual line wrapping math. Scroll offset arithmetic.     │
+  │        FrameBuffer diffing. Cursor positioning.                         │
+  │                                                                         │
+  │ NEVER knows: What a "message" is. What a "tool call" is. What a        │
+  │ "bullet" or "markdown heading" is. Any specific component's layout.    │
+  │ Anything that requires importing from src/tui/components/ or           │
+  │ src/tui/primitives/ or src/tui/utils/message-formatter.ts.             │
+  └─────────────────────────────────────────────────────────────────────────┘
+                           ↑ Layer 2 and Layer 1 MAY import from here.
+                             Layer 0 MUST NOT import from Layer 1 or 2.
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │ LAYER 1 — PRIMITIVES                                                    │
+  │ src/tui/primitives/                                                     │
+  │                                                                         │
+  │ Files: Box, Text, PrefixedLine, SelectList, ModalBox, KeyReader         │
+  │        (and future generic helpers)                                     │
+  │                                                                         │
+  │ Job:   Generic, content-blind layout and composition pieces. Takes      │
+  │        explicit, numeric props (indent: number, color: Fn, wrap: bool). │
+  │        Produces string[] lines. No opinion about the app's domain.      │
+  │                                                                         │
+  │ Knows: string-width, strip-ansi (for layout math only — see Rule 6).   │
+  │        ANSI color helper from theme (reading, not computing). Cell      │
+  │        sizing passed as explicit numeric props.                         │
+  │                                                                         │
+  │ NEVER knows: "tool status", "chat prefix", "assistant message",        │
+  │ "markdown". A primitive that inspects string CONTENT to infer format   │
+  │ is a broken primitive — it belongs in Layer 2 instead.                 │
+  └─────────────────────────────────────────────────────────────────────────┘
+                           ↑ Layer 2 MAY import from here.
+                             Layer 1 MUST NOT import from Layer 2.
+                             Layer 1 MUST NOT import from Layer 0.
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │ LAYER 2 — COMPONENTS                                                    │
+  │ src/tui/components/    src/tui/app.ts                                   │
+  │ src/tui/utils/message-formatter.ts                                      │
+  │                                                                         │
+  │ Files: Header, StatusBar, PromptInput, StreamingView, docks/*, app.ts, │
+  │        message-formatter.ts                                             │
+  │                                                                         │
+  │ Job:   Everything domain-specific. "Tool calls get a colored bullet."   │
+  │        "Assistant messages get hanging indent." "Docks are overlays."   │
+  │        Components are built by composing Layer 1 primitives.            │
+  │                                                                         │
+  │ NEVER imports: string-width, strip-ansi directly for layout math.       │
+  │ (Color styling via theme helpers is fine. Raw width calculation is not.)│
+  │ NEVER computes: manual row-offset math. NEVER calls process.stdout.     │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+Boundary violation test: `bun run lint:boundaries` (tests/tui/boundary-lint.test.ts).
+This test is CI-mandatory. A PR that breaks it is a hard reject regardless of
+whether the feature "seems to work."
+
+═══════════════════════════════════════════════════════════════════════════════
+RULE 2 — LAYER 0 IS FROZEN
+═══════════════════════════════════════════════════════════════════════════════
+Files in Layer 0 (engine/, layout/) may be edited ONLY for one of these
+reasons — label your PR/commit with the reason letter:
+
+  A) A new terminal capability or escape sequence requires support (e.g. a
+     new kitty protocol extension, a new resize signal variant, adjusting
+     Mode 2026 enter/exit around an async operation).
+
+  B) A genuine, reproducible bug in cell diffing, line wrapping math, scroll
+     arithmetic, or cursor placement that is demonstrable with plain,
+     unstyled string content — i.e. the bug exists independently of any
+     specific component's output.
+
+  C) A measured performance regression in the render loop itself (not in a
+     component's render() method — that's Layer 2's concern).
+
+Adding a feature, a new visual style, a new keybinding, a new message type, a
+new dock, better-looking bullets — NONE of these are valid reason A/B/C.
+
+If you find yourself believing your feature needs an engine change:
+  → You are almost certainly missing a Layer 1 primitive. Add the primitive.
+
+Any commit that touches engine/ or layout/ without one of A/B/C stated
+explicitly in the commit message should be reverted without discussion.
+
+═══════════════════════════════════════════════════════════════════════════════
+RULE 3 — NO CONTENT-SNIFFING IN LAYOUT CODE
+═══════════════════════════════════════════════════════════════════════════════
+cell-layout.ts — and any other Layer 0/1 layout function — must NEVER branch
+on what the text IS:
+
+  ✗ WRONG:  if (line.startsWith('● ')) hangIndent = 2;
+  ✗ WRONG:  if (/^\s{4}/.test(line)) continuationIndent = 4;
+  ✗ WRONG:  if (line.includes('│')) treatAsBoxBorder = true;
+
+  ✓ RIGHT:  wrapVisualLine(line, width, { hangingIndent: 4 })
+            // caller passes the indent; layout code uses it blindly
+
+Any component that wants hanging-indent continuation lines passes the indent
+width as an explicit numeric parameter. The wrapping code does not know
+why that number is what it is. This is the invariant that makes it possible
+to add new bullet styles, new prefix glyphs, and new component types WITHOUT
+editing cell-layout.ts.
+
+Current explicit parameters available:
+  wrapVisualLine(line, width, opts?: { hangingIndent?: number })
+  wrapVisualLineWithCursor(line, cursorCol, width, opts?: { hangingIndent?: number })
+
+If a new layout shape is needed that the current signature cannot express,
+add a new optional field to the opts object — do NOT add content inspection.
+
+═══════════════════════════════════════════════════════════════════════════════
+RULE 4 — OVERFLOW AND TRUNCATION ARE TWO BOOLEANS
+═══════════════════════════════════════════════════════════════════════════════
+The component overflow contract is:
+
+  wrap: boolean      // true  = soft-wrap across rows at word or cell boundary
+                     // false = single-row output only
+  clip: boolean      // true  = hard truncate to available width
+                     // false = allow overflow (renders past column boundary)
+  ellipsis?: boolean // only valid when clip === true
+                     // replaces the last 3 visible chars with "…" on truncation
+
+DO NOT:
+  • Re-introduce ComponentOverflow = 'wrap' | 'hidden' | 'visible'
+  • Re-introduce ComponentTruncation = 'clip' | 'ellipsis' | 'none'
+  • Create a hybrid string/boolean union on either field
+  • Add wrap: 'hard' vs wrap: 'soft' — that is a new primitive, not a new value
+
+If a behavior requires a third state on either boolean, it requires a new Layer
+1 primitive that encapsulates the new behavior. Extend via composition, not via
+extending the base type.
+
+All new and all touched components must declare these three overrides explicitly
+at the top of the class body:
+
+  override wrap = false;    // or true
+  override clip = true;     // or false
+  override ellipsis = false; // or true only when clip = true
+
+═══════════════════════════════════════════════════════════════════════════════
+RULE 5 — CURSOR POSITION IS DERIVED IN ONE PASS, NEVER HAND-COMPUTED
+═══════════════════════════════════════════════════════════════════════════════
+The single-pass cursor invariant:
+
+  renderWithCursor(width?: number): {
+    lines: string[];
+    cursor: { logicalLineIndex: number; characterOffsetWithinLine: number } | null;
+  }
+
+Both `lines` and `cursor` are produced in the same execution pass. `cursor` is
+set by recording `lines.length` at the moment the cursor line is emitted.
+
+DO NOT:
+  ✗ Compute cursor row as: render().length - 3  (magic offset)
+  ✗ Compute cursor as:     borderLineCount + prefixLineCount + inputLineIndex
+  ✗ Maintain a separate getCursorPosition() function that re-counts lines
+  ✗ Call render() twice — once for lines, once to derive cursor
+
+WHY: Any time the component changes its line structure (adds a banner, changes
+a border, adds a status row), a hand-computed cursor silently drifts. The
+single-pass approach makes cursor correctness structurally guaranteed —
+it can't drift because it's read from the same array it's building.
+
+Implementation pattern for components with cursor (e.g. PromptInput):
+
+  const lines: string[] = [];
+  let cursor: { logicalLineIndex: number; characterOffsetWithinLine: number } | null = null;
+
+  // ... build lines ...
+  if (cursor === null && isTheCursorOnThisLine) {
+    cursor = {
+      logicalLineIndex: lines.length,           // ← BEFORE the push
+      characterOffsetWithinLine: prefixLen + charOffsetIntoLine,
+    };
+  }
+  lines.push(renderedLine);
+  // ...
+
+  return { lines, cursor };
+
+Components that don't place an interactive cursor return { lines, cursor: null }
+from renderWithCursor(). The base Component class handles this correctly.
+
+═══════════════════════════════════════════════════════════════════════════════
+RULE 6 — STRING-WIDTH AND STRIP-ANSI BELONG IN LAYER 1 ONLY
+═══════════════════════════════════════════════════════════════════════════════
+`string-width` and `strip-ansi` are layout-math libraries. They perform cell
+width calculations for CJK/emoji characters and ANSI-stripped measurements.
+
+  ✓ ALLOWED in: Layer 0 (cell-layout.ts), Layer 1 (Box, Text, primitives)
+  ✗ FORBIDDEN in: Layer 2 (components, message-formatter, app.ts)
+
+Layer 2 components that need width-aware truncation or wrapping must use the
+helpers exposed by Layer 1 (truncateToWidth, wrapVisualLine, Box, Text props).
+They must not import string-width or strip-ansi directly.
+
+Rationale: If a component does its own width math, there is now a second code
+path for the same operation, inconsistently maintained, and potentially
+producing different results at non-ASCII characters. All visual cell math must
+funnel through one implementation.
+
+The boundary-lint test enforces this. See: tests/tui/boundary-lint.test.ts.
+
+═══════════════════════════════════════════════════════════════════════════════
+RULE 7 — ALL NEW COMPONENTS ARE .TSX WITH DECLARATIVE JSX
+═══════════════════════════════════════════════════════════════════════════════
+New components are written as .tsx files using the project's JSX runtime:
+  src/tui/jsx-runtime.ts  (jsxImportSource: "steward/tui" via tsconfig.json)
+
+The JSX factory produces BoxElement / TextElement trees, which call
+.render(width) to produce string[] lines. The result is structurally identical
+to the imperative style but is more readable and maintainable.
+
+  ✓ CORRECT (new code):
+    const element = (
+      <Box direction="column" wrap={false} clip={false}>
+        <Text wrap={false} clip={false}>{styledLine}</Text>
+      </Box>
+    );
+    return element.render(width);
+
+  ✗ OLD (transitional, do not write new code this way):
+    return Box({ direction: 'column', wrap: false }, [
+      Text(styledLine, { wrap: false }),
+    ]).render(width);
+
+Rules for JSX in this codebase:
+  • JSX does NOT render to React. It renders to BoxElement/TextElement.
+    Do not import anything from 'react' or '@types/react'.
+  • Intrinsic elements are: <Box> and <Text> (lowercase). Component classes
+    are used as JSX tags with capital letters in their own render() method
+    only if they produce a BoxElement/TextElement — not all Components do.
+  • <Fragment> is supported (Symbol.for('steward.fragment')).
+  • Function components are supported: (props) => BoxElement | TextElement.
+  • Class components in JSX instantiate via `new type(props)` — they are
+    NOT mounted or lifecycle-managed by JSX. Only TerminalEngine.mount()
+    manages the component lifecycle.
+
+═══════════════════════════════════════════════════════════════════════════════
+RULE 8 — NO DUPLICATE FORMATTING LOGIC
+═══════════════════════════════════════════════════════════════════════════════
+Before writing ANY formatting logic in a component, check:
+
+  1. src/tui/primitives/             — content-blind layout helpers
+  2. src/tui/primitives/PrefixedLine — bullet + hanging indent
+  3. src/tui/utils/format.ts         — themeColor, truncateToWidth, getStatusBullet,
+                                       formatMarkdown, chalk re-exports
+  4. src/tui/utils/message-formatter.ts — formatAssistantMessage, formatToolStatus
+
+"Render a colored status bullet with hanging indent" → PrefixedLine + getStatusBullet.
+"Truncate a string to N visible columns" → truncateToWidth.
+"Wrap a markdown-formatted line" → wrapVisualLine.
+"Format a tool result for history" → formatToolStatus.
+
+If a helper does not exist yet, add it to format.ts or the appropriate Layer 1
+file, then use it from the component. Do NOT write a local copy inside a
+component body that will be invisible to future contributors.
+
+Rule of three (mandatory, not advisory):
+  • First use: inline is acceptable.
+  • Second use in a different site: extract to format.ts or a primitive.
+  • Third use anywhere: it must already be in format.ts or primitives/. If it's
+    not, stop and extract it before continuing.
+
+═══════════════════════════════════════════════════════════════════════════════
+RULE 9 — OPEN/CLOSED AT EVERY LAYER
+═══════════════════════════════════════════════════════════════════════════════
+A component or primitive is open for extension (new props, new children,
+new composition) and closed for modification by its downstream consumers.
+
+  ✗ WRONG — adding caller-specific branching inside a primitive:
+    if (this.props.isModelPicker) { /* special case */ }
+    if (this.props.variant === 'history') { /* different path */ }
+
+  ✓ RIGHT — adding a general prop that the caller fills in:
+    padding?: number          // caller decides the padding value
+    justify?: 'start' | 'end' // caller decides the layout direction
+
+  ✗ WRONG — a component reaching into another component's state:
+    promptInput._value   // reading private state from outside
+    engine.components[0] // indexing the live component tree
+
+  ✓ RIGHT — passing explicit callbacks or state via props:
+    onSubmit: (text: string) => void
+
+Primitives (Box, Text, SelectList, ModalBox) should almost never need their
+internals changed to support a new screen. If you find yourself changing a
+primitive body for a specific feature, the feature belongs in the caller.
+
+═══════════════════════════════════════════════════════════════════════════════
+RULE 10 — GOLDENS ARE THE REGRESSION CONTRACT
+═══════════════════════════════════════════════════════════════════════════════
+The headless golden snapshot suite (tests/tui/engine-snapshots.test.ts) is the
+only reliable way to detect silent visual regressions in a terminal application
+where there is no DOM inspector.
+
+  • Goldens live in tests/tui/goldens/*.txt as raw ANSI byte files.
+  • They are byte-exact. A one-character visual change will fail the test.
+  • To intentionally update a golden: UPDATE_GOLDENS=1 bun test
+  • After updating, always read the diff in git before committing. A golden
+    update that changes 13 frames when you only modified 1 component is a sign
+    that you introduced a systemic regression.
+
+WHEN TO ADD A GOLDEN:
+  • Every new visible component or dock overlay.
+  • Every new state of an existing component (e.g. new escPending variant).
+  • Every render path that depends on width (add both an 80-col and 120-col).
+
+WHEN NOT TO TOUCH EXISTING GOLDENS:
+  • If a golden changes because you refactored internal structure but the
+    visual output is byte-identical — that is correct, don't update.
+  • If a golden changes because of a bug you're fixing — update it, but
+    commit the golden change with a clear commit message explaining what
+    visual change was made and why it is correct.
+
+The `MaxListenersExceededWarning` in tests is a known harmless artifact of
+the test harness mounting multiple TerminalEngines with process.stdin/stdout
+listeners. It does not indicate a real leak — the engines are cleaned up via
+engine.cleanupSync() in every test.
+
+═══════════════════════════════════════════════════════════════════════════════
+RULE 11 — WIDTH IS INJECTED, NEVER READ FROM PROCESS
+═══════════════════════════════════════════════════════════════════════════════
+The only place process.stdout.columns is read is inside TerminalEngine — at
+resize-event time, to update its internal tracked width, and as a fallback
+default. Everywhere else:
+
+  ✗ FORBIDDEN anywhere below TerminalEngine:
+    const w = process.stdout.columns;
+    const w = process.stdout.columns ?? 80;
+
+  ✓ REQUIRED: accept width as a parameter and use it:
+    render(width?: number): string[] {
+      const termWidth = width ?? process.stdout.columns ?? 80; // ← ONLY as fallback
+      ...
+    }
+
+The `width ?? process.stdout.columns ?? 80` pattern is tolerated ONLY as an
+emergency fallback in render(). In tests and any context where width is injected
+(every TerminalEngine render call injects width), process.stdout.columns is not
+consulted. This is what enables the headless test harness to work correctly —
+setting process.stdout.columns is not required because width is always passed.
+
+═══════════════════════════════════════════════════════════════════════════════
+RULE 12 — COMPONENT LIFECYCLE IS OWNED BY THE ENGINE
+═══════════════════════════════════════════════════════════════════════════════
+Component instances are only meaningful when mounted to a TerminalEngine. The
+lifecycle is:
+
+  engine.mount(component, options)     → attaches component, calls onMount()
+                                         which calls componentDidMount()
+  engine.unmount(component)            → calls onUnmount() → componentWillUnmount()
+  engine.requestFrame()                → schedules debounced re-render
+  component.setState({ ... })          → marks dirty + calls engine.requestFrame()
+
+Rules:
+  • componentDidMount() is where input listeners are registered (via
+    engine.addInputListener). Always store and call the returned cleanup fn
+    in componentWillUnmount().
+  • componentWillUnmount() must clear ALL timers (setInterval, setTimeout)
+    created by the component. Leaked timers cause phantom setState calls on
+    unmounted components, producing invisible ghost renders that dirty the
+    frame buffer unnecessarily.
+  • Components must not call engine.requestFrame() directly from render(). The
+    setState() method does this. render() must be pure — same inputs, same
+    output, no side effects.
+  • Input listeners registered via engine.addInputListener() receive raw Buffer
+    chunks. Use parseKeyInput() from src/tui/primitives/index.ts to decode them.
+    Do not hand-parse escape sequences.
+
+═══════════════════════════════════════════════════════════════════════════════
+RULE 13 — THEME, NOT RAW CHALK
+═══════════════════════════════════════════════════════════════════════════════
+All colors used in rendering must reference the theme:
+
+  ✗ WRONG: chalk.cyan('some text')          // hardcoded color
+  ✗ WRONG: chalk.hex('#a78bfa')('text')     // hardcoded hex
+
+  ✓ CORRECT: themeColor(theme.brand)('text')
+  ✓ CORRECT: themeColor(theme.subtle)(line)
+  ✓ CORRECT: chalk.dim(str)                  // dim is structural, not a color
+
+The theme is obtained from: import { getTheme } from '../../theme/index.js'
+Theme keys are defined in src/theme/colors.ts.
+
+chalk itself is re-exported through src/tui/utils/format.ts to maintain a
+single import point. Do not import chalk directly into components.
+
+If a new semantic color is needed, add it to src/theme/colors.ts with a
+descriptive key name. Do not use a one-off chalk color in a component.
+
+═══════════════════════════════════════════════════════════════════════════════
+RULE 14 — PROPOSING A STRUCTURAL CHANGE
+═══════════════════════════════════════════════════════════════════════════════
+If you believe any of these rules needs to change:
+
+  1. Write down the specific gap in the current architecture (not the feature
+     you want — the structural capability that is missing).
+  2. Confirm the gap cannot be addressed by adding a Layer 1 primitive.
+  3. Confirm the gap cannot be addressed by adding a prop to an existing
+     primitive.
+  4. Describe the change and its rationale in a commit message or PR
+     description referencing this file and the specific rule number.
+  5. Update this file in the same commit as the structural change.
+
+Changes to Layer 0 get line-by-line review. Changes to Layer 1 get standard
+review. Changes to Layer 2 (new components, new docks, new message types) are
+low-risk by definition — they cannot break the engine.
+
+═══════════════════════════════════════════════════════════════════════════════
+QUICK REFERENCE CARD
+═══════════════════════════════════════════════════════════════════════════════
+
+Adding a new screen / dock:
+  → Create src/tui/components/docks/MyDock.tsx (Layer 2, .tsx)
+  → Extend Component<MyDockProps>
+  → override wrap, clip, ellipsis at top of class
+  → Compose <Box> / <Text> / SelectList / ModalBox — no raw chalk layout
+  → Add a renderWithCursor() if the dock captures cursor (usually not)
+  → Register an input listener in componentDidMount()
+  → Clear it in componentWillUnmount()
+  → Mount in app.ts with engine.mount(dock, { kind: 'dock' })
+  → Add a golden test in tests/tui/engine-snapshots.test.ts
+
+Adding a new message format to history:
+  → Add a formatter in src/tui/utils/message-formatter.ts (Layer 2)
+  → Use wrapVisualLine / PrefixedLine / getStatusBullet — no new layout math
+  → Commit via engine.commit('your-node-type', lines) in TerminalEngine
+  → Add a golden test at 80 and 120 cols
+
+Adding a new reusable layout behavior:
+  → Add to src/tui/primitives/ (Layer 1)
+  → It must be content-blind (accepts explicit numeric props, not string patterns)
+  → Export from src/tui/primitives/index.ts
+  → Document its props in the file header
+
+Changing how a component looks:
+  → Edit ONLY the .tsx file in src/tui/components/
+  → Run UPDATE_GOLDENS=1 bun test to update affected snapshots
+  → Review the git diff of updated goldens before committing
+
+Debugging a visual glitch:
+  → Run UPDATE_GOLDENS=0 bun test first — the failing golden shows you exactly
+     which bytes changed and on which frame
+  → Check if the glitch is in render() output (Layer 2 bug) or in diffing
+     (extremely rare Layer 0 bug, requires a reproducible plain-text case)
+
+═══════════════════════════════════════════════════════════════════════════════
+This file is the last word. It does not expire. It does not get "updated when
+things change" unless a structural change (Rule 14) is being made. It is
+not a living document that gets softened. If a rule here is blocking a
+deadline, the answer is to descope the feature or to go through Rule 14 —
+not to work around the rule silently.
+═══════════════════════════════════════════════════════════════════════════════

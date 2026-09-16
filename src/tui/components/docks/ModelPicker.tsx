@@ -33,12 +33,14 @@ export default class ModelPicker extends SelectList<ModelDescriptor> {
         const activeBadge = isCurrent ? chalk.green(' (active)') : '';
         const badge = `[${m.provider.toUpperCase()}]`;
 
-        return Box({ direction: 'row', justify: 'space-between', width: maxCols }, [
-          Text(`${pointer}${m.model_id}${activeBadge}`, {
-            color: isSelected ? selColor : chalk.white,
-          }),
-          Text(badge, { dim: true }),
-        ]);
+        return (
+          <Box direction="row" justify="space-between" width={maxCols}>
+            <Text color={isSelected ? selColor : chalk.white}>
+              {`${pointer}${m.model_id}${activeBadge}`}
+            </Text>
+            <Text dim={true}>{badge}</Text>
+          </Box>
+        );
       },
     });
   }
