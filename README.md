@@ -48,7 +48,7 @@ Steward operates on a fundamentally different philosophy than traditional destru
 ---
 
 ```text
- ▄▄▄▄▄   Steward v0.2.0
+ ▄▄▄▄▄   Steward v0.2.1
 ▀▙███▟▀  AI can make mistakes. Verify important info.
  ▘▘ ▝▝ 
 

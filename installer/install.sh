@@ -67,18 +67,36 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# Download archive
+# Download archive with timeouts and retries to prevent indefinite freezes
+TARGET_FILE="${TMP_DIR}/${ASSET_NAME}"
+
 if command -v curl >/dev/null 2>&1; then
-  curl -fsSL "${DOWNLOAD_URL}" -o "${TMP_DIR}/${ASSET_NAME}"
+  if ! curl -fL --connect-timeout 15 --max-time 300 --retry 3 --retry-delay 2 -# "${DOWNLOAD_URL}" -o "${TARGET_FILE}"; then
+    echo -e "${RED}[x] Download failed with curl. Please check your internet connection and try again.${NC}"
+    exit 1
+  fi
 elif command -v wget >/dev/null 2>&1; then
-  wget -qO "${TMP_DIR}/${ASSET_NAME}" "${DOWNLOAD_URL}"
+  if ! wget --timeout=15 --tries=3 --show-progress -O "${TARGET_FILE}" "${DOWNLOAD_URL}"; then
+    echo -e "${RED}[x] Download failed with wget. Please check your internet connection and try again.${NC}"
+    exit 1
+  fi
 else
   echo -e "${RED}[x] Neither curl nor wget was found. Please install curl or wget.${NC}"
   exit 1
 fi
 
+if [ ! -s "${TARGET_FILE}" ]; then
+  echo -e "${RED}[x] Downloaded asset is empty or corrupted. Please verify release assets at https://github.com/${REPO}/releases${NC}"
+  exit 1
+fi
+
+echo -e "  ${BLUE}•${NC} Extracting archive..."
+
 # Extract and install
-tar -xzf "${TMP_DIR}/${ASSET_NAME}" -C "${TMP_DIR}"
+if ! tar -xzf "${TARGET_FILE}" -C "${TMP_DIR}"; then
+  echo -e "${RED}[x] Failed to extract archive ${ASSET_NAME}.${NC}"
+  exit 1
+fi
 
 if [ "$IS_TERMUX" = true ]; then
   mkdir -p "${SHARE_DIR}"
