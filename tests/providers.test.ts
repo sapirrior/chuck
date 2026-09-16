@@ -325,6 +325,26 @@ describe('Reasoning Effort & Session Metadata', () => {
     session.setEffort('high');
     expect(session.getEffort()).toBe('high');
     expect(session.session.model.effort).toBe('high');
+
+    // Test session-only effort (persist = false)
+    session.setEffort('xhigh', false);
+    expect(session.getEffort()).toBe('xhigh');
+    expect(session.session.model.effort).toBe('xhigh');
+  });
+
+  it('should trigger EffortPicker dock when /effort is called with no arguments', async () => {
+    const { effortCommand } = await import('../src/commands/effort/index.js');
+    const { AgentSession } = await import('../src/engine/agent-session.js');
+    const session = new AgentSession({ provider: 'openai', modelId: 'gpt-4o-mini' });
+
+    const result = await effortCommand.execute([], { session, cwd: process.cwd() });
+    expect(result.handled).toBe(true);
+    expect(result.data?.showEffortPicker).toBe(true);
+
+    // Direct argument updates effort directly
+    const directResult = await effortCommand.execute(['high'], { session, cwd: process.cwd() });
+    expect(directResult.handled).toBe(true);
+    expect(session.getEffort()).toBe('high');
   });
 
   it('should parse legacy session schemas without effort gracefully', async () => {

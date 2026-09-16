@@ -14,6 +14,7 @@ import PromptInput from './components/PromptInput.js';
 import ModelPicker from './components/docks/ModelPicker.js';
 import SessionMenu from './components/docks/SessionMenu.js';
 import ShortcutsMenu from './components/docks/ShortcutsMenu.js';
+import EffortPicker from './components/docks/EffortPicker.js';
 import {
   formatSystemMessage,
   formatAssistantMessage,
@@ -41,7 +42,7 @@ export class TUIApp {
   private promptInput: PromptInput;
   private statusBar: StatusBar;
 
-  private activeModal: ModelPicker | SessionMenu | ShortcutsMenu | null = null;
+  private activeModal: ModelPicker | SessionMenu | ShortcutsMenu | EffortPicker | null = null;
   private ctrlCPending = false;
   private ctrlCTimer: NodeJS.Timeout | null = null;
   private isBusy = false;
@@ -296,6 +297,34 @@ export class TUIApp {
     this.engine.mount(this.statusBar);
   }
 
+  private openEffortPicker(): void {
+    if (this.activeModal) this.closeModal();
+    this.engine.unmount(this.promptInput);
+    this.engine.unmount(this.statusBar);
+
+    const currentEffort = this.session.getEffort();
+    const picker = new EffortPicker({
+      currentEffort,
+      onSelect: (selected, persist) => {
+        this.session.setEffort(selected, persist);
+        const updatedModel = this.session.getModel();
+        this.header.props.model = updatedModel;
+        this.statusBar.update({ model: updatedModel });
+        const scope = persist ? 'saved globally to settings' : 'for this session only';
+        this.engine.commit(
+          'system',
+          formatSystemMessage(`Reasoning effort set to "${selected}" (${scope})`),
+        );
+        this.closeModal();
+      },
+      onCancel: () => this.closeModal(),
+    });
+
+    this.activeModal = picker;
+    this.engine.mount(picker, { kind: 'dock' });
+    this.engine.mount(this.statusBar);
+  }
+
   private handleAbort(): void {
     if (this.isBusy) {
       this.session.abort();
@@ -328,6 +357,11 @@ export class TUIApp {
 
       if (cmdResult.data?.showModelPicker) {
         this.openModelPicker(cmdResult.data.models ?? []);
+        return;
+      }
+
+      if (cmdResult.data?.showEffortPicker) {
+        this.openEffortPicker();
         return;
       }
 

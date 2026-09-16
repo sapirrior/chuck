@@ -7,6 +7,7 @@ import StreamingView from '../../src/tui/components/StreamingView.js';
 import ShortcutsMenu from '../../src/tui/components/docks/ShortcutsMenu.js';
 import ModelPicker from '../../src/tui/components/docks/ModelPicker.js';
 import SessionMenu from '../../src/tui/components/docks/SessionMenu.js';
+import EffortPicker from '../../src/tui/components/docks/EffortPicker.js';
 import { formatAssistantMessage, formatToolStatus } from '../../src/tui/utils/message-formatter.js';
 import { captureHeadlessRender, assertGoldenMatch } from './harness.js';
 import StateRenderer from '../../src/tui/engine/StateRenderer.js';
@@ -473,5 +474,26 @@ describe('TUI Engine Headless Golden Snapshots', () => {
 
     engine.cleanupSync();
     assertGoldenMatch('dock-session-menu', result.rawAnsi);
+  });
+
+  it('golden: dock-effort-picker (EffortPicker horizontal slider dock open)', () => {
+    const engine = new TerminalEngine();
+    const effortPicker = new EffortPicker({
+      currentEffort: 'low',
+      onSelect: () => {},
+      onCancel: () => {},
+    });
+
+    engine.mount(effortPicker, { kind: 'dock' });
+
+    const result = captureHeadlessRender(
+      (renderer) => {
+        return renderer.render(engine.tree, 0, true);
+      },
+      { cols: 80, rows: 24 },
+    );
+
+    engine.cleanupSync();
+    assertGoldenMatch('dock-effort-picker', result.rawAnsi);
   });
 });

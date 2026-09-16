@@ -2,13 +2,13 @@
 Select Model                       Current: anthropic/claude-3-5-sonnet-20241022
 > Type to filter models…
 ────────────────────────────────────────────────────────────────────────────────
-> claude-3-5-sonnet-20241022 (active)                                [ANTHROPIC]
-  gpt-4o                                                                [OPENAI]
-  gemini-1.5-pro                                                        [GOOGLE]
+> claude-3-5-sonnet-20241022 (active)
+  ANTHROPIC • chat
+  gpt-4o
+  OPENAI • chat
+  gemini-1.5-pro
+  GOOGLE • chat
 ↑/↓ navigate · Enter select · Esc cancel  (3 available)
-
-
-
 
 
 

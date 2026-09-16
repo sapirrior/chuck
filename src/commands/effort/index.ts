@@ -30,7 +30,7 @@ export const effortCommand: SlashCommand = {
     if (args.length === 0) {
       return {
         handled: true,
-        message: `Current reasoning effort: "${currentEffort}"\n\n${EFFORT_HELP}`,
+        data: { showEffortPicker: true, currentEffort },
       };
     }
 

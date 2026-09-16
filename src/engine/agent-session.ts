@@ -139,19 +139,21 @@ export class AgentSession {
   /**
    * Sets the reasoning effort level, updates session metadata and persists preference.
    */
-  public setEffort(effort: ReasoningEffort): ReasoningEffort {
+  public setEffort(effort: ReasoningEffort, persist = true): ReasoningEffort {
     this.config.reasoningEffort = effort;
     this.sessionData.model.effort = effort;
     this.sessionData.updatedAt = new Date().toISOString();
     saveSession(this.sessionData);
 
-    saveSettings({
-      model: {
-        provider: this.config.provider,
-        modelId: this.config.modelId,
-        effort,
-      },
-    });
+    if (persist) {
+      saveSettings({
+        model: {
+          provider: this.config.provider,
+          modelId: this.config.modelId,
+          effort,
+        },
+      });
+    }
 
     return effort;
   }

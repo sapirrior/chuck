@@ -44,6 +44,10 @@ export const figures = {
   effortHigh: '●',
   effortMax: '◉',
 
+  // Slider glyphs
+  sliderPointer: '▲',
+  sliderDivider: '┆',
+
   // Spinner frames
   spinnerFrames: ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'],
 };

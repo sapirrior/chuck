@@ -159,7 +159,7 @@ Type `/model` inside `steward` to open the interactive model picker or use `/mod
 
 ### Adjust Reasoning Effort (`/effort`)
 
-Use `/effort [0..6 | level]` to control thinking tokens on supported models (e.g. `/effort high`, `/effort none`).
+Type `/effort` to open the interactive reasoning effort slider dock, or use `/effort [0..6 | level]` (e.g. `/effort high`, `/effort none`) to adjust thinking depth and token budgets on supported reasoning models. Choices can be saved globally or applied for the active session only.
 
 ### Mention Files with `@`
 
