@@ -33,4 +33,5 @@ Thumbs.db
 coverage/
 
 # Local agent artifacts
+.steward/
 .chuck/
