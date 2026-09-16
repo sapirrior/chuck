@@ -21,7 +21,7 @@ describe('TUI Engine Headless Golden Snapshots', () => {
   it('golden: prompt-idle (empty prompt, idle status bar)', () => {
     const engine = new TerminalEngine();
     const header = new Header({
-      version: '0.1.5',
+      version: '0.2.0',
       cwd: '/workspace/steward',
       model: dummyModel,
     });
@@ -52,7 +52,7 @@ describe('TUI Engine Headless Golden Snapshots', () => {
   it('golden: prompt-multiline-cursor (multi-line prompt with cursor mid-text)', () => {
     const engine = new TerminalEngine();
     const header = new Header({
-      version: '0.1.5',
+      version: '0.2.0',
       cwd: '/workspace/steward',
       model: dummyModel,
     });
@@ -212,7 +212,7 @@ describe('TUI Engine Headless Golden Snapshots', () => {
   it('golden: history-scroll-80 (long history requiring scroll at 80 cols)', () => {
     const engine = new TerminalEngine();
     const header = new Header({
-      version: '0.1.5',
+      version: '0.2.0',
       cwd: '/workspace/steward',
       model: dummyModel,
     });
@@ -251,7 +251,7 @@ describe('TUI Engine Headless Golden Snapshots', () => {
   it('golden: history-scroll-120 (long history requiring scroll at 120 cols)', () => {
     const engine = new TerminalEngine();
     const header = new Header({
-      version: '0.1.5',
+      version: '0.2.0',
       cwd: '/workspace/steward',
       model: dummyModel,
     });
@@ -290,7 +290,7 @@ describe('TUI Engine Headless Golden Snapshots', () => {
   it('golden: resize-mid-session (resize event from 80x24 to 120x30)', () => {
     const engine = new TerminalEngine();
     const header = new Header({
-      version: '0.1.5',
+      version: '0.2.0',
       cwd: '/workspace/steward',
       model: dummyModel,
     });
