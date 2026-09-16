@@ -48,9 +48,9 @@ Steward operates on a fundamentally different philosophy than traditional destru
 ---
 
 ```text
- ▛███▜   Steward v0.2.0
-▀█████▀  AI can make mistakes. Verify important info.
- ▘▘ ▝▝
+ ▄▄▄▄▄   Steward v0.2.0
+▀▙███▟▀  AI can make mistakes. Verify important info.
+ ▘▘ ▝▝ 
 
 ────────────────────────────────────────────────────────────────────────────────
 > Investigate the auth flow and draft a plan for token rotation
