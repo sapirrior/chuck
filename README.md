@@ -1,23 +1,19 @@
 # Steward
 
-[![Version](https://img.shields.io/badge/version-v0.5.0-D77757.svg)](https://github.com/sapirrior/steward/releases)
+[![Version](https://img.shields.io/badge/version-v0.5.1-D77757.svg)](https://github.com/sapirrior/steward/releases)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Runtime](https://img.shields.io/badge/runtime-Bun-fbf0df.svg?logo=bun)](https://bun.sh)
 [![Platforms](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Termux%20%7C%20Windows-lightgrey.svg)](#quick-install)
 
-**The engineering agent with direct workspace mutation and guaranteed rewind checkpointing.**
+**An interactive AI engineering assistant that brings intelligent agentic coding directly into your terminal.**
 
 ---
 
-Most AI coding agents are reckless. You give them a prompt, and within seconds they're blindly overwriting files with no way to cleanly undo the changes if things go wrong.
-
-**Steward is built on a different premise: AI should act like a senior engineer pairing with you, with automatic pre-mutation safety and instant rollback.**
-
-Steward investigates your codebase thoroughly, directly creates and edits files with targeted operations, and durably checkpoints all file preimages in a content-addressed store (CAS) before touching disk. If you ever want to step back, `/rewind` instantly rolls back both your conversation history and workspace files to any prior turn.
+Steward pairs with you in your terminal to explore codebases, understand complex architectures, run commands, fix issues, and build features through natural language instructions.
 
 ```text
  ▄▄▄▄▄   Steward
-▀▙███▟▀  Direct workspace editing. Guaranteed rewind checkpointing.
+▀▙███▟▀  AI engineering assistant for your terminal
  ▘▘ ▝▝ 
 
 ────────────────────────────────────────────────────────────────────────────────
@@ -43,10 +39,34 @@ Steward reads and understands your real code, traces execution flow, checks your
 Dictate instructions hands-free with low latency:
 * **Toggle with `Ctrl+T`:** Press `Ctrl+T` to start dictating, speak your instruction, and press `Ctrl+T` again to finalize.
 * **Non-Destructive Composer Integration:** Dictated text streams live into your prompt draft at the cursor position without auto-submitting. Edit or adjust before pressing `Enter`.
-* **Prerequisites:** Powered by Google's `gemini-3.5-transcribe-live` model (`GEMINI_API_KEY` required) and PulseAudio capture (`parec` required on Linux).
+* **Smart Language Recognition:** Configure your preferred language using dead-simple codes (e.g. `steward --config voice en`, `es`, `ja`, `de`, `fr`, `zh`). Defaults to automatic language detection.
+* **Prerequisites:** Powered by Google's `gemini-3.5-transcribe-live` model (`GEMINI_API_KEY` required) with `mode: 'SMART'` disfluency cleanup and PulseAudio capture (`parec` required on Linux).
 
 ### ⚡ Senior Partner Persona
 No robotic disclaimers or endless preambles. When you say *"hey"*, Steward asks what you're working on. When you ask a question, it investigates in parallel and reports the exact diagnosis.
+
+---
+
+## CLI Usage & Configuration
+
+```bash
+# Start interactive TUI session
+steward
+
+# View current settings & voice configuration
+steward --config
+
+# Set preferred voice language (accepts friendly aliases or BCP-47 tags)
+steward --config voice en        # English (US)
+steward --config voice es        # Spanish
+steward --config voice ja        # Japanese
+steward --config voice en-GB     # British English
+
+# Check version or print GitHub repository URL
+steward --version
+steward --repo
+steward --help
+```
 
 ---
 

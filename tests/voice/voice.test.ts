@@ -154,4 +154,28 @@ describe('Voice Subsystem Pure Modules', () => {
       expect(acc.getFinalizedText()).toBe('const foo = 42;');
     });
   });
+
+  describe('Language Code Validation & Preferences', () => {
+    it('validates and normalizes valid BCP-47 language codes', async () => {
+      const { resolveVoiceLanguage } = await import('../../src/cli/commands/config/utils/lang.js');
+      expect(resolveVoiceLanguage('en-US')?.tag).toBe('en-US');
+      expect(resolveVoiceLanguage('en_US')?.tag).toBe('en-US');
+      expect(resolveVoiceLanguage('en us')?.tag).toBe('en-US');
+      expect(resolveVoiceLanguage('es-ES')?.tag).toBe('es-ES');
+      expect(resolveVoiceLanguage('fr-FR')?.tag).toBe('fr-FR');
+      expect(resolveVoiceLanguage('de-DE')?.tag).toBe('de-DE');
+      expect(resolveVoiceLanguage('ja-JP')?.tag).toBe('ja-JP');
+      expect(resolveVoiceLanguage('zh-CN')?.tag).toBe('zh-CN');
+      expect(resolveVoiceLanguage('en')?.tag).toBe('en-US');
+      expect(resolveVoiceLanguage('ja')?.tag).toBe('ja-JP');
+    });
+
+    it('rejects invalid language codes', async () => {
+      const { resolveVoiceLanguage } = await import('../../src/cli/commands/config/utils/lang.js');
+      expect(resolveVoiceLanguage('')).toBeNull();
+      expect(resolveVoiceLanguage('invalid-12345-tag-xyz')).toBeNull();
+      expect(resolveVoiceLanguage('12345')).toBeNull();
+      expect(resolveVoiceLanguage('!!not_a_lang!!')).toBeNull();
+    });
+  });
 });

@@ -1,4 +1,5 @@
 import { VOICE_MODEL_ID } from './model.js';
+import { getVoiceLanguage } from '../config/settings.js';
 import type {
   LiveTranscriptionSession,
   LiveTranscriptionSessionEvents,
@@ -12,6 +13,7 @@ export interface GeminiLiveSessionOptions {
   wsFactory?: WebSocketFactory;
   apiHost?: string;
   apiVersion?: string;
+  language?: string;
 }
 
 export class GeminiLiveTranscriptionSession implements LiveTranscriptionSession {
@@ -19,6 +21,7 @@ export class GeminiLiveTranscriptionSession implements LiveTranscriptionSession 
   private wsFactory: WebSocketFactory;
   private apiHost: string;
   private apiVersion: string;
+  private language?: string;
   private ws: WebSocket | null = null;
   private connected = false;
   private closed = false;
@@ -31,6 +34,7 @@ export class GeminiLiveTranscriptionSession implements LiveTranscriptionSession 
     this.wsFactory = options.wsFactory ?? ((url) => new WebSocket(url));
     this.apiHost = options.apiHost ?? 'generativelanguage.googleapis.com';
     this.apiVersion = options.apiVersion ?? 'v1beta';
+    this.language = options.language ?? getVoiceLanguage();
   }
 
   public get isConnected(): boolean {
@@ -79,7 +83,7 @@ export class GeminiLiveTranscriptionSession implements LiveTranscriptionSession 
                 responseModalities: ['TEXT'],
               },
               inputAudioTranscription: {
-                languageCodes: [],
+                languageCodes: this.language ? [this.language] : [],
                 mode: 'SMART',
               },
             },

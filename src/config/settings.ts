@@ -22,6 +22,7 @@ export interface TrustedFolderRecord {
 export interface UserSettings {
   model?: SavedModelSettings;
   trustedFolders?: Record<string, TrustedFolderRecord>;
+  voiceLanguage?: string;
 }
 
 /**
@@ -113,6 +114,23 @@ export function saveModelSelection(selection: SavedModelSettings): void {
       modelId: selection.modelId,
       effort: selection.effort ?? 'provider-default',
     },
+  });
+}
+
+/**
+ * Returns the preferred voice transcription language tag from settings if configured.
+ */
+export function getVoiceLanguage(): string | undefined {
+  const settings = loadSettings();
+  return settings.voiceLanguage?.trim() || undefined;
+}
+
+/**
+ * Persists the preferred voice transcription language tag to ~/.steward/settings.json.
+ */
+export function saveVoiceLanguage(languageTag: string): void {
+  saveSettings({
+    voiceLanguage: languageTag.trim(),
   });
 }
 

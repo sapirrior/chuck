@@ -15,6 +15,7 @@ export interface VoiceControllerOptions {
   wsFactory?: WebSocketFactory;
   maxDurationMs?: number;
   gracePeriodMs?: number;
+  language?: string;
   onStateChange?: (state: VoiceState) => void;
   onTranscriptChange?: (text: string, isFinal: boolean) => void;
   onComplete?: (result: VoiceResult) => void;
@@ -91,6 +92,7 @@ export class VoiceController {
       const liveSession = new GeminiLiveTranscriptionSession({
         apiKey: preflight.apiKey,
         wsFactory: this.options.wsFactory,
+        language: this.options.language,
       });
       this.liveSession = liveSession;
 

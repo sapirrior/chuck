@@ -4,8 +4,7 @@ Universal operational guidelines for AI coding agents working in the `steward` r
 
 ## 1. Project Overview & Tech Stack
 
-`steward` is an engineering agent — investigation, planning, and code generation, all shipped as reviewable
-proposals — built with:
+`steward` is an interactive AI engineering assistant for the terminal — built with:
 
 - **Language/Runtime:** TypeScript, executed natively by [Bun](https://bun.sh)
 - **Model Orchestration & Tool Calling:** Vercel AI SDK (`ai`)
