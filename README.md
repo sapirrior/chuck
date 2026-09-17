@@ -1,6 +1,6 @@
 # Steward
 
-[![Version](https://img.shields.io/badge/version-v0.4.0-D77757.svg)](https://github.com/sapirrior/steward/releases)
+[![Version](https://img.shields.io/badge/version-v0.5.0-D77757.svg)](https://github.com/sapirrior/steward/releases)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Runtime](https://img.shields.io/badge/runtime-Bun-fbf0df.svg?logo=bun)](https://bun.sh)
 [![Platforms](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Termux%20%7C%20Windows-lightgrey.svg)](#quick-install)
@@ -43,7 +43,7 @@ Steward reads and understands your real code, traces execution flow, checks your
 Dictate instructions hands-free with low latency:
 * **Toggle with `Ctrl+T`:** Press `Ctrl+T` to start dictating, speak your instruction, and press `Ctrl+T` again to finalize.
 * **Non-Destructive Composer Integration:** Dictated text streams live into your prompt draft at the cursor position without auto-submitting. Edit or adjust before pressing `Enter`.
-* **Prerequisites:** Powered by Google's `gemini-3.5-transcribe-live` model (`GEMINI_API_KEY` required) and ALSA audio capture (`arecord` required on Linux).
+* **Prerequisites:** Powered by Google's `gemini-3.5-transcribe-live` model (`GEMINI_API_KEY` required) and PulseAudio capture (`parec` required on Linux).
 
 ### ⚡ Senior Partner Persona
 No robotic disclaimers or endless preambles. When you say *"hey"*, Steward asks what you're working on. When you ask a question, it investigates in parallel and reports the exact diagnosis.
