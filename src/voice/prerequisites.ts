@@ -10,15 +10,17 @@ export interface PrerequisiteCheckResult {
 
 export interface PrerequisiteOptions {
   config?: EnvConfig;
+  checkParecFn?: () => Promise<boolean>;
+  /** @deprecated Kept for legacy test option compatibility */
   checkArecordFn?: () => Promise<boolean>;
 }
 
 /**
- * Checks if arecord is installed and runnable on the host machine.
+ * Checks if parec (PulseAudio) is installed and runnable on the host machine.
  */
-export async function defaultCheckArecord(): Promise<boolean> {
+export async function defaultCheckParec(): Promise<boolean> {
   try {
-    const proc = Bun.spawn(['which', 'arecord'], {
+    const proc = Bun.spawn(['which', 'parec'], {
       stdout: 'ignore',
       stderr: 'ignore',
     });
@@ -32,13 +34,13 @@ export async function defaultCheckArecord(): Promise<boolean> {
 /**
  * Validates local prerequisites for voice dictation:
  * 1. Gemini API key is configured
- * 2. arecord executable is available
+ * 2. parec (PulseAudio recorder) executable is available
  */
 export async function checkVoicePrerequisites(
   options: PrerequisiteOptions = {},
 ): Promise<PrerequisiteCheckResult> {
   const config = options.config ?? getEnvConfig();
-  const checkArecord = options.checkArecordFn ?? defaultCheckArecord;
+  const checkRecorder = options.checkParecFn ?? options.checkArecordFn ?? defaultCheckParec;
 
   // 1. Check Gemini API key
   const hasGemini = hasProviderConfig('gemini', config);
@@ -48,56 +50,17 @@ export async function checkVoicePrerequisites(
     return {
       ok: false,
       reason: 'not-configured',
-      warning: '⚠ Voice unavailable: configure GEMINI_API_KEY',
+      warning: 'Voice unavailable: configure GEMINI_API_KEY',
     };
   }
 
-  // 2. Check arecord binary
-  const arecordAvailable = await checkArecord();
-  if (!arecordAvailable) {
+  // 2. Check parec binary
+  const recorderAvailable = await checkRecorder();
+  if (!recorderAvailable) {
     return {
       ok: false,
       reason: 'arecord-missing',
-      warning: '⚠ Voice unavailable: arecord is not installed',
-    };
-  }
-
-  return {
-    ok: true,
-    apiKey: geminiApiKey,
-  };
-}
-
-/**
- * Validates local prerequisites for voice dictation:
- * 1. Gemini API key is configured
- * 2. Audio recorder executable is available (arecord or parec)
- */
-export async function checkVoicePrerequisites(
-  options: PrerequisiteOptions = {},
-): Promise<PrerequisiteCheckResult> {
-  const config = options.config ?? getEnvConfig();
-  const checkArecord = options.checkArecordFn ?? defaultCheckArecord;
-
-  // 1. Check Gemini API key
-  const hasGemini = hasProviderConfig('gemini', config);
-  const geminiApiKey = config.geminiApiKey;
-
-  if (!hasGemini || !geminiApiKey) {
-    return {
-      ok: false,
-      reason: 'not-configured',
-      warning: '⚠ Voice unavailable: configure GEMINI_API_KEY',
-    };
-  }
-
-  // 2. Check audio capture binary
-  const arecordAvailable = await checkArecord();
-  if (!arecordAvailable) {
-    return {
-      ok: false,
-      reason: 'arecord-missing',
-      warning: '⚠ Voice unavailable: arecord or parec is not installed',
+      warning: 'Voice unavailable: parec is not installed (install pulseaudio-utils)',
     };
   }
 

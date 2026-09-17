@@ -1,5 +1,5 @@
 import type { AudioRecorder, AudioRecorderEvents } from './types.js';
-import { defaultCheckRecorder, defaultCheckArecord } from './prerequisites.js';
+import { defaultCheckParec } from './prerequisites.js';
 
 export interface RecorderProcess {
   stdout: ReadableStream<Uint8Array> | null;
@@ -13,23 +13,13 @@ export type SpawnProcessFn = (
   options: { stdout: 'pipe'; stderr: 'pipe' | 'ignore'; stdin: 'ignore' },
 ) => RecorderProcess;
 
-export const DEFAULT_ARECORD_ARGS = [
-  '-q',
-  '-f',
-  'S16_LE',
-  '-r',
-  '16000',
-  '-c',
-  '1',
-  '-t',
-  'raw',
-  '-',
-];
+export const DEFAULT_PAREC_ARGS = ['--raw', '--rate=16000', '--channels=1', '--format=s16le'];
 
-export class ArecordAudioRecorder implements AudioRecorder {
+export class ParecAudioRecorder implements AudioRecorder {
   private proc: RecorderProcess | null = null;
   private recording = false;
   private stopping = false;
+  private aborted = false;
   private spawnFn: SpawnProcessFn;
   private checkAvailableFn: () => Promise<boolean>;
 
@@ -45,7 +35,7 @@ export class ArecordAudioRecorder implements AudioRecorder {
           kill: (sig) => p.kill(sig as any),
         };
       });
-    this.checkAvailableFn = options?.checkAvailableFn ?? defaultCheckArecord;
+    this.checkAvailableFn = options?.checkAvailableFn ?? defaultCheckParec;
   }
 
   public async isAvailable(): Promise<boolean> {
@@ -63,14 +53,10 @@ export class ArecordAudioRecorder implements AudioRecorder {
 
     this.recording = true;
     this.stopping = false;
+    this.aborted = false;
 
     try {
-      const isAvail = await this.isAvailable();
-      if (!isAvail) {
-        throw new Error('arecord is not installed or available on this system.');
-      }
-
-      const cmd = ['arecord', ...DEFAULT_ARECORD_ARGS];
+      const cmd = ['parec', ...DEFAULT_PAREC_ARGS];
       const proc = this.spawnFn(cmd, {
         stdout: 'pipe',
         stderr: 'pipe',
@@ -79,14 +65,17 @@ export class ArecordAudioRecorder implements AudioRecorder {
 
       this.proc = proc;
 
-      // Drain stderr in background so recorder errors or warnings do not corrupt the TUI
+      // Collect stderr so PulseAudio device errors are surfaced in the error message
+      let stderrText = '';
       if (proc.stderr) {
         (async () => {
           try {
             const reader = proc.stderr.getReader();
+            const dec = new TextDecoder();
             while (true) {
-              const { done } = await reader.read();
+              const { done, value } = await reader.read();
               if (done) break;
+              if (value) stderrText += dec.decode(value, { stream: true });
             }
           } catch {
             // Ignore stderr read errors
@@ -111,7 +100,7 @@ export class ArecordAudioRecorder implements AudioRecorder {
             }
           }
         } catch (err: any) {
-          if (!this.stopping && this.recording) {
+          if (!this.stopping && !this.aborted && this.recording) {
             events.onError(err instanceof Error ? err : new Error(String(err)));
           }
         } finally {
@@ -127,21 +116,35 @@ export class ArecordAudioRecorder implements AudioRecorder {
       proc.exited
         .then((code) => {
           const wasStopping = this.stopping;
+          const wasAborted = this.aborted;
           this.recording = false;
           this.proc = null;
 
-          if (!wasStopping && code !== 0 && code !== 130 && code !== 143) {
-            // Unexpected exit
-            events.onError(
-              new Error(`Audio capture process exited unexpectedly with code ${code}`),
-            );
+          // Normal termination codes: 0, 2 (SIGINT), 9/137 (SIGKILL), 15/143 (SIGTERM), 130 (SIGINT)
+          const isExpectedExit =
+            wasStopping ||
+            wasAborted ||
+            code === 0 ||
+            code === 2 ||
+            code === 9 ||
+            code === 15 ||
+            code === 130 ||
+            code === 137 ||
+            code === 143;
+
+          if (!isExpectedExit) {
+            // Unexpected exit — include stderr output so the real PulseAudio
+            // error is visible instead of just the exit code.
+            const detail = stderrText.trim() || `exit code ${code}`;
+            events.onError(new Error(`parec: ${detail}`));
+            return;
           }
           events.onExit(code, null);
         })
         .catch((err) => {
           this.recording = false;
           this.proc = null;
-          if (!this.stopping) {
+          if (!this.stopping && !this.aborted) {
             events.onError(err instanceof Error ? err : new Error(String(err)));
           }
         });
@@ -185,7 +188,8 @@ export class ArecordAudioRecorder implements AudioRecorder {
   }
 
   public abort(): void {
-    this.stopping = true;
+    this.aborted = true;
+    this.stopping = false;
     this.recording = false;
     if (this.proc) {
       try {
@@ -195,6 +199,10 @@ export class ArecordAudioRecorder implements AudioRecorder {
       }
       this.proc = null;
     }
-    this.stopping = false;
   }
 }
+
+/**
+ * @deprecated Use ParecAudioRecorder. Kept as alias for compatibility.
+ */
+export const ArecordAudioRecorder = ParecAudioRecorder;

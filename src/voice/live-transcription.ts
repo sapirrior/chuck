@@ -24,6 +24,7 @@ export class GeminiLiveTranscriptionSession implements LiveTranscriptionSession 
   private closed = false;
   private events: LiveTranscriptionSessionEvents | null = null;
   private finalResolvers: Array<() => void> = [];
+  private connectionTimeout: NodeJS.Timeout | null = null;
 
   constructor(options: GeminiLiveSessionOptions) {
     this.apiKey = options.apiKey;
@@ -49,13 +50,21 @@ export class GeminiLiveTranscriptionSession implements LiveTranscriptionSession 
     return new Promise<void>((resolve, reject) => {
       let isSetupResolved = false;
 
+      const clearTimer = () => {
+        if (this.connectionTimeout) {
+          clearTimeout(this.connectionTimeout);
+          this.connectionTimeout = null;
+        }
+      };
+
       try {
         const ws = this.wsFactory(endpoint);
         this.ws = ws;
 
-        const connectionTimeout = setTimeout(() => {
+        this.connectionTimeout = setTimeout(() => {
           if (!isSetupResolved) {
             isSetupResolved = true;
+            clearTimer();
             this.close();
             reject(new Error('Timed out waiting for Gemini Live setup confirmation.'));
           }
@@ -79,7 +88,7 @@ export class GeminiLiveTranscriptionSession implements LiveTranscriptionSession 
           } catch (err: any) {
             if (!isSetupResolved) {
               isSetupResolved = true;
-              clearTimeout(connectionTimeout);
+              clearTimer();
               reject(err);
             }
           }
@@ -102,7 +111,7 @@ export class GeminiLiveTranscriptionSession implements LiveTranscriptionSession 
             if (payload.setupComplete !== undefined) {
               if (!isSetupResolved) {
                 isSetupResolved = true;
-                clearTimeout(connectionTimeout);
+                clearTimer();
                 this.connected = true;
                 resolve();
               }
@@ -113,7 +122,7 @@ export class GeminiLiveTranscriptionSession implements LiveTranscriptionSession 
             if (payload.serverContent) {
               this.handleServerContent(payload.serverContent);
             }
-          } catch (err: any) {
+          } catch {
             // Ignore malformed JSON or handle silently
           }
         };
@@ -123,7 +132,7 @@ export class GeminiLiveTranscriptionSession implements LiveTranscriptionSession 
           const error = new Error(errMsg);
           if (!isSetupResolved) {
             isSetupResolved = true;
-            clearTimeout(connectionTimeout);
+            clearTimer();
             reject(error);
           } else if (!this.closed && this.events) {
             this.events.onError(error);
@@ -134,7 +143,7 @@ export class GeminiLiveTranscriptionSession implements LiveTranscriptionSession 
           this.connected = false;
           if (!isSetupResolved) {
             isSetupResolved = true;
-            clearTimeout(connectionTimeout);
+            clearTimer();
             reject(
               new Error(
                 `WebSocket closed before setup (code ${evt.code}: ${evt.reason || 'closed'})`,
@@ -148,6 +157,7 @@ export class GeminiLiveTranscriptionSession implements LiveTranscriptionSession 
       } catch (err: any) {
         if (!isSetupResolved) {
           isSetupResolved = true;
+          clearTimer();
           reject(err);
         }
       }
@@ -263,6 +273,10 @@ export class GeminiLiveTranscriptionSession implements LiveTranscriptionSession 
   public close(): void {
     this.closed = true;
     this.connected = false;
+    if (this.connectionTimeout) {
+      clearTimeout(this.connectionTimeout);
+      this.connectionTimeout = null;
+    }
     this.notifyFinalResolvers();
 
     if (this.ws) {

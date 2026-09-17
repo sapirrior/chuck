@@ -5,6 +5,7 @@ import {
   classifyVoiceError,
   checkVoicePrerequisites,
   TranscriptAccumulator,
+  ParecAudioRecorder,
   ArecordAudioRecorder,
   GeminiLiveTranscriptionSession,
   VoiceController,
@@ -30,10 +31,10 @@ describe('Voice Subsystem Pure Modules', () => {
       expect(res.warning).toContain('configure GEMINI_API_KEY');
     });
 
-    it('classifies missing arecord binary errors', () => {
-      const res = classifyVoiceError('arecord is not installed on system');
+    it('classifies missing parec binary errors', () => {
+      const res = classifyVoiceError('parec is not installed on system');
       expect(res.category).toBe('arecord-missing');
-      expect(res.warning).toContain('arecord is not installed');
+      expect(res.warning).toContain('parec is not installed');
     });
 
     it('classifies 401 authentication errors', () => {
@@ -66,8 +67,8 @@ describe('Voice Subsystem Pure Modules', () => {
       expect(res.warning).toContain('Gemini service unavailable');
     });
 
-    it('classifies arecord failure', () => {
-      const res = classifyVoiceError('arecord exited unexpectedly with code 1');
+    it('classifies parec failure', () => {
+      const res = classifyVoiceError('parec exited unexpectedly with code 1');
       expect(res.category).toBe('arecord-failed');
       expect(res.warning).toContain('microphone recording failed');
     });
@@ -77,27 +78,27 @@ describe('Voice Subsystem Pure Modules', () => {
     it('fails if Gemini API key is missing', async () => {
       const res = await checkVoicePrerequisites({
         config: { custom: {} },
-        checkArecordFn: async () => true,
+        checkParecFn: async () => true,
       });
       expect(res.ok).toBe(false);
       expect(res.reason).toBe('not-configured');
       expect(res.warning).toContain('configure GEMINI_API_KEY');
     });
 
-    it('fails if arecord is missing', async () => {
+    it('fails if parec is missing', async () => {
       const res = await checkVoicePrerequisites({
         config: { geminiApiKey: 'test-api-key', custom: {} },
-        checkArecordFn: async () => false,
+        checkParecFn: async () => false,
       });
       expect(res.ok).toBe(false);
       expect(res.reason).toBe('arecord-missing');
-      expect(res.warning).toContain('arecord');
+      expect(res.warning).toContain('parec');
     });
 
-    it('succeeds when both Gemini key and arecord are available', async () => {
+    it('succeeds when both Gemini key and parec are available', async () => {
       const res = await checkVoicePrerequisites({
         config: { geminiApiKey: 'test-api-key', custom: {} },
-        checkArecordFn: async () => true,
+        checkParecFn: async () => true,
       });
       expect(res.ok).toBe(true);
       expect(res.apiKey).toBe('test-api-key');

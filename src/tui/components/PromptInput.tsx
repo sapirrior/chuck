@@ -6,7 +6,8 @@ import { getTheme, figures } from '../../theme/index.js';
 import { themeColor, chalk, truncateToWidth } from '../utils/format.js';
 import { parseKeyInput } from '../primitives/index.js';
 
-export type VoiceInputMode = 'idle' | 'listening' | 'finalizing';
+export type VoiceInputMode =
+  'idle' | 'connecting' | 'recording' | 'finishing' | 'listening' | 'finalizing';
 
 export interface PromptInputProps {
   onSubmit: (text: string) => void;
@@ -60,7 +61,7 @@ export function insertTextAtAnchor(
   const trailing = needsTrailingSpace ? ' ' : '';
 
   const merged = `${before}${leading}${trimmed}${trailing}${after}`;
-  const newPos = before.length + leading.length + trimmed.length;
+  const newPos = before.length + leading.length + trimmed.length + trailing.length;
 
   return { value: merged, cursorPos: newPos };
 }
@@ -123,7 +124,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
 
   public startVoice(): void {
     this.setState({
-      voiceMode: 'listening',
+      voiceMode: 'connecting',
       voiceTranscript: '',
       voiceAnchor: this.state.cursorPos,
       fileMatches: [],
@@ -191,7 +192,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
       if (this.state.voiceMode !== 'idle') {
         if (action.type === 'escape') {
           this.props.onVoiceCancel?.();
-          this.finishVoice();
+          this.cancelVoice();
           return true;
         }
         return true; // Swallow typing during active voice dictation
@@ -496,8 +497,9 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
   }
 
   private updateValueAndCheckCompletions(nextVal: string, nextPos: number): void {
-    this.setState({ value: nextVal, cursorPos: nextPos });
-    const prefix = nextVal.slice(0, nextPos);
+    const clampedPos = Math.max(0, Math.min(nextVal.length, nextPos));
+    this.setState({ value: nextVal, cursorPos: clampedPos });
+    const prefix = nextVal.slice(0, clampedPos);
     const lastAt = prefix.lastIndexOf('@');
     if (
       lastAt !== -1 &&
@@ -613,21 +615,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
       lines.push(borderColor(figures.horizontalLine.repeat(dividerWidth)));
     }
 
-    // 2. Active Voice mode with no transcript yet
-    if (voiceMode !== 'idle' && !voiceTranscript) {
-      const brand = themeColor(theme.brand);
-      const listeningBullet = themeColor(theme.error)(figures.bullet);
-      const statusText =
-        voiceMode === 'listening'
-          ? `${listeningBullet} ${chalk.bold('Listening…')}   ${chalk.dim('Ctrl+T to stop')}`
-          : `${brand('⠋')} ${chalk.dim('Finalizing transcript…')}`;
-
-      lines.push(truncateToWidth(statusText, maxCols));
-      lines.push(borderColor(figures.horizontalLine.repeat(dividerWidth)));
-      return { lines, cursor: null };
-    }
-
-    // 3. Normal input line(s) or live voice transcript insertion
+    // 2. Normal input line(s) or live voice transcript insertion
     const displayData =
       voiceMode !== 'idle' && voiceTranscript
         ? insertTextAtAnchor(value, voiceAnchor, voiceTranscript)

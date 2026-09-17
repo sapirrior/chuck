@@ -14,7 +14,7 @@ export function classifyVoiceError(err: unknown): ClassifiedVoiceError {
   if (!err) {
     return {
       category: 'unknown',
-      warning: '⚠ Voice stopped: transcription error',
+      warning: 'Voice stopped: transcription error',
     };
   }
 
@@ -30,33 +30,39 @@ export function classifyVoiceError(err: unknown): ClassifiedVoiceError {
   ) {
     return {
       category: 'not-configured',
-      warning: '⚠ Voice unavailable: configure GEMINI_API_KEY',
+      warning: 'Voice unavailable: configure GEMINI_API_KEY',
       originalMessage: rawMessage,
     };
   }
 
-  // 2. arecord executable missing
+  // 2. parec executable missing
   if (
+    lower.includes('parec is not installed') ||
+    lower.includes('parec not found') ||
     lower.includes('arecord is not installed') ||
     lower.includes('arecord not found') ||
-    (lower.includes('enoent') && lower.includes('arecord'))
+    (lower.includes('enoent') && (lower.includes('parec') || lower.includes('arecord')))
   ) {
     return {
       category: 'arecord-missing',
-      warning: '⚠ Voice unavailable: arecord is not installed',
+      warning: 'Voice unavailable: parec is not installed (install pulseaudio-utils)',
       originalMessage: rawMessage,
     };
   }
 
-  // 3. arecord runtime failure
+  // 3. parec runtime failure
   if (
+    lower.includes('parec') ||
     lower.includes('arecord') ||
     lower.includes('recording failed') ||
-    lower.includes('microphone')
+    lower.includes('microphone') ||
+    lower.includes('pulseaudio') ||
+    lower.includes('connection refused') ||
+    lower.includes('connection failure')
   ) {
     return {
       category: 'arecord-failed',
-      warning: '⚠ Voice stopped: microphone recording failed',
+      warning: 'Voice stopped: microphone recording failed',
       originalMessage: rawMessage,
     };
   }
@@ -73,7 +79,7 @@ export function classifyVoiceError(err: unknown): ClassifiedVoiceError {
   ) {
     return {
       category: 'auth',
-      warning: '⚠ Voice unavailable: invalid GEMINI_API_KEY',
+      warning: 'Voice unavailable: invalid GEMINI_API_KEY',
       originalMessage: rawMessage,
     };
   }
@@ -88,7 +94,7 @@ export function classifyVoiceError(err: unknown): ClassifiedVoiceError {
   ) {
     return {
       category: 'rate-limit',
-      warning: '⚠ Voice stopped: Gemini rate limit reached',
+      warning: 'Voice stopped: Gemini rate limit reached',
       originalMessage: rawMessage,
     };
   }
@@ -102,7 +108,7 @@ export function classifyVoiceError(err: unknown): ClassifiedVoiceError {
   ) {
     return {
       category: 'model-unavailable',
-      warning: '⚠ Voice unavailable: live transcription model unavailable',
+      warning: 'Voice unavailable: live transcription model unavailable',
       originalMessage: rawMessage,
     };
   }
@@ -111,7 +117,7 @@ export function classifyVoiceError(err: unknown): ClassifiedVoiceError {
   if (lower.includes('timeout') || lower.includes('timed out') || lower.includes('deadline')) {
     return {
       category: 'timeout',
-      warning: '⚠ Voice stopped: transcription timed out',
+      warning: 'Voice stopped: transcription timed out',
       originalMessage: rawMessage,
     };
   }
@@ -125,7 +131,7 @@ export function classifyVoiceError(err: unknown): ClassifiedVoiceError {
   ) {
     return {
       category: 'service-unavailable',
-      warning: '⚠ Voice unavailable: Gemini service unavailable',
+      warning: 'Voice unavailable: Gemini service unavailable',
       originalMessage: rawMessage,
     };
   }
@@ -144,7 +150,7 @@ export function classifyVoiceError(err: unknown): ClassifiedVoiceError {
   ) {
     return {
       category: 'network',
-      warning: '⚠ Voice stopped: network connection lost',
+      warning: 'Voice stopped: network connection lost',
       originalMessage: rawMessage,
     };
   }
@@ -152,7 +158,7 @@ export function classifyVoiceError(err: unknown): ClassifiedVoiceError {
   // 10. Fallback
   return {
     category: 'unknown',
-    warning: '⚠ Voice stopped: transcription error',
+    warning: 'Voice stopped: transcription error',
     originalMessage: rawMessage,
   };
 }

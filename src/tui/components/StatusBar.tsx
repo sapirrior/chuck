@@ -4,6 +4,8 @@ import { getTheme, figures } from '../../theme/index.js';
 import { themeColor, chalk } from '../utils/format.js';
 import { Box, Text } from '../primitives/index.js';
 
+export type StatusBarVoiceState = 'idle' | 'connecting' | 'recording' | 'finishing';
+
 export interface StatusBarProps {
   model: {
     provider: string;
@@ -14,6 +16,8 @@ export interface StatusBarProps {
   isBusy: boolean;
   exitPending?: boolean;
   warning?: string;
+  voiceState?: StatusBarVoiceState;
+  voiceDurationSec?: number;
 }
 
 export interface StatusBarState {
@@ -26,6 +30,8 @@ export interface StatusBarState {
   isBusy: boolean;
   exitPending?: boolean;
   warning?: string;
+  voiceState?: StatusBarVoiceState;
+  voiceDurationSec?: number;
 }
 
 function formatTokens(n: number): string {
@@ -36,11 +42,20 @@ function formatTokens(n: number): string {
   return `${n}`;
 }
 
+function formatVoiceDuration(sec: number): string {
+  const m = Math.floor(sec / 60)
+    .toString()
+    .padStart(2, '0');
+  const s = (sec % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
+}
+
 export default class StatusBar extends Component<StatusBarProps, StatusBarState> {
   override wrap = false;
   override clip = true;
 
   private warningTimer: NodeJS.Timeout | null = null;
+  private voiceTimer: NodeJS.Timeout | null = null;
 
   constructor(props: StatusBarProps) {
     super(props);
@@ -50,6 +65,8 @@ export default class StatusBar extends Component<StatusBarProps, StatusBarState>
       isBusy: props.isBusy,
       exitPending: props.exitPending,
       warning: props.warning,
+      voiceState: props.voiceState ?? 'idle',
+      voiceDurationSec: props.voiceDurationSec ?? 0,
     };
   }
 
@@ -58,7 +75,29 @@ export default class StatusBar extends Component<StatusBarProps, StatusBarState>
   }
 
   /**
-   * Displays a transient warning message that clears automatically after durationMs.
+   * Updates the voice recording status shown on the status bar in white text.
+   */
+  setVoiceState(voiceState: StatusBarVoiceState): void {
+    if (this.voiceTimer) {
+      clearInterval(this.voiceTimer);
+      this.voiceTimer = null;
+    }
+
+    if (voiceState === 'recording') {
+      this.setState({ voiceState, voiceDurationSec: 0 });
+      this.voiceTimer = setInterval(() => {
+        this.setState({ voiceDurationSec: (this.state.voiceDurationSec ?? 0) + 1 });
+      }, 1000);
+    } else {
+      this.setState({
+        voiceState,
+        voiceDurationSec: voiceState === 'idle' ? 0 : this.state.voiceDurationSec,
+      });
+    }
+  }
+
+  /**
+   * Displays a transient warning message in yellow that clears automatically after durationMs.
    */
   showWarning(warningText: string, durationMs = 4000): void {
     if (this.warningTimer) {
@@ -81,17 +120,30 @@ export default class StatusBar extends Component<StatusBarProps, StatusBarState>
       clearTimeout(this.warningTimer);
       this.warningTimer = null;
     }
+    if (this.voiceTimer) {
+      clearInterval(this.voiceTimer);
+      this.voiceTimer = null;
+    }
   }
 
   override render(width?: number): string[] {
     const theme = getTheme();
     const termWidth = width ?? process.stdout.columns ?? 80;
     const maxCols = Math.max(1, termWidth);
-    const { model, usage, isBusy, exitPending, warning } = this.state;
+    const { model, usage, isBusy, exitPending, warning, voiceState, voiceDurationSec } = this.state;
 
     let left = '';
     if (warning) {
       left = themeColor(theme.warning)(warning);
+    } else if (voiceState && voiceState !== 'idle') {
+      if (voiceState === 'connecting') {
+        left = `${chalk.white.bold('Connecting...')}   ${chalk.dim('Ctrl+T to stop')}`;
+      } else if (voiceState === 'recording') {
+        const timeStr = formatVoiceDuration(voiceDurationSec ?? 0);
+        left = `${chalk.white.bold(`Recording... ${timeStr}`)}   ${chalk.dim('Ctrl+T to stop')}`;
+      } else if (voiceState === 'finishing') {
+        left = chalk.white.bold('Finishing...');
+      }
     } else if (exitPending) {
       const errColor = themeColor(theme.error);
       left = `${errColor('▸ ')}${chalk.dim('Press ')}${errColor('Ctrl+C')}${chalk.dim(' again to exit')}`;

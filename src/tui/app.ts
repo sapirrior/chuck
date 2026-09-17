@@ -106,19 +106,30 @@ export class TUIApp {
 
     this.voiceController = new VoiceController({
       onStateChange: (state) => {
-        if (state === 'recording') {
-          this.promptInput.setVoiceMode('listening');
+        if (state === 'preparing') {
+          this.promptInput.setVoiceMode('connecting');
+          this.statusBar.setVoiceState('connecting');
+        } else if (state === 'recording') {
+          this.promptInput.setVoiceMode('recording');
+          this.statusBar.setVoiceState('recording');
         } else if (state === 'finalizing') {
-          this.promptInput.setVoiceMode('finalizing');
+          this.promptInput.setVoiceMode('finishing');
+          this.statusBar.setVoiceState('finishing');
         } else if (state === 'idle') {
           this.promptInput.setVoiceMode('idle');
+          this.statusBar.setVoiceState('idle');
         }
       },
       onTranscriptChange: (text) => {
         this.promptInput.setVoiceTranscript(text);
       },
       onComplete: (result) => {
-        this.promptInput.finishVoice(result.transcript);
+        this.statusBar.setVoiceState('idle');
+        if (result.ok) {
+          this.promptInput.finishVoice(result.transcript);
+        } else {
+          this.promptInput.cancelVoice();
+        }
       },
       onWarning: (warning) => {
         this.statusBar.showWarning(warning);
@@ -237,7 +248,7 @@ export class TUIApp {
           return true;
         }
         if (this.session.isBusy || this.isBusy) {
-          this.statusBar.showWarning('⚠ Voice unavailable while Steward is generating');
+          this.statusBar.showWarning('Voice unavailable while Steward is generating');
           return true;
         }
         if (this.voiceController.isActive) {

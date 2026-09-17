@@ -1,6 +1,6 @@
 import { logError } from '../errors/index.js';
 import { checkVoicePrerequisites, type PrerequisiteOptions } from './prerequisites.js';
-import { ArecordAudioRecorder, type SpawnProcessFn } from './recorder.js';
+import { ParecAudioRecorder, type SpawnProcessFn } from './recorder.js';
 import { GeminiLiveTranscriptionSession, type WebSocketFactory } from './live-transcription.js';
 import { TranscriptAccumulator } from './transcript.js';
 import { classifyVoiceError } from './errors.js';
@@ -74,7 +74,7 @@ export class VoiceController {
       if (currentToken !== this.sessionToken) return;
 
       if (!preflight.ok || !preflight.apiKey) {
-        const warning = preflight.warning || '⚠ Voice unavailable: prerequisites not met';
+        const warning = preflight.warning || 'Voice unavailable: prerequisites not met';
         this.options.onWarning?.(warning);
         this.setState('idle');
         const result: VoiceResult = {
@@ -95,7 +95,7 @@ export class VoiceController {
       this.liveSession = liveSession;
 
       // 3. Setup Recorder
-      const recorder = new ArecordAudioRecorder({
+      const recorder = new ParecAudioRecorder({
         spawnFn: this.options.spawnFn,
       });
       this.recorder = recorder;
@@ -137,7 +137,7 @@ export class VoiceController {
           if (currentToken !== this.sessionToken) return;
           this.handleFailure(err, currentToken);
         },
-        onExit: (code) => {
+        onExit: (_code) => {
           // Process exited
         },
       });
@@ -156,7 +156,7 @@ export class VoiceController {
       this.clearMaxDurationTimer();
       this.maxDurationTimer = setTimeout(() => {
         if (currentToken === this.sessionToken && this.state === 'recording') {
-          this.options.onWarning?.('⚠ Voice stopped: maximum recording duration reached');
+          this.options.onWarning?.('Voice stopped: maximum recording duration reached');
           this.stop();
         }
       }, maxMs);
@@ -171,7 +171,6 @@ export class VoiceController {
    * Stops the active voice recording and finalizes transcription.
    */
   public async stop(): Promise<VoiceResult> {
-    const currentToken = this.sessionToken;
     this.clearMaxDurationTimer();
 
     if (this.state === 'idle' || this.state === 'finalizing') {
@@ -179,6 +178,25 @@ export class VoiceController {
         ok: true,
         transcript: this.accumulator.getFinalizedText(),
       };
+    }
+
+    if (this.state === 'preparing') {
+      this.sessionToken++;
+      if (this.recorder) {
+        this.recorder.abort();
+        this.recorder = null;
+      }
+      if (this.liveSession) {
+        this.liveSession.close();
+        this.liveSession = null;
+      }
+      this.setState('idle');
+      const result: VoiceResult = {
+        ok: true,
+        transcript: '',
+      };
+      this.options.onComplete?.(result);
+      return result;
     }
 
     this.setState('finalizing');
@@ -246,7 +264,7 @@ export class VoiceController {
     const result: VoiceResult = {
       ok: false,
       transcript: partialText,
-      warning: '⚠ Voice cancelled',
+      warning: 'Voice cancelled',
       category: 'cancelled',
     };
     this.options.onComplete?.(result);
