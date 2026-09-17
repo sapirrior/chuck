@@ -3,6 +3,8 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { classifyError } from './classifier.js';
 
+const SENSITIVE_KEY_REGEX = /api[_-]?key|token|secret|password|auth|credential|bearer/i;
+
 /**
  * Resolves the root directory for error logs: ~/.steward/logs (or overridden by STEWARD_LOGS_DIR).
  */
@@ -31,6 +33,95 @@ export function getLogDateTime(d = new Date()): { date: string; time: string } {
 }
 
 /**
+ * Deeply serializes an error object, supporting nested causes, AggregateErrors,
+ * custom properties, and circular reference protection.
+ */
+export function serializeError(error: unknown, seen = new WeakSet()): Record<string, unknown> {
+  if (error === null || error === undefined) {
+    return { value: error };
+  }
+
+  if (typeof error !== 'object') {
+    return { value: String(error) };
+  }
+
+  if (seen.has(error)) {
+    return { value: '[Circular Reference]' };
+  }
+  seen.add(error);
+
+  if (error instanceof Error) {
+    const serialized: Record<string, unknown> = {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+    };
+
+    if (error.cause) {
+      serialized.cause = serializeError(error.cause, seen);
+    }
+
+    if (Array.isArray((error as any).errors)) {
+      serialized.errors = (error as any).errors.map((e: unknown) => serializeError(e, seen));
+    }
+
+    // Capture response details if present on API errors
+    if (typeof (error as any).statusCode === 'number') {
+      serialized.statusCode = (error as any).statusCode;
+    }
+    if (typeof (error as any).responseBody === 'string') {
+      serialized.responseBody = (error as any).responseBody;
+    }
+    if (typeof (error as any).code === 'string') {
+      serialized.code = (error as any).code;
+    }
+
+    return serialized;
+  }
+
+  const obj: Record<string, unknown> = {};
+  for (const [key, val] of Object.entries(error as Record<string, unknown>)) {
+    if (SENSITIVE_KEY_REGEX.test(key)) {
+      obj[key] = '[REDACTED]';
+    } else if (typeof val === 'object' && val !== null) {
+      obj[key] = serializeError(val, seen);
+    } else {
+      obj[key] = val;
+    }
+  }
+  return obj;
+}
+
+/**
+ * Sanitizes arbitrary context objects to redact potential API keys or tokens.
+ */
+export function sanitizeContext(
+  context?: Record<string, unknown>,
+  seen = new WeakSet(),
+): Record<string, unknown> {
+  if (!context || typeof context !== 'object') {
+    return {};
+  }
+
+  if (seen.has(context)) {
+    return { context: '[Circular Reference]' };
+  }
+  seen.add(context);
+
+  const clean: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(context)) {
+    if (SENSITIVE_KEY_REGEX.test(k)) {
+      clean[k] = '[REDACTED]';
+    } else if (typeof v === 'object' && v !== null) {
+      clean[k] = sanitizeContext(v as Record<string, unknown>, seen);
+    } else {
+      clean[k] = v;
+    }
+  }
+  return clean;
+}
+
+/**
  * Appends or writes a structured error entry to ~/.steward/logs/<date>/<time>.log.
  * Returns the path to the written log file.
  */
@@ -47,6 +138,8 @@ export function logError(error: unknown, contextInfo?: Record<string, unknown>):
     const logPath = join(dateDir, `${time}.log`);
     const structured = classifyError(error);
 
+    const mem = process.memoryUsage ? process.memoryUsage() : undefined;
+
     const logEntry = {
       timestamp: new Date().toISOString(),
       category: structured.category,
@@ -55,21 +148,19 @@ export function logError(error: unknown, contextInfo?: Record<string, unknown>):
       message: structured.shortMessage,
       isRetryable: structured.isRetryable,
       suggestedAction: structured.suggestedAction,
-      context: contextInfo ?? {},
-      error:
-        error instanceof Error
-          ? {
-              name: error.name,
-              message: error.message,
-              stack: error.stack,
-              ...(typeof (error as any).responseBody === 'string'
-                ? { responseBody: (error as any).responseBody }
-                : {}),
-              ...(typeof (error as any).statusCode === 'number'
-                ? { statusCode: (error as any).statusCode }
-                : {}),
-            }
-          : error,
+      runtime: {
+        engine: typeof (globalThis as any).Bun !== 'undefined' ? 'bun' : 'node',
+        version:
+          typeof (globalThis as any).Bun !== 'undefined'
+            ? (globalThis as any).Bun.version
+            : process.version,
+        platform: process.platform,
+        arch: process.arch,
+        pid: process.pid,
+        memoryUsageMB: mem ? Math.round(mem.rss / 1024 / 1024) : undefined,
+      },
+      context: sanitizeContext(contextInfo),
+      error: serializeError(error),
     };
 
     const formatted =
