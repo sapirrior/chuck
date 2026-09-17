@@ -215,28 +215,24 @@ export class MutationCheckpointTracker {
       (f) => f.mutationCommitted && f.post !== undefined,
     );
 
-    if (committedFiles.length > 0) {
-      const turnCheckpoint: TurnCheckpoint = {
-        version: CHECKPOINT_SCHEMA_VERSION,
-        workspaceHash: this.workspaceHash,
-        workspaceRoot: this.workspaceRoot,
-        sessionId: this.sessionId,
-        turnId,
-        status: 'committed',
-        startedAt: this.turnStartedAt ?? new Date().toISOString(),
-        completedAt: new Date().toISOString(),
-        files: committedFiles,
-      };
+    const turnCheckpoint: TurnCheckpoint = {
+      version: CHECKPOINT_SCHEMA_VERSION,
+      workspaceHash: this.workspaceHash,
+      workspaceRoot: this.workspaceRoot,
+      sessionId: this.sessionId,
+      turnId,
+      status: 'committed',
+      startedAt: this.turnStartedAt ?? new Date().toISOString(),
+      completedAt: new Date().toISOString(),
+      files: committedFiles,
+    };
 
-      await commitTurnCheckpoint(
-        this.workspaceHash,
-        this.sessionId,
-        this.workspaceRoot,
-        turnCheckpoint,
-      );
-    } else {
-      await deletePendingJournal(this.workspaceHash, this.sessionId);
-    }
+    await commitTurnCheckpoint(
+      this.workspaceHash,
+      this.sessionId,
+      this.workspaceRoot,
+      turnCheckpoint,
+    );
 
     this.activeTurnId = null;
     this.files.clear();

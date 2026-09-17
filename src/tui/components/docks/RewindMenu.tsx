@@ -12,7 +12,6 @@ export interface RewindItem {
   promptText: string;
   hasCodeChanges: boolean;
   changedFileCount: number;
-  isCurrent: boolean;
 }
 
 export interface RewindMenuProps {
@@ -29,7 +28,6 @@ export function buildRewindItems(session: SessionData, cwd: string): RewindItem[
 
   const turns = session.turns ?? [];
   return turns.map((turn: SessionTurn, idx: number) => {
-    const isCurrent = idx === turns.length - 1;
     const userMsg = turn.messages.find((m) => m.role === 'user');
     let promptText = 'Prompt';
     if (userMsg) {
@@ -55,7 +53,6 @@ export function buildRewindItems(session: SessionData, cwd: string): RewindItem[
       promptText: cleanPrompt || `Turn ${idx + 1}`,
       hasCodeChanges,
       changedFileCount,
-      isCurrent,
     };
   });
 }
@@ -67,7 +64,7 @@ export default class RewindMenu extends SelectList<RewindItem> {
     super({
       items,
       title: 'Rewind',
-      subtitle: 'Restore code and conversation to prior point',
+      subtitle: 'Restore code and conversation to before selected turn',
       placeholder: 'Type to filter turns…',
       emptyMessage: '  No rewind points found.',
       maxVisible: 4,
@@ -81,11 +78,9 @@ export default class RewindMenu extends SelectList<RewindItem> {
         const selColor = themeColor(theme.permission);
         const pointer = isSelected ? selColor(`${figures.pointer} `) : '  ';
 
-        const changeSummary = item.isCurrent
-          ? '(current state)'
-          : item.hasCodeChanges
-            ? `${item.changedFileCount} file${item.changedFileCount !== 1 ? 's' : ''} changed`
-            : 'No code changes';
+        const changeSummary = item.hasCodeChanges
+          ? `${item.changedFileCount} file${item.changedFileCount !== 1 ? 's' : ''} changed`
+          : 'No code changes';
 
         return (
           <Box direction="column" width={maxCols}>

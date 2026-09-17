@@ -198,10 +198,10 @@ describe('Definition of Done — Multi-Turn Parallel Mutation and Rewind Scenari
     expect(session.turns.length).toBe(3);
     expect(session.totalUsage.totalTokens).toBe(450);
 
-    // === /rewind to Turn 1 ===
+    // === /rewind before Turn 2 (keeping Turn 1) ===
     const rewindRes = await executeRewind({
       session,
-      targetTurnId: 'turn-1',
+      targetTurnId: 'turn-2',
       workspaceRoot: workspaceDir,
       lockManager,
     });
@@ -281,10 +281,10 @@ describe('Definition of Done — Multi-Turn Parallel Mutation and Rewind Scenari
     // External process modifies A.txt
     writeFileSync(fileA, 'A1-external-manual-change', 'utf-8');
 
-    // Attempt rewind to Turn 1
+    // Attempt rewind before Turn 2
     const rewindRes = await executeRewind({
       session,
-      targetTurnId: 'turn-1',
+      targetTurnId: 'turn-2',
       workspaceRoot: workspaceDir,
       lockManager,
     });

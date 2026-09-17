@@ -375,13 +375,6 @@ export class TUIApp {
       cwd: this.cwd,
       onSelect: async (item) => {
         this.closeModal();
-        if (item.isCurrent) {
-          this.engine.commit(
-            'system',
-            formatSystemMessage('Already at current state; no turns discarded.'),
-          );
-          return;
-        }
 
         const res = await executeRewind({
           session: this.session.session,
@@ -394,7 +387,7 @@ export class TUIApp {
           this.engine.commit(
             'system',
             formatSystemMessage(
-              `Rewound to turn ${item.turnIndex + 1} (${res.restoredFilesCount} file(s) restored, ${res.discardedTurnsCount} turn(s) discarded).`,
+              `Rewound to before turn ${item.turnIndex + 1} (${res.restoredFilesCount} file(s) restored, ${res.discardedTurnsCount} turn(s) discarded).`,
             ),
           );
         } else {

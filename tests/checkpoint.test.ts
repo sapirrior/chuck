@@ -209,15 +209,15 @@ describe('Checkpoint Core (CAS, Path, Lock, Tracker, Rewind)', () => {
   });
 
   describe('Rewind Execution', () => {
-    it('rewinds multiple turns in reverse chronological order', async () => {
+    it('Test A — selected turn itself is discarded', async () => {
       const tracker = new MutationCheckpointTracker({
         workspaceRoot: workspaceDir,
-        sessionId: 'rewind-session',
+        sessionId: 'test-a-session',
       });
 
       const session = createSession(
         { provider: 'anthropic', modelId: 'claude-3-5-sonnet-latest' },
-        'rewind-session',
+        'test-a-session',
       );
 
       const fileA = join(workspaceDir, 'a.txt');
@@ -273,17 +273,518 @@ describe('Checkpoint Core (CAS, Path, Lock, Tracker, Rewind)', () => {
 
       expect(readFileSync(fileA, 'utf-8')).toBe('A3');
 
-      // Rewind to Turn 1 (discarding turns 2 and 3)
+      // Select Turn 2 (rewind before Turn 2, discarding Turn 2 and Turn 3)
       const rewindRes = await executeRewind({
         session,
-        targetTurnId: 'turn-1',
+        targetTurnId: 'turn-2',
+        workspaceRoot: workspaceDir,
+      });
+
+      expect(rewindRes.success).toBe(true);
+      if (rewindRes.success) {
+        expect(rewindRes.discardedTurnsCount).toBe(2);
+      }
+      expect(readFileSync(fileA, 'utf-8')).toBe('A1');
+      expect(session.turns.length).toBe(1);
+      expect(session.turns[0].id).toBe('turn-1');
+      expect(session.totalUsage.totalTokens).toBe(30);
+
+      // Verify manifest synchronized
+      const manifest = loadCheckpointManifest(computeWorkspaceHash(workspaceDir), 'test-a-session');
+      expect(manifest?.turns.map((t) => t.turnId)).toEqual(['turn-1']);
+    });
+
+    it('Test B — last turn is rewindable', async () => {
+      const tracker = new MutationCheckpointTracker({
+        workspaceRoot: workspaceDir,
+        sessionId: 'test-b-session',
+      });
+
+      const session = createSession(
+        { provider: 'anthropic', modelId: 'claude-3-5-sonnet-latest' },
+        'test-b-session',
+      );
+
+      const fileA = join(workspaceDir, 'a.txt');
+      writeFileSync(fileA, 'A0', 'utf-8');
+
+      // Turn 1: A0 -> A1
+      await tracker.beginTurn('turn-1', 1);
+      let prep = await tracker.prepareMutation('a.txt');
+      writeFileSync(fileA, 'A1', 'utf-8');
+      await tracker.completeMutation('a.txt');
+      prep.releaseLock();
+      await tracker.commitTurn('turn-1');
+
+      session.turns.push({
+        id: 'turn-1',
+        timestamp: new Date().toISOString(),
+        status: 'complete',
+        usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 },
+        messages: [{ role: 'user', content: 'Turn 1 prompt' }],
+      });
+
+      // Turn 2: A1 -> A2
+      await tracker.beginTurn('turn-2', 2);
+      prep = await tracker.prepareMutation('a.txt');
+      writeFileSync(fileA, 'A2', 'utf-8');
+      await tracker.completeMutation('a.txt');
+      prep.releaseLock();
+      await tracker.commitTurn('turn-2');
+
+      session.turns.push({
+        id: 'turn-2',
+        timestamp: new Date().toISOString(),
+        status: 'complete',
+        usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 },
+        messages: [{ role: 'user', content: 'Turn 2 prompt' }],
+      });
+
+      // Turn 3: A2 -> A3
+      await tracker.beginTurn('turn-3', 3);
+      prep = await tracker.prepareMutation('a.txt');
+      writeFileSync(fileA, 'A3', 'utf-8');
+      await tracker.completeMutation('a.txt');
+      prep.releaseLock();
+      await tracker.commitTurn('turn-3');
+
+      session.turns.push({
+        id: 'turn-3',
+        timestamp: new Date().toISOString(),
+        status: 'complete',
+        usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 },
+        messages: [{ role: 'user', content: 'Turn 3 prompt' }],
+      });
+
+      // Select Turn 3 (discards Turn 3, keeps Turn 1 and Turn 2)
+      const rewindRes = await executeRewind({
+        session,
+        targetTurnId: 'turn-3',
+        workspaceRoot: workspaceDir,
+      });
+
+      expect(rewindRes.success).toBe(true);
+      expect(session.turns.map((t) => t.id)).toEqual(['turn-1', 'turn-2']);
+      expect(readFileSync(fileA, 'utf-8')).toBe('A2');
+    });
+
+    it('Test C — multiple files restoration', async () => {
+      const tracker = new MutationCheckpointTracker({
+        workspaceRoot: workspaceDir,
+        sessionId: 'test-c-session',
+      });
+
+      const session = createSession(
+        { provider: 'anthropic', modelId: 'claude-3-5-sonnet-latest' },
+        'test-c-session',
+      );
+
+      const fileA = join(workspaceDir, 'a.txt');
+      const fileB = join(workspaceDir, 'b.txt');
+      const fileC = join(workspaceDir, 'c.txt');
+
+      writeFileSync(fileA, 'A0', 'utf-8');
+      writeFileSync(fileB, 'B0', 'utf-8');
+      writeFileSync(fileC, 'C0', 'utf-8');
+
+      // Turn 1: A0 -> A1, B0 -> B1
+      await tracker.beginTurn('turn-1', 1);
+      let prepA = await tracker.prepareMutation('a.txt');
+      writeFileSync(fileA, 'A1', 'utf-8');
+      await tracker.completeMutation('a.txt');
+      prepA.releaseLock();
+
+      let prepB = await tracker.prepareMutation('b.txt');
+      writeFileSync(fileB, 'B1', 'utf-8');
+      await tracker.completeMutation('b.txt');
+      prepB.releaseLock();
+      await tracker.commitTurn('turn-1');
+
+      session.turns.push({
+        id: 'turn-1',
+        timestamp: new Date().toISOString(),
+        status: 'complete',
+        usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 },
+        messages: [{ role: 'user', content: 'T1' }],
+      });
+
+      // Turn 2: A1 -> A2
+      await tracker.beginTurn('turn-2', 2);
+      prepA = await tracker.prepareMutation('a.txt');
+      writeFileSync(fileA, 'A2', 'utf-8');
+      await tracker.completeMutation('a.txt');
+      prepA.releaseLock();
+      await tracker.commitTurn('turn-2');
+
+      session.turns.push({
+        id: 'turn-2',
+        timestamp: new Date().toISOString(),
+        status: 'complete',
+        usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 },
+        messages: [{ role: 'user', content: 'T2' }],
+      });
+
+      // Turn 3: B1 -> B2, C0 -> C1
+      await tracker.beginTurn('turn-3', 3);
+      prepB = await tracker.prepareMutation('b.txt');
+      writeFileSync(fileB, 'B2', 'utf-8');
+      await tracker.completeMutation('b.txt');
+      prepB.releaseLock();
+
+      let prepC = await tracker.prepareMutation('c.txt');
+      writeFileSync(fileC, 'C1', 'utf-8');
+      await tracker.completeMutation('c.txt');
+      prepC.releaseLock();
+      await tracker.commitTurn('turn-3');
+
+      session.turns.push({
+        id: 'turn-3',
+        timestamp: new Date().toISOString(),
+        status: 'complete',
+        usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 },
+        messages: [{ role: 'user', content: 'T3' }],
+      });
+
+      // Select Turn 2 (rewind before Turn 2)
+      const rewindRes = await executeRewind({
+        session,
+        targetTurnId: 'turn-2',
         workspaceRoot: workspaceDir,
       });
 
       expect(rewindRes.success).toBe(true);
       expect(readFileSync(fileA, 'utf-8')).toBe('A1');
-      expect(session.turns.length).toBe(1);
-      expect(session.totalUsage.totalTokens).toBe(30);
+      expect(readFileSync(fileB, 'utf-8')).toBe('B1');
+      expect(readFileSync(fileC, 'utf-8')).toBe('C0');
+      expect(session.turns.map((t) => t.id)).toEqual(['turn-1']);
+    });
+
+    it('Test D — repeated mutation of one file restores oldest discarded preimage', async () => {
+      const tracker = new MutationCheckpointTracker({
+        workspaceRoot: workspaceDir,
+        sessionId: 'test-d-session',
+      });
+
+      const session = createSession(
+        { provider: 'anthropic', modelId: 'claude-3-5-sonnet-latest' },
+        'test-d-session',
+      );
+
+      const fileA = join(workspaceDir, 'a.txt');
+      writeFileSync(fileA, 'A0', 'utf-8');
+
+      // T1: A0 -> A1
+      await tracker.beginTurn('turn-1', 1);
+      let prep = await tracker.prepareMutation('a.txt');
+      writeFileSync(fileA, 'A1', 'utf-8');
+      await tracker.completeMutation('a.txt');
+      prep.releaseLock();
+      await tracker.commitTurn('turn-1');
+      session.turns.push({
+        id: 'turn-1',
+        timestamp: new Date().toISOString(),
+        status: 'complete',
+        usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 },
+        messages: [{ role: 'user', content: 'T1' }],
+      });
+
+      // T2: A1 -> A2
+      await tracker.beginTurn('turn-2', 2);
+      prep = await tracker.prepareMutation('a.txt');
+      writeFileSync(fileA, 'A2', 'utf-8');
+      await tracker.completeMutation('a.txt');
+      prep.releaseLock();
+      await tracker.commitTurn('turn-2');
+      session.turns.push({
+        id: 'turn-2',
+        timestamp: new Date().toISOString(),
+        status: 'complete',
+        usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 },
+        messages: [{ role: 'user', content: 'T2' }],
+      });
+
+      // T3: A2 -> A3
+      await tracker.beginTurn('turn-3', 3);
+      prep = await tracker.prepareMutation('a.txt');
+      writeFileSync(fileA, 'A3', 'utf-8');
+      await tracker.completeMutation('a.txt');
+      prep.releaseLock();
+      await tracker.commitTurn('turn-3');
+      session.turns.push({
+        id: 'turn-3',
+        timestamp: new Date().toISOString(),
+        status: 'complete',
+        usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 },
+        messages: [{ role: 'user', content: 'T3' }],
+      });
+
+      // T4: A3 -> A4
+      await tracker.beginTurn('turn-4', 4);
+      prep = await tracker.prepareMutation('a.txt');
+      writeFileSync(fileA, 'A4', 'utf-8');
+      await tracker.completeMutation('a.txt');
+      prep.releaseLock();
+      await tracker.commitTurn('turn-4');
+      session.turns.push({
+        id: 'turn-4',
+        timestamp: new Date().toISOString(),
+        status: 'complete',
+        usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 },
+        messages: [{ role: 'user', content: 'T4' }],
+      });
+
+      // Select Turn 2
+      const rewindRes = await executeRewind({
+        session,
+        targetTurnId: 'turn-2',
+        workspaceRoot: workspaceDir,
+      });
+
+      expect(rewindRes.success).toBe(true);
+      expect(readFileSync(fileA, 'utf-8')).toBe('A1');
+      expect(session.turns.map((t) => t.id)).toEqual(['turn-1']);
+    });
+
+    it('Test E — legacy session fails closed before any mutation', async () => {
+      const session = createSession(
+        { provider: 'anthropic', modelId: 'claude-3-5-sonnet-latest' },
+        'legacy-session',
+      );
+
+      session.turns.push(
+        {
+          id: 'turn-1',
+          timestamp: new Date().toISOString(),
+          status: 'complete',
+          usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 },
+          messages: [{ role: 'user', content: 'Legacy 1' }],
+        },
+        {
+          id: 'turn-2',
+          timestamp: new Date().toISOString(),
+          status: 'complete',
+          usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 },
+          messages: [{ role: 'user', content: 'Legacy 2' }],
+        },
+      );
+
+      const fileA = join(workspaceDir, 'a.txt');
+      writeFileSync(fileA, 'legacy-content', 'utf-8');
+
+      // Attempt rewind on session with no checkpoint manifest
+      const rewindRes = await executeRewind({
+        session,
+        targetTurnId: 'turn-2',
+        workspaceRoot: workspaceDir,
+      });
+
+      expect(rewindRes.success).toBe(false);
+      if (!rewindRes.success) {
+        expect(rewindRes.error).toContain('unavailable');
+      }
+      expect(readFileSync(fileA, 'utf-8')).toBe('legacy-content');
+      expect(session.turns.length).toBe(2);
+    });
+
+    it('Test F — mixed legacy and checkpointed session', async () => {
+      const tracker = new MutationCheckpointTracker({
+        workspaceRoot: workspaceDir,
+        sessionId: 'mixed-session',
+      });
+
+      const session = createSession(
+        { provider: 'anthropic', modelId: 'claude-3-5-sonnet-latest' },
+        'mixed-session',
+      );
+
+      const fileA = join(workspaceDir, 'a.txt');
+      writeFileSync(fileA, 'A0', 'utf-8');
+
+      // Legacy turns (no checkpoints recorded)
+      session.turns.push(
+        {
+          id: 'turn-1',
+          timestamp: new Date().toISOString(),
+          status: 'complete',
+          usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 },
+          messages: [{ role: 'user', content: 'Old 1' }],
+        },
+        {
+          id: 'turn-2',
+          timestamp: new Date().toISOString(),
+          status: 'complete',
+          usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 },
+          messages: [{ role: 'user', content: 'Old 2' }],
+        },
+      );
+
+      // Turn 3: checkpointed A0 -> A3
+      await tracker.beginTurn('turn-3', 3);
+      let prep = await tracker.prepareMutation('a.txt');
+      writeFileSync(fileA, 'A3', 'utf-8');
+      await tracker.completeMutation('a.txt');
+      prep.releaseLock();
+      await tracker.commitTurn('turn-3');
+      session.turns.push({
+        id: 'turn-3',
+        timestamp: new Date().toISOString(),
+        status: 'complete',
+        usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 },
+        messages: [{ role: 'user', content: 'New 3' }],
+      });
+
+      // Turn 4: checkpointed A3 -> A4
+      await tracker.beginTurn('turn-4', 4);
+      prep = await tracker.prepareMutation('a.txt');
+      writeFileSync(fileA, 'A4', 'utf-8');
+      await tracker.completeMutation('a.txt');
+      prep.releaseLock();
+      await tracker.commitTurn('turn-4');
+      session.turns.push({
+        id: 'turn-4',
+        timestamp: new Date().toISOString(),
+        status: 'complete',
+        usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 },
+        messages: [{ role: 'user', content: 'New 4' }],
+      });
+
+      // Selecting Turn 2 requires crossing uncheckpointed boundary -> reject
+      const rejectedRes = await executeRewind({
+        session,
+        targetTurnId: 'turn-2',
+        workspaceRoot: workspaceDir,
+      });
+      expect(rejectedRes.success).toBe(false);
+      expect(readFileSync(fileA, 'utf-8')).toBe('A4');
+      expect(session.turns.length).toBe(4);
+
+      // Selecting Turn 4 is fully within checkpointed region -> allowed
+      const allowedRes = await executeRewind({
+        session,
+        targetTurnId: 'turn-4',
+        workspaceRoot: workspaceDir,
+      });
+      expect(allowedRes.success).toBe(true);
+      expect(readFileSync(fileA, 'utf-8')).toBe('A3');
+      expect(session.turns.map((t) => t.id)).toEqual(['turn-1', 'turn-2', 'turn-3']);
+    });
+
+    it('Test G — resume session then mutate then rewind', async () => {
+      const tracker1 = new MutationCheckpointTracker({
+        workspaceRoot: workspaceDir,
+        sessionId: 'resume-test-session',
+      });
+
+      const session = createSession(
+        { provider: 'anthropic', modelId: 'claude-3-5-sonnet-latest' },
+        'resume-test-session',
+      );
+
+      const fileA = join(workspaceDir, 'a.txt');
+      writeFileSync(fileA, 'Initial', 'utf-8');
+
+      // Turn 1
+      await tracker1.beginTurn('turn-1', 1);
+      let prep = await tracker1.prepareMutation('a.txt');
+      writeFileSync(fileA, 'After-Turn-1', 'utf-8');
+      await tracker1.completeMutation('a.txt');
+      prep.releaseLock();
+      await tracker1.commitTurn('turn-1');
+      session.turns.push({
+        id: 'turn-1',
+        timestamp: new Date().toISOString(),
+        status: 'complete',
+        usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 },
+        messages: [{ role: 'user', content: 'Turn 1' }],
+      });
+
+      // Simulate resume: new tracker instance with same workspace and session
+      const tracker2 = new MutationCheckpointTracker({
+        workspaceRoot: workspaceDir,
+        sessionId: 'resume-test-session',
+      });
+
+      // Turn 2
+      await tracker2.beginTurn('turn-2', 2);
+      prep = await tracker2.prepareMutation('a.txt');
+      writeFileSync(fileA, 'After-Turn-2', 'utf-8');
+      await tracker2.completeMutation('a.txt');
+      prep.releaseLock();
+      await tracker2.commitTurn('turn-2');
+      session.turns.push({
+        id: 'turn-2',
+        timestamp: new Date().toISOString(),
+        status: 'complete',
+        usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 },
+        messages: [{ role: 'user', content: 'Turn 2' }],
+      });
+
+      // Rewind before Turn 2
+      const rewindRes = await executeRewind({
+        session,
+        targetTurnId: 'turn-2',
+        workspaceRoot: workspaceDir,
+      });
+
+      expect(rewindRes.success).toBe(true);
+      expect(readFileSync(fileA, 'utf-8')).toBe('After-Turn-1');
+      expect(session.turns.map((t) => t.id)).toEqual(['turn-1']);
+    });
+
+    it('Test H — concurrent multi-file mutations in one turn', async () => {
+      const lockManager = new MutationLockManager();
+      const tracker = new MutationCheckpointTracker({
+        workspaceRoot: workspaceDir,
+        sessionId: 'concurrent-session',
+        lockManager,
+      });
+
+      const session = createSession(
+        { provider: 'anthropic', modelId: 'claude-3-5-sonnet-latest' },
+        'concurrent-session',
+      );
+
+      const fileA = join(workspaceDir, 'a.txt');
+      const fileB = join(workspaceDir, 'b.txt');
+      const fileC = join(workspaceDir, 'c.txt');
+
+      writeFileSync(fileA, 'A0', 'utf-8');
+      writeFileSync(fileB, 'B0', 'utf-8');
+      writeFileSync(fileC, 'C0', 'utf-8');
+
+      // Turn 1
+      await tracker.beginTurn('turn-1', 1);
+      const mutate = async (relPath: string, content: string) => {
+        const prep = await tracker.prepareMutation(relPath);
+        writeFileSync(join(workspaceDir, relPath), content, 'utf-8');
+        await tracker.completeMutation(relPath);
+        prep.releaseLock();
+      };
+
+      await Promise.all([mutate('a.txt', 'A1'), mutate('b.txt', 'B1'), mutate('c.txt', 'C1')]);
+
+      await tracker.commitTurn('turn-1');
+      session.turns.push({
+        id: 'turn-1',
+        timestamp: new Date().toISOString(),
+        status: 'complete',
+        usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 },
+        messages: [{ role: 'user', content: 'Turn 1' }],
+      });
+
+      // Rewind before Turn 1
+      const rewindRes = await executeRewind({
+        session,
+        targetTurnId: 'turn-1',
+        workspaceRoot: workspaceDir,
+        lockManager,
+      });
+
+      expect(rewindRes.success).toBe(true);
+      expect(readFileSync(fileA, 'utf-8')).toBe('A0');
+      expect(readFileSync(fileB, 'utf-8')).toBe('B0');
+      expect(readFileSync(fileC, 'utf-8')).toBe('C0');
+      expect(session.turns.length).toBe(0);
     });
 
     it('detects external modifications and aborts rewind before touching files', async () => {
@@ -335,10 +836,10 @@ describe('Checkpoint Core (CAS, Path, Lock, Tracker, Rewind)', () => {
       // External edit occurs after Turn 2
       writeFileSync(fileA, 'A2-external-modification', 'utf-8');
 
-      // Attempt rewind to Turn 1
+      // Attempt rewind before Turn 2
       const rewindRes = await executeRewind({
         session,
-        targetTurnId: 'turn-1',
+        targetTurnId: 'turn-2',
         workspaceRoot: workspaceDir,
       });
 

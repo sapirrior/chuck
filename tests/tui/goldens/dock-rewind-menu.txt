@@ -1,5 +1,5 @@
 [?2026h[H[J────────────────────────────────────────────────────────────────────────────────
-Rewind                              Restore code and conversation to prior point
+Rewind                     Restore code and conversation to before selected turn
 > Type to filter turns…
 ────────────────────────────────────────────────────────────────────────────────
 > Create src/components/Button.tsx
@@ -7,7 +7,7 @@
   Refactor Button styles and add primary variant
   No code changes
   Add unit test suite for Button component
-  (current state)
+  No code changes
 ↑/↓ navigate · Enter select · Esc cancel  (3 available)
 
 

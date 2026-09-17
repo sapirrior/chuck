@@ -128,26 +128,31 @@ export async function executeRewind(options: RewindOptions): Promise<RewindResul
     };
   }
 
-  // If target is the last turn, rewind is a no-op
-  if (targetIndex === session.turns.length - 1) {
+  const keptTurns = session.turns.slice(0, targetIndex);
+  const discardedTurns = session.turns.slice(targetIndex);
+  const discardedTurnIds = discardedTurns.map((t) => t.id);
+
+  // 2. Load checkpoint manifest and validate fail-closed completeness
+  const manifest = loadCheckpointManifest(workspaceHash, session.id);
+  if (!manifest) {
     return {
-      success: true,
-      rewoundSession: session,
-      restoredFilesCount: 0,
-      discardedTurnsCount: 0,
+      success: false,
+      error: `Checkpoint manifest unavailable for session ${session.id}. Cannot safely rewind workspace files.`,
     };
   }
 
-  const keptTurns = session.turns.slice(0, targetIndex + 1);
-  const discardedTurns = session.turns.slice(targetIndex + 1);
-  const discardedTurnIds = discardedTurns.map((t) => t.id);
-
-  // 2. Load checkpoint manifest
-  const manifest = loadCheckpointManifest(workspaceHash, session.id);
   const sidecarTurnMap = new Map<string, TurnCheckpoint>();
-  if (manifest) {
-    for (const t of manifest.turns) {
-      sidecarTurnMap.set(t.turnId, t);
+  for (const t of manifest.turns) {
+    sidecarTurnMap.set(t.turnId, t);
+  }
+
+  for (const turn of discardedTurns) {
+    const sidecarTurn = sidecarTurnMap.get(turn.id);
+    if (!sidecarTurn || sidecarTurn.status !== 'committed') {
+      return {
+        success: false,
+        error: `Turn ${turn.id} has no valid committed checkpoint. Full rewind is unavailable for uncheckpointed turns.`,
+      };
     }
   }
 
