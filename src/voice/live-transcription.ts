@@ -80,6 +80,7 @@ export class GeminiLiveTranscriptionSession implements LiveTranscriptionSession 
               },
               inputAudioTranscription: {
                 languageCodes: [],
+                mode: 'SMART',
               },
             },
           };
