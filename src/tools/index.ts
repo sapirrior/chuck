@@ -7,6 +7,9 @@ import { grepTool } from './grep/index.js';
 import { listDirTool } from './list-dir/index.js';
 import { sleepTool } from './sleep/index.js';
 import { bashTool } from './bash/index.js';
+import { taskReadTool } from './task-read/index.js';
+import { taskSendInputTool } from './task-send-input/index.js';
+import { taskKillTool } from './task-kill/index.js';
 import { webFetchTool } from './web-fetch/index.js';
 import { webSearchTool } from './web-search/index.js';
 import type { ToolContext, ToolDefinition } from './types.js';
@@ -20,6 +23,9 @@ export const builtInTools: ToolDefinition<any, any>[] = [
   listDirTool,
   sleepTool,
   bashTool,
+  taskReadTool,
+  taskSendInputTool,
+  taskKillTool,
   webFetchTool,
   webSearchTool,
 ];
@@ -48,6 +54,9 @@ export * from './grep/index.js';
 export * from './list-dir/index.js';
 export * from './sleep/index.js';
 export * from './bash/index.js';
+export * from './task-read/index.js';
+export * from './task-send-input/index.js';
+export * from './task-kill/index.js';
 export * from './web-fetch/index.js';
 export * from './web-search/index.js';
 export * from './types.js';

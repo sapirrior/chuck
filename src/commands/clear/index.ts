@@ -16,7 +16,7 @@ export const clearCommand: SlashCommand = {
       };
     }
 
-    context.session.resetSession();
+    await context.session.resetSession();
     return {
       handled: true,
       data: { clearHistory: true },

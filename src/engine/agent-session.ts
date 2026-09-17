@@ -10,6 +10,7 @@ import {
 import { MutationCheckpointTracker, globalMutationLockManager } from '../checkpoint/index.js';
 import { defaultToolCatalog } from '../tools/index.js';
 import type { ToolContext } from '../tools/types.js';
+import { ShellTaskManager } from '../tasks/manager.js';
 import { saveSettings } from '../config/index.js';
 import { logError } from '../errors/index.js';
 import { runAgentTurn } from './agent-runner.js';
@@ -54,6 +55,7 @@ export class AgentSession {
   };
   private activeAbortController: AbortController | null = null;
   private isGenerating = false;
+  private shellTasks: ShellTaskManager = new ShellTaskManager();
 
   constructor(initialConfig?: Partial<SessionConfig>, existingSession?: SessionData) {
     if (existingSession) {
@@ -221,6 +223,7 @@ export class AgentSession {
       checkpointTracker: tracker,
       mutationLocks: globalMutationLockManager,
       requestBashPermission: options.requestBashPermission,
+      shellTasks: this.shellTasks,
     };
 
     let activeTools: Record<string, any> | undefined;
@@ -356,9 +359,25 @@ export class AgentSession {
   }
 
   /**
-   * Resets the conversation history and initializes a new active session document.
+   * Returns the session-scoped ShellTaskManager instance.
    */
-  public resetSession(): void {
+  public get tasks(): ShellTaskManager {
+    return this.shellTasks;
+  }
+
+  /**
+   * Shuts down session resources including background shell tasks.
+   */
+  public async shutdown(): Promise<void> {
+    await this.shellTasks.shutdown();
+  }
+
+  /**
+   * Resets the conversation history, terminates old background tasks, and initializes a new active session document.
+   */
+  public async resetSession(): Promise<void> {
+    await this.shellTasks.shutdown();
+    this.shellTasks = new ShellTaskManager();
     this.messages = [];
     this.accumulatedUsage = {
       inputTokens: 0,

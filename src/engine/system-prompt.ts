@@ -101,6 +101,7 @@ export function buildSystemPrompt(options: SystemPromptOptions = {}): string {
    - Use the edit file and write file tools for both normal code/file changes as well as making plans and todos.
    - When WebFetch returns a message about a redirect to a different host, immediately make a new WebFetch request with the redirect URL provided in the response.
    - When web search returns but does not contain enough data, use the URLs from the results and WebFetch them for more detailed information.
+   - When a command moves to the background as a shell task, use task_read to inspect its status/output, task_send_input to send standard input (always include a trailing '\n' to submit a line / press Enter), and task_kill to terminate it.
 
    # Task Management (Planning)
    You have access to the write file and edit file tools to help you manage and plan tasks alongside normal file/code creation. Use these tools VERY frequently to ensure that you are tracking your tasks and giving the user visibility into your progress.

@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process';
 export interface ExecShellOptions {
   command: string;
   cwd: string;
-  timeoutSeconds: number;
+  timeoutSeconds?: number;
   abortSignal?: AbortSignal;
 }
 
@@ -35,11 +35,41 @@ export function getPlatformShell(): { shell: string; args: string[] } {
 }
 
 /**
+ * Safely terminates a child process and its process tree.
+ */
+export function killProcessTree(child: import('node:child_process').ChildProcess): void {
+  const pid = child.pid;
+  if (!pid) return;
+
+  if (process.platform === 'win32') {
+    try {
+      spawn('taskkill', ['/pid', String(pid), '/T', '/F'], {
+        stdio: 'ignore',
+      });
+    } catch {
+      try {
+        child.kill('SIGKILL');
+      } catch {}
+    }
+  } else {
+    try {
+      process.kill(-pid, 'SIGKILL');
+    } catch (err: any) {
+      if (err.code !== 'ESRCH') {
+        try {
+          child.kill('SIGKILL');
+        } catch {}
+      }
+    }
+  }
+}
+
+/**
  * Executes a shell command asynchronously with streaming output capture,
  * timeout enforcement, cancellation support, and process tree termination.
  */
 export async function execShellCommand(options: ExecShellOptions): Promise<ExecShellResult> {
-  const { command, cwd, timeoutSeconds, abortSignal } = options;
+  const { command, cwd, timeoutSeconds = 0, abortSignal } = options;
   const startTime = Date.now();
 
   const { shell, args } = getPlatformShell();
@@ -59,23 +89,20 @@ export async function execShellCommand(options: ExecShellOptions): Promise<ExecS
       cwd,
       env: { ...process.env },
       stdio: ['pipe', 'pipe', 'pipe'],
+      detached: process.platform !== 'win32',
     });
 
     let timeoutTimer: NodeJS.Timeout | null = null;
     if (timeoutSeconds > 0) {
       timeoutTimer = setTimeout(() => {
         timedOut = true;
-        try {
-          child.kill('SIGKILL');
-        } catch {}
+        killProcessTree(child);
       }, timeoutSeconds * 1000);
     }
 
     const onAbort = () => {
       if (!isSettled) {
-        try {
-          child.kill('SIGKILL');
-        } catch {}
+        killProcessTree(child);
         cleanup();
         reject(new Error('Command execution aborted by user.'));
       }
@@ -110,7 +137,7 @@ export async function execShellCommand(options: ExecShellOptions): Promise<ExecS
       reject(new Error(`Failed to spawn shell process: ${err.message}`));
     });
 
-    child.on('close', (code, _signal) => {
+    const settleOnExit = (code: number | null) => {
       if (isSettled) return;
       isSettled = true;
       cleanup();
@@ -124,6 +151,9 @@ export async function execShellCommand(options: ExecShellOptions): Promise<ExecS
         durationMs,
         timedOut,
       });
-    });
+    };
+
+    child.on('exit', (code) => settleOnExit(code));
+    child.on('close', (code) => settleOnExit(code));
   });
 }

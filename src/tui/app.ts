@@ -333,6 +333,7 @@ export class TUIApp {
   }
 
   private switchToSession(selected: SessionData): void {
+    this.session.shutdown().catch(() => {});
     this.session = AgentSession.resume(selected);
     const model = this.session.getModel();
     this.header.props.model = model;
@@ -708,6 +709,7 @@ export class TUIApp {
   }
 
   private exit(): void {
+    this.session.shutdown().catch(() => {});
     this.voiceController.dispose();
     this.engine.cleanupSync();
     if (this.onExitCallback) {

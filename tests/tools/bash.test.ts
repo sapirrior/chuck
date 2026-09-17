@@ -61,9 +61,8 @@ describe('Bash Tool & Command Policy', () => {
         { cwd },
       );
 
-      expect(res.stdout.trim()).toBe('hello');
+      expect(res.stdout?.trim()).toBe('hello');
       expect(res.exitCode).toBe(0);
-      expect(res.timedOut).toBe(false);
     });
 
     it('denies mutating command when user rejects permission', async () => {
@@ -87,18 +86,8 @@ describe('Bash Tool & Command Policy', () => {
         },
       );
 
-      expect(res.stdout.trim()).toBe('approved');
+      expect(res.stdout?.trim()).toBe('approved');
       expect(res.exitCode).toBe(0);
-    });
-
-    it('rejects invalid timeout values', async () => {
-      expect(
-        bashTool.execute({ command: 'ls', explanation: 'List files', timeout: 5 }, { cwd }),
-      ).rejects.toThrow(/timeout must be between 10 and 1800 seconds/);
-
-      expect(
-        bashTool.execute({ command: 'ls', explanation: 'List files', timeout: 2000 }, { cwd }),
-      ).rejects.toThrow(/timeout must be between 10 and 1800 seconds/);
     });
 
     it('captures non-zero exit code as a tool failure', async () => {
@@ -113,29 +102,13 @@ describe('Bash Tool & Command Policy', () => {
       ).rejects.toThrow(/failed with exit code 42/);
     });
 
-    it(
-      'enforces command timeout',
-      async () => {
-        expect(
-          bashTool.execute(
-            { command: 'sleep 30', explanation: 'Sleep test', timeout: 10 },
-            {
-              cwd,
-              requestBashPermission: async () => ({ allowed: true }),
-            },
-          ),
-        ).rejects.toThrow(/timed out/);
-      },
-      { timeout: 20000 },
-    );
-
     it('aborts on context.abortSignal', async () => {
       const controller = new AbortController();
       setTimeout(() => controller.abort(), 100);
 
       expect(
         bashTool.execute(
-          { command: 'sleep 10', explanation: 'Sleep test', timeout: 15 },
+          { command: 'sleep 10', explanation: 'Sleep test' },
           {
             cwd,
             abortSignal: controller.signal,
@@ -148,9 +121,20 @@ describe('Bash Tool & Command Policy', () => {
     it('formats human readable summary correctly', () => {
       const summary = bashTool.summarize?.(
         { command: 'ls', explanation: 'List' },
-        { command: 'ls', exitCode: 0, stdout: '', stderr: '', durationMs: 10, timedOut: false },
+        { command: 'ls', exitCode: 0, stdout: '', stderr: '', durationMs: 10 },
       );
       expect(summary).toBe('└ Ran successfully · exit code: 0');
+
+      const bgSummary = bashTool.summarize?.(
+        { command: 'sleep 20', explanation: 'Sleep' },
+        {
+          status: 'backgrounded',
+          taskId: 'task-1234',
+          command: 'sleep 20',
+          message: 'moved to background',
+        },
+      );
+      expect(bgSummary).toBe('└ Moved to background · task id: task-1234');
     });
   });
 });
