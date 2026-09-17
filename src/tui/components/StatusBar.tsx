@@ -13,6 +13,7 @@ export interface StatusBarProps {
   usage: TokenUsage;
   isBusy: boolean;
   exitPending?: boolean;
+  warning?: string;
 }
 
 export interface StatusBarState {
@@ -24,6 +25,7 @@ export interface StatusBarState {
   usage: TokenUsage;
   isBusy: boolean;
   exitPending?: boolean;
+  warning?: string;
 }
 
 function formatTokens(n: number): string {
@@ -38,6 +40,8 @@ export default class StatusBar extends Component<StatusBarProps, StatusBarState>
   override wrap = false;
   override clip = true;
 
+  private warningTimer: NodeJS.Timeout | null = null;
+
   constructor(props: StatusBarProps) {
     super(props);
     this.state = {
@@ -45,6 +49,7 @@ export default class StatusBar extends Component<StatusBarProps, StatusBarState>
       usage: props.usage,
       isBusy: props.isBusy,
       exitPending: props.exitPending,
+      warning: props.warning,
     };
   }
 
@@ -52,14 +57,42 @@ export default class StatusBar extends Component<StatusBarProps, StatusBarState>
     this.setState(partial);
   }
 
+  /**
+   * Displays a transient warning message that clears automatically after durationMs.
+   */
+  showWarning(warningText: string, durationMs = 4000): void {
+    if (this.warningTimer) {
+      clearTimeout(this.warningTimer);
+      this.warningTimer = null;
+    }
+
+    this.setState({ warning: warningText });
+
+    this.warningTimer = setTimeout(() => {
+      this.warningTimer = null;
+      if (this.state.warning === warningText) {
+        this.setState({ warning: undefined });
+      }
+    }, durationMs);
+  }
+
+  override componentWillUnmount(): void {
+    if (this.warningTimer) {
+      clearTimeout(this.warningTimer);
+      this.warningTimer = null;
+    }
+  }
+
   override render(width?: number): string[] {
     const theme = getTheme();
     const termWidth = width ?? process.stdout.columns ?? 80;
     const maxCols = Math.max(1, termWidth);
-    const { model, usage, isBusy, exitPending } = this.state;
+    const { model, usage, isBusy, exitPending, warning } = this.state;
 
     let left = '';
-    if (exitPending) {
+    if (warning) {
+      left = themeColor(theme.warning)(warning);
+    } else if (exitPending) {
       const errColor = themeColor(theme.error);
       left = `${errColor('▸ ')}${chalk.dim('Press ')}${errColor('Ctrl+C')}${chalk.dim(' again to exit')}`;
     } else if (isBusy) {

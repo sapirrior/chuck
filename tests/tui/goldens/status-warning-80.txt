@@ -1,0 +1,24 @@
+[?2026h[H[J ▄▄▄▄▄   Steward v0.2.0
+▀▙███▟▀  anthropic/claude-3-5-sonnet-20241022 · API Usage Billing
+ ▘▘ ▝▝   /workspace/steward
+
+────────────────────────────────────────────────────────────────────────────────
+❯ Type your message...
+────────────────────────────────────────────────────────────────────────────────
+⚠ Voice stopped: network connection lost                    150 tokens · default
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[?25h[6;3H[?2026l

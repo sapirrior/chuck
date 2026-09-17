@@ -657,4 +657,140 @@ describe('TUI Engine Headless Golden Snapshots', () => {
     engine120.cleanupSync();
     assertGoldenMatch('bash-permission-dock-120', result120.rawAnsi);
   });
+
+  it('golden: voice-listening-empty (Voice listening active, waiting for speech)', () => {
+    const engine80 = new TerminalEngine();
+    const header = new Header({
+      version: '0.2.0',
+      cwd: '/workspace/steward',
+      model: dummyModel,
+    });
+    const prompt = new PromptInput({
+      onSubmit: () => {},
+    });
+    prompt.startVoice();
+    const statusBar = new StatusBar({
+      model: dummyModel,
+      usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+      isBusy: false,
+    });
+
+    engine80.mount(header, { kind: 'custom' });
+    engine80.mount(prompt, { kind: 'input', keepCursorVisible: true });
+    engine80.mount(statusBar, { kind: 'custom' });
+
+    const result80 = captureHeadlessRender(
+      (renderer) => {
+        return renderer.render(engine80.tree, 0, true);
+      },
+      { cols: 80, rows: 24 },
+    );
+
+    engine80.cleanupSync();
+    assertGoldenMatch('voice-listening-empty', result80.rawAnsi);
+  });
+
+  it('golden: voice-listening-transcript (Voice listening active with live interim transcript at 80 and 120 cols)', () => {
+    const engine80 = new TerminalEngine();
+    const header80 = new Header({
+      version: '0.2.0',
+      cwd: '/workspace/steward',
+      model: dummyModel,
+    });
+    const prompt80 = new PromptInput({
+      onSubmit: () => {},
+    });
+    prompt80.setState({
+      value: 'Refactor auth service and ',
+      cursorPos: 26,
+    });
+    prompt80.startVoice();
+    prompt80.setVoiceTranscript('add automated token rotation');
+    const statusBar80 = new StatusBar({
+      model: dummyModel,
+      usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+      isBusy: false,
+    });
+
+    engine80.mount(header80, { kind: 'custom' });
+    engine80.mount(prompt80, { kind: 'input', keepCursorVisible: true });
+    engine80.mount(statusBar80, { kind: 'custom' });
+
+    const result80 = captureHeadlessRender(
+      (renderer) => {
+        return renderer.render(engine80.tree, 0, true);
+      },
+      { cols: 80, rows: 24 },
+    );
+
+    engine80.cleanupSync();
+    assertGoldenMatch('voice-listening-transcript-80', result80.rawAnsi);
+
+    const engine120 = new TerminalEngine();
+    const header120 = new Header({
+      version: '0.2.0',
+      cwd: '/workspace/steward',
+      model: dummyModel,
+    });
+    const prompt120 = new PromptInput({
+      onSubmit: () => {},
+    });
+    prompt120.setState({
+      value: 'Refactor auth service and ',
+      cursorPos: 26,
+    });
+    prompt120.startVoice();
+    prompt120.setVoiceTranscript('add automated token rotation');
+    const statusBar120 = new StatusBar({
+      model: dummyModel,
+      usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+      isBusy: false,
+    });
+
+    engine120.mount(header120, { kind: 'custom' });
+    engine120.mount(prompt120, { kind: 'input', keepCursorVisible: true });
+    engine120.mount(statusBar120, { kind: 'custom' });
+
+    const result120 = captureHeadlessRender(
+      (renderer) => {
+        return renderer.render(engine120.tree, 0, true);
+      },
+      { cols: 120, rows: 24 },
+    );
+
+    engine120.cleanupSync();
+    assertGoldenMatch('voice-listening-transcript-120', result120.rawAnsi);
+  });
+
+  it('golden: status-warning (StatusBar displaying yellow transient warning)', () => {
+    const engine80 = new TerminalEngine();
+    const header = new Header({
+      version: '0.2.0',
+      cwd: '/workspace/steward',
+      model: dummyModel,
+    });
+    const prompt = new PromptInput({
+      onSubmit: () => {},
+    });
+    const statusBar = new StatusBar({
+      model: dummyModel,
+      usage: { promptTokens: 100, completionTokens: 50, totalTokens: 150 },
+      isBusy: false,
+      warning: '⚠ Voice stopped: network connection lost',
+    });
+
+    engine80.mount(header, { kind: 'custom' });
+    engine80.mount(prompt, { kind: 'input', keepCursorVisible: true });
+    engine80.mount(statusBar, { kind: 'custom' });
+
+    const result80 = captureHeadlessRender(
+      (renderer) => {
+        return renderer.render(engine80.tree, 0, true);
+      },
+      { cols: 80, rows: 24 },
+    );
+
+    engine80.cleanupSync();
+    assertGoldenMatch('status-warning-80', result80.rawAnsi);
+  });
 });

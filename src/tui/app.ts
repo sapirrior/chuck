@@ -27,6 +27,7 @@ import {
   formatTurnStatus,
 } from './utils/message-formatter.js';
 import { classifyError } from '../errors/index.js';
+import { VoiceController } from '../voice/index.js';
 
 export interface TUIAppOptions {
   version?: string;
@@ -57,6 +58,7 @@ export class TUIApp {
   private ctrlCPending = false;
   private ctrlCTimer: NodeJS.Timeout | null = null;
   private isBusy = false;
+  private voiceController: VoiceController;
 
   constructor(options: TUIAppOptions = {}) {
     this.cwd = options.cwd ?? process.cwd();
@@ -78,6 +80,7 @@ export class TUIApp {
       onSubmit: (text) => this.handleSubmit(text),
       onAbort: () => this.handleAbort(),
       onToggleHelp: () => this.toggleHelp(),
+      onVoiceCancel: () => this.voiceController.abort(),
       cwd: this.cwd,
       initialHistory: this.session.session.turns
         .map((t) => {
@@ -99,6 +102,27 @@ export class TUIApp {
       model,
       usage: this.session.session.totalUsage,
       isBusy: false,
+    });
+
+    this.voiceController = new VoiceController({
+      onStateChange: (state) => {
+        if (state === 'recording') {
+          this.promptInput.setVoiceMode('listening');
+        } else if (state === 'finalizing') {
+          this.promptInput.setVoiceMode('finalizing');
+        } else if (state === 'idle') {
+          this.promptInput.setVoiceMode('idle');
+        }
+      },
+      onTranscriptChange: (text) => {
+        this.promptInput.setVoiceTranscript(text);
+      },
+      onComplete: (result) => {
+        this.promptInput.finishVoice(result.transcript);
+      },
+      onWarning: (warning) => {
+        this.statusBar.showWarning(warning);
+      },
     });
   }
 
@@ -204,6 +228,24 @@ export class TUIApp {
           this.ctrlCPending = false;
           this.statusBar.update({ exitPending: false });
         }, 1500);
+        return true;
+      }
+
+      // Ctrl+T voice dictation toggle
+      if (str === '\x14') {
+        if (this.activeModal) {
+          return true;
+        }
+        if (this.session.isBusy || this.isBusy) {
+          this.statusBar.showWarning('⚠ Voice unavailable while Steward is generating');
+          return true;
+        }
+        if (this.voiceController.isActive) {
+          this.voiceController.stop();
+        } else {
+          this.promptInput.startVoice();
+          this.voiceController.start();
+        }
         return true;
       }
 
@@ -416,6 +458,10 @@ export class TUIApp {
   }
 
   private async handleSubmit(text: string): Promise<void> {
+    if (this.voiceController.isActive) {
+      this.voiceController.abort();
+    }
+
     // 1. Slash command execution (/)
     if (defaultCommandRegistry.isCommand(text)) {
       const cmdResult = await defaultCommandRegistry.execute(text, {
@@ -651,6 +697,7 @@ export class TUIApp {
   }
 
   private exit(): void {
+    this.voiceController.dispose();
     this.engine.cleanupSync();
     if (this.onExitCallback) {
       this.onExitCallback();

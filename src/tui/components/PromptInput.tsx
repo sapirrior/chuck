@@ -6,10 +6,13 @@ import { getTheme, figures } from '../../theme/index.js';
 import { themeColor, chalk, truncateToWidth } from '../utils/format.js';
 import { parseKeyInput } from '../primitives/index.js';
 
+export type VoiceInputMode = 'idle' | 'listening' | 'finalizing';
+
 export interface PromptInputProps {
   onSubmit: (text: string) => void;
   onAbort?: () => void;
   onToggleHelp?: () => void;
+  onVoiceCancel?: () => void;
   cwd?: string;
   initialHistory?: string[];
 }
@@ -24,6 +27,9 @@ export interface PromptInputState {
   fileMatches: string[];
   fileSelectIdx: number;
   paletteIdx: number;
+  voiceMode: VoiceInputMode;
+  voiceTranscript: string;
+  voiceAnchor: number;
 }
 
 const STATUS_WORDS = [
@@ -35,6 +41,30 @@ const STATUS_WORDS = [
   'generating…',
 ];
 
+export function insertTextAtAnchor(
+  base: string,
+  anchor: number,
+  insert: string,
+): { value: string; cursorPos: number } {
+  const trimmed = insert.trim();
+  if (!trimmed) {
+    return { value: base, cursorPos: anchor };
+  }
+  const before = base.slice(0, anchor);
+  const after = base.slice(anchor);
+
+  const needsLeadingSpace = before.length > 0 && !before.endsWith(' ') && !before.endsWith('\n');
+  const needsTrailingSpace = after.length > 0 && !after.startsWith(' ') && !after.startsWith('\n');
+
+  const leading = needsLeadingSpace ? ' ' : '';
+  const trailing = needsTrailingSpace ? ' ' : '';
+
+  const merged = `${before}${leading}${trimmed}${trailing}${after}`;
+  const newPos = before.length + leading.length + trimmed.length;
+
+  return { value: merged, cursorPos: newPos };
+}
+
 export default class PromptInput extends Component<PromptInputProps, PromptInputState> {
   override wrap = true;
   override clip = true;
@@ -45,6 +75,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
   private removeInputListener: (() => void) | null = null;
   private spinnerTimer: NodeJS.Timeout | null = null;
   private escTimer: NodeJS.Timeout | null = null;
+  private isMounted = false;
 
   constructor(props: PromptInputProps) {
     super(props);
@@ -59,14 +90,14 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
       fileMatches: [],
       fileSelectIdx: 0,
       paletteIdx: 0,
+      voiceMode: 'idle',
+      voiceTranscript: '',
+      voiceAnchor: 0,
     };
   }
 
-  setDisabled(disabled: boolean): void {
-    if (this.state.disabled === disabled) return;
-    this.setState({ disabled });
-
-    if (disabled) {
+  private syncSpinnerTimer(): void {
+    if (this.isMounted && this.state.disabled) {
       if (!this.spinnerTimer) {
         this.spinnerTimer = setInterval(() => {
           this.setState({ spinnerFrame: this.state.spinnerFrame + 1 });
@@ -80,6 +111,56 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
     }
   }
 
+  setDisabled(disabled: boolean): void {
+    if (this.state.disabled === disabled) return;
+    this.setState({ disabled });
+    this.syncSpinnerTimer();
+  }
+
+  public get voiceMode(): VoiceInputMode {
+    return this.state.voiceMode;
+  }
+
+  public startVoice(): void {
+    this.setState({
+      voiceMode: 'listening',
+      voiceTranscript: '',
+      voiceAnchor: this.state.cursorPos,
+      fileMatches: [],
+    });
+  }
+
+  public setVoiceTranscript(transcript: string): void {
+    this.setState({ voiceTranscript: transcript });
+  }
+
+  public setVoiceMode(mode: VoiceInputMode): void {
+    this.setState({ voiceMode: mode });
+  }
+
+  public finishVoice(finalTranscript?: string): void {
+    const textToInsert =
+      finalTranscript !== undefined ? finalTranscript : this.state.voiceTranscript;
+    const { value, cursorPos } = insertTextAtAnchor(
+      this.state.value,
+      this.state.voiceAnchor,
+      textToInsert,
+    );
+    this.setState({
+      value,
+      cursorPos,
+      voiceMode: 'idle',
+      voiceTranscript: '',
+    });
+  }
+
+  public cancelVoice(): void {
+    this.setState({
+      voiceMode: 'idle',
+      voiceTranscript: '',
+    });
+  }
+
   addHistory(item: string): void {
     if (!item.trim()) return;
     if (this.history.length === 0 || this.history[this.history.length - 1] !== item) {
@@ -90,6 +171,8 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
   }
 
   override componentDidMount(): void {
+    this.isMounted = true;
+    this.syncSpinnerTimer();
     if (!this.engine) return;
 
     this.removeInputListener = this.engine.addInputListener((chunk) => {
@@ -104,7 +187,17 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
         return false;
       }
 
-      // 2. Escape: dismiss completions or double-tap to clear
+      // 2. Voice recording in progress: Escape cancels voice; swallow other typing
+      if (this.state.voiceMode !== 'idle') {
+        if (action.type === 'escape') {
+          this.props.onVoiceCancel?.();
+          this.finishVoice();
+          return true;
+        }
+        return true; // Swallow typing during active voice dictation
+      }
+
+      // 3. Escape: dismiss completions or double-tap to clear
       if (action.type === 'escape') {
         if (this.state.fileMatches.length > 0) {
           this.setState({ fileMatches: [] });
@@ -127,7 +220,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
         return false;
       }
 
-      // 3. Question mark when empty opens Help
+      // 4. Question mark when empty opens Help
       if (action.type === 'insert' && action.char === '?' && this.state.value.length === 0) {
         this.props.onToggleHelp?.();
         return true;
@@ -140,7 +233,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
             .filter((c) => `/${c.name}`.toLowerCase().startsWith(this.state.value.toLowerCase()))
         : [];
 
-      // 4. Multiline Newline insertion
+      // 5. Multiline Newline insertion
       if (action.type === 'newline') {
         const before = this.state.value.slice(0, this.state.cursorPos);
         const after = this.state.value.slice(this.state.cursorPos);
@@ -148,7 +241,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
         return true;
       }
 
-      // 5. Submit or \+Enter
+      // 6. Submit or \+Enter
       if (action.type === 'submit') {
         if (this.state.fileMatches.length > 0) {
           const atData = this.getAtData();
@@ -194,7 +287,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
         return true;
       }
 
-      // 6. Tab Completion
+      // 7. Tab Completion
       if (action.type === 'tab') {
         if (this.state.fileMatches.length > 0) {
           const atData = this.getAtData();
@@ -223,7 +316,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
         return true;
       }
 
-      // 7. Arrow Up
+      // 8. Arrow Up
       if (action.type === 'cursor-up') {
         if (this.state.fileMatches.length > 0) {
           this.setState({
@@ -269,7 +362,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
         return true;
       }
 
-      // 8. Arrow Down
+      // 9. Arrow Down
       if (action.type === 'cursor-down') {
         if (this.state.fileMatches.length > 0) {
           this.setState({
@@ -320,7 +413,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
         return true;
       }
 
-      // 9. Backspace & Deletion
+      // 10. Backspace & Deletion
       if (action.type === 'backspace') {
         if (this.state.cursorPos > 0) {
           const before = this.state.value.slice(0, this.state.cursorPos - 1);
@@ -353,7 +446,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
         return true;
       }
 
-      // 10. Navigation Left/Right/Home/End
+      // 11. Navigation Left/Right/Home/End
       if (action.type === 'cursor-left') {
         this.setState({ cursorPos: Math.max(0, this.state.cursorPos - 1) });
         return true;
@@ -371,7 +464,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
         return true;
       }
 
-      // 11. Text insertion
+      // 12. Text insertion
       if (action.type === 'insert' && action.char) {
         const clean = action.char.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
         const before = this.state.value.slice(0, this.state.cursorPos);
@@ -426,13 +519,11 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
   }
 
   override componentWillUnmount(): void {
+    this.isMounted = false;
+    this.syncSpinnerTimer();
     if (this.removeInputListener) {
       this.removeInputListener();
       this.removeInputListener = null;
-    }
-    if (this.spinnerTimer) {
-      clearInterval(this.spinnerTimer);
-      this.spinnerTimer = null;
     }
     if (this.escTimer) {
       clearTimeout(this.escTimer);
@@ -462,6 +553,9 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
       fileSelectIdx,
       paletteIdx,
       historyIndex,
+      voiceMode,
+      voiceTranscript,
+      voiceAnchor,
     } = this.state;
 
     const lines: string[] = [];
@@ -473,6 +567,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
 
     const borderColor = disabled ? themeColor(theme.subtle) : themeColor(theme.promptBorder);
 
+    // 1. Disabled (generating) state — Compact layout (Section 19)
     if (disabled) {
       const brand = themeColor(theme.brand);
       const shimmer = themeColor(theme.brandShimmer);
@@ -496,9 +591,13 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
         }
       }
 
-      lines.push(`${glyph} ${chalk.italic(waveText)}`);
       lines.push(borderColor(figures.horizontalLine.repeat(dividerWidth)));
-      lines.push(chalk.dim('Generating response… (Esc to stop)'));
+      lines.push(
+        truncateToWidth(
+          `${glyph} ${chalk.italic(waveText)}   ${chalk.dim('Esc to stop')}`,
+          maxCols,
+        ),
+      );
       lines.push(borderColor(figures.horizontalLine.repeat(dividerWidth)));
       return { lines, cursor: null };
     }
@@ -514,19 +613,41 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
       lines.push(borderColor(figures.horizontalLine.repeat(dividerWidth)));
     }
 
-    // Input prompt line(s)
+    // 2. Active Voice mode with no transcript yet
+    if (voiceMode !== 'idle' && !voiceTranscript) {
+      const brand = themeColor(theme.brand);
+      const listeningBullet = themeColor(theme.error)(figures.bullet);
+      const statusText =
+        voiceMode === 'listening'
+          ? `${listeningBullet} ${chalk.bold('Listening…')}   ${chalk.dim('Ctrl+T to stop')}`
+          : `${brand('⠋')} ${chalk.dim('Finalizing transcript…')}`;
+
+      lines.push(truncateToWidth(statusText, maxCols));
+      lines.push(borderColor(figures.horizontalLine.repeat(dividerWidth)));
+      return { lines, cursor: null };
+    }
+
+    // 3. Normal input line(s) or live voice transcript insertion
+    const displayData =
+      voiceMode !== 'idle' && voiceTranscript
+        ? insertTextAtAnchor(value, voiceAnchor, voiceTranscript)
+        : { value, cursorPos };
+
+    const effectiveValue = displayData.value;
+    const effectiveCursorPos = displayData.cursorPos;
+
     const chevColor = themeColor(theme.userChevron);
     const pointer = chevColor(`${figures.pointerBold} `);
     const prefixLen = 2;
 
-    if (value.length === 0) {
+    if (effectiveValue.length === 0) {
       cursor = {
         logicalLineIndex: lines.length,
         characterOffsetWithinLine: prefixLen,
       };
       lines.push(truncateToWidth(`${pointer}${chalk.dim('Type your message...')}`, maxCols));
     } else {
-      const vLines = value.split('\n');
+      const vLines = effectiveValue.split('\n');
       let currentOffset = 0;
 
       for (let i = 0; i < vLines.length; i++) {
@@ -537,12 +658,12 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
 
         if (
           cursor === null &&
-          cursorPos >= currentOffset &&
-          (cursorPos <= lineEndOffset || isLast)
+          effectiveCursorPos >= currentOffset &&
+          (effectiveCursorPos <= lineEndOffset || isLast)
         ) {
           cursor = {
             logicalLineIndex: lines.length,
-            characterOffsetWithinLine: prefixLen + (cursorPos - currentOffset),
+            characterOffsetWithinLine: prefixLen + (effectiveCursorPos - currentOffset),
           };
         }
 
@@ -556,14 +677,19 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
     lines.push(borderColor(figures.horizontalLine.repeat(dividerWidth)));
 
     // Inline CommandPalette
-    const isSlashMode = value.startsWith('/') && !value.includes(' ');
+    const isSlashMode =
+      voiceMode === 'idle' && effectiveValue.startsWith('/') && !effectiveValue.includes(' ');
     const matchingCommands: SlashCommand[] = isSlashMode
       ? defaultCommandRegistry
           .getAll()
-          .filter((c) => `/${c.name}`.toLowerCase().startsWith(value.toLowerCase()))
+          .filter((c) => `/${c.name}`.toLowerCase().startsWith(effectiveValue.toLowerCase()))
       : [];
 
-    if (isSlashMode && matchingCommands.length > 0 && value !== `/${matchingCommands[0]?.name} `) {
+    if (
+      isSlashMode &&
+      matchingCommands.length > 0 &&
+      effectiveValue !== `/${matchingCommands[0]?.name} `
+    ) {
       for (let i = 0; i < matchingCommands.length; i++) {
         const cmd = matchingCommands[i]!;
         const isSelected = i === paletteIdx;
@@ -584,7 +710,7 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
     }
 
     // Inline FileMatches
-    if (fileMatches.length > 0) {
+    if (voiceMode === 'idle' && fileMatches.length > 0) {
       const infoColor = themeColor(theme.info);
       lines.push(chalk.dim('Matching files (@):'));
       for (let i = 0; i < fileMatches.length; i++) {
