@@ -1,6 +1,6 @@
 {
   "name": "steward",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "description": "Engineering agent for codebase investigation, direct file mutation, and guaranteed rewind checkpointing.",
   "author": "sapirrior",
   "license": "MIT",

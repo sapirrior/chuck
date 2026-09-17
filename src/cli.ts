@@ -2,6 +2,7 @@
 import { runCli } from './cli/index.js';
 import { setupGlobalErrorHandlers } from './errors/index.js';
 
+// Steward CLI entrypoint
 // Suppress raw SDK warning output to prevent TUI screen corruption
 (globalThis as any).AI_SDK_LOG_WARNINGS = false;
 

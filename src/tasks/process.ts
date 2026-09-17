@@ -19,12 +19,7 @@ export interface ShellExecutionOptions {
 }
 
 export type ShellExecutionLifecycleState =
-  | 'starting'
-  | 'foreground'
-  | 'background'
-  | 'completed'
-  | 'failed'
-  | 'killed';
+  'starting' | 'foreground' | 'background' | 'completed' | 'failed' | 'killed';
 
 export class ShellExecution {
   public readonly taskId: string;
