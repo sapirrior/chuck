@@ -853,4 +853,107 @@ describe('Checkpoint Core (CAS, Path, Lock, Tracker, Rewind)', () => {
       expect(session.turns.length).toBe(2);
     });
   });
+
+  describe('Rewind Line Diff Counts', () => {
+    it('computes accurate additions and deletions for line diffs', async () => {
+      const { computeLineDiffCounts } = await import('../src/tui/components/docks/RewindMenu.js');
+
+      // 1. Identical content
+      expect(computeLineDiffCounts('hello\nworld', 'hello\nworld')).toEqual({
+        added: 0,
+        deleted: 0,
+      });
+
+      // 2. Pure addition (new file)
+      expect(computeLineDiffCounts('', 'line1\nline2\nline3')).toEqual({
+        added: 3,
+        deleted: 0,
+      });
+
+      // 3. Pure deletion
+      expect(computeLineDiffCounts('line1\nline2\nline3', '')).toEqual({
+        added: 0,
+        deleted: 3,
+      });
+
+      // 4. Single line modification (1 deletion + 1 addition)
+      expect(
+        computeLineDiffCounts('const a = 1;\nconst b = 2;\n', 'const a = 1;\nconst b = 20;\n'),
+      ).toEqual({
+        added: 1,
+        deleted: 1,
+      });
+
+      // 5. Mixed insertions and deletions
+      const oldCode = 'function foo() {\n  return 1;\n}\n';
+      const newCode = 'function foo() {\n  const x = 10;\n  const y = 20;\n  return x + y;\n}\n';
+      expect(computeLineDiffCounts(oldCode, newCode)).toEqual({
+        added: 3,
+        deleted: 1,
+      });
+    });
+
+    it('buildRewindItems calculates added and deleted lines from CAS blobs', async () => {
+      const { buildRewindItems } = await import('../src/tui/components/docks/RewindMenu.js');
+
+      const tracker = new MutationCheckpointTracker({
+        workspaceRoot: workspaceDir,
+        sessionId: 'diff-stat-session',
+      });
+
+      const session = createSession(
+        { provider: 'anthropic', modelId: 'claude-3-5-sonnet-latest' },
+        'diff-stat-session',
+      );
+
+      const fileA = join(workspaceDir, 'a.txt');
+
+      // Turn 1: create a.txt with 3 lines
+      await tracker.beginTurn('turn-1', 1);
+      let prep = await tracker.prepareMutation('a.txt');
+      writeFileSync(fileA, 'line 1\nline 2\nline 3\n', 'utf-8');
+      await tracker.completeMutation('a.txt');
+      prep.releaseLock();
+      await tracker.commitTurn('turn-1');
+
+      session.turns.push({
+        id: 'turn-1',
+        timestamp: new Date().toISOString(),
+        status: 'complete',
+        usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 },
+        messages: [{ role: 'user', content: 'Create a.txt' }],
+      });
+
+      // Turn 2: edit a.txt (modify 1 line, add 2 lines)
+      await tracker.beginTurn('turn-2', 2);
+      prep = await tracker.prepareMutation('a.txt');
+      writeFileSync(fileA, 'line 1\nline 2 modified\nline 3\nline 4\nline 5\n', 'utf-8');
+      await tracker.completeMutation('a.txt');
+      prep.releaseLock();
+      await tracker.commitTurn('turn-2');
+
+      session.turns.push({
+        id: 'turn-2',
+        timestamp: new Date().toISOString(),
+        status: 'complete',
+        usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 },
+        messages: [{ role: 'user', content: 'Edit a.txt' }],
+      });
+
+      const items = buildRewindItems(session, workspaceDir);
+      expect(items.length).toBe(2);
+
+      // Turn 1: 1 file changed, +4 lines (including trailing newline split), 0 deleted
+      expect(items[0].hasCodeChanges).toBe(true);
+      expect(items[0].changedFileCount).toBe(1);
+      expect(items[0].addedLines).toBe(4);
+      expect(items[0].deletedLines).toBe(0);
+
+      // Turn 2: 1 file changed, +3 lines, -1 deleted
+      expect(items[1].hasCodeChanges).toBe(true);
+      expect(items[1].changedFileCount).toBe(1);
+      expect(items[1].addedLines).toBe(3);
+      expect(items[1].deletedLines).toBe(1);
+    });
+  });
 });
