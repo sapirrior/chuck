@@ -1,6 +1,6 @@
 # Steward
 
-[![Version](https://img.shields.io/badge/version-v0.3.0-D77757.svg)](https://github.com/sapirrior/steward/releases)
+[![Version](https://img.shields.io/badge/version-v0.3.1-D77757.svg)](https://github.com/sapirrior/steward/releases)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Runtime](https://img.shields.io/badge/runtime-Bun-fbf0df.svg?logo=bun)](https://bun.sh)
 [![Platforms](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Termux%20%7C%20Windows-lightgrey.svg)](#quick-install)
