@@ -30,6 +30,9 @@ export interface SubmitPromptOptions {
   tools?: Record<string, any> | ((context: ToolContext) => Record<string, any>);
   extraInstructions?: string;
   onEvent?: AgentEventListener;
+  requestBashPermission?: (
+    req: import('../tools/types.js').BashPermissionRequest,
+  ) => Promise<import('../tools/types.js').BashPermissionResponse>;
 }
 
 /**
@@ -217,6 +220,7 @@ export class AgentSession {
       abortSignal: this.activeAbortController.signal,
       checkpointTracker: tracker,
       mutationLocks: globalMutationLockManager,
+      requestBashPermission: options.requestBashPermission,
     };
 
     let activeTools: Record<string, any> | undefined;

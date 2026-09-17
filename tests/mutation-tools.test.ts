@@ -184,4 +184,34 @@ describe('Mutation Tools (write_file & edit_file)', () => {
       ).rejects.toThrow(/does not exist/);
     });
   });
+
+  describe('bash vs checkpoint boundary', () => {
+    it('proves bash tool does not invoke checkpoint tracker', async () => {
+      const { bashTool } = await import('../src/tools/bash/index.js');
+      const { loadPendingJournal } = await import('../src/checkpoint/store.js');
+      const { computeWorkspaceHash } = await import('../src/checkpoint/path.js');
+      const testFile = join(workspaceDir, 'bash-mutated.txt');
+
+      // Execute a bash mutation with approval
+      await bashTool.execute(
+        {
+          command: `echo "shell line" > "${testFile}"`,
+          explanation: 'Create file via shell',
+        },
+        {
+          cwd: workspaceDir,
+          checkpointTracker: tracker,
+          mutationLocks: lockManager,
+          requestBashPermission: async () => ({ allowed: true }),
+        },
+      );
+
+      expect(existsSync(testFile)).toBe(true);
+
+      // Verify that tracker journal has zero mutation entries recorded for bash
+      const wsHash = computeWorkspaceHash(workspaceDir);
+      const pending = loadPendingJournal(wsHash, 'test-session');
+      expect(pending?.files?.length ?? 0).toBe(0);
+    });
+  });
 });

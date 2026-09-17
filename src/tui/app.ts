@@ -17,6 +17,7 @@ import SessionMenu from './components/docks/SessionMenu.js';
 import ShortcutsMenu from './components/docks/ShortcutsMenu.js';
 import EffortPicker from './components/docks/EffortPicker.js';
 import RewindMenu, { type RewindItem } from './components/docks/RewindMenu.js';
+import BashPermissionDock from './components/docks/BashPermissionDock.js';
 import { executeRewind } from '../checkpoint/index.js';
 import {
   formatSystemMessage,
@@ -46,7 +47,13 @@ export class TUIApp {
   private statusBar: StatusBar;
 
   private activeModal:
-    ModelPicker | SessionMenu | ShortcutsMenu | EffortPicker | RewindMenu | null = null;
+    | ModelPicker
+    | SessionMenu
+    | ShortcutsMenu
+    | EffortPicker
+    | RewindMenu
+    | BashPermissionDock
+    | null = null;
   private ctrlCPending = false;
   private ctrlCTimer: NodeJS.Timeout | null = null;
   private isBusy = false;
@@ -485,6 +492,26 @@ export class TUIApp {
     try {
       await this.session.submitPrompt(text, {
         cwd: this.cwd,
+        requestBashPermission: (req) => {
+          return new Promise((resolve) => {
+            if (this.activeModal) this.closeModal();
+            this.engine.unmount(this.promptInput);
+            this.engine.unmount(this.statusBar);
+
+            const dock = new BashPermissionDock({
+              command: req.command,
+              explanation: req.explanation,
+              onDecision: (allowed) => {
+                this.closeModal();
+                resolve({ allowed });
+              },
+            });
+
+            this.activeModal = dock;
+            this.engine.mount(dock, { kind: 'dock' });
+            this.engine.mount(this.statusBar);
+          });
+        },
         onEvent: (event) => {
           switch (event.type) {
             case 'reasoning-delta': {
@@ -534,6 +561,10 @@ export class TUIApp {
                     JSON.stringify(event.toolResult.result))
                   : String(event.toolResult.result)
                 : undefined;
+              const toolOutput =
+                !event.toolResult.isError && toolDef?.summarize
+                  ? toolDef.summarize(event.toolResult.args, event.toolResult.result)
+                  : undefined;
 
               this.engine.commit(
                 'tool-result',
@@ -546,6 +577,7 @@ export class TUIApp {
                     status,
                     durationMs,
                     error,
+                    toolOutput,
                     targetWidth: w,
                   }),
                 { hangingIndent: 2 },
@@ -602,6 +634,9 @@ export class TUIApp {
         this.engine.commit('system', formatErrorBadge(structured));
       }
     } finally {
+      if (this.activeModal) {
+        this.closeModal();
+      }
       this.setBusy(false);
       this.statusBar.update({
         usage: this.session.session.totalUsage,

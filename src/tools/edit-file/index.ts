@@ -37,6 +37,8 @@ export type EditFileInput = z.infer<typeof editFileInputSchema>;
 export interface EditFileOutput {
   file_path: string;
   replacementsMade: number;
+  addedLines: number;
+  removedLines: number;
   message: string;
 }
 
@@ -55,11 +57,15 @@ export const editFileTool: ToolDefinition<typeof editFileInputSchema, EditFileOu
   name: 'edit_file',
   displayName: 'Edit',
   description:
-    'Performs exact string replacements in an existing file. Every mutation is automatically checkpointed for guaranteed rewind safety.',
+    'Performs exact string replacements in an existing file. Every edit mutation participates in checkpointing for /rewind.',
   parameters: editFileInputSchema,
   confirmationPolicy: 'never',
 
-  summarize: (args) => `edit_file(${args.file_path})`,
+  summarize: (_args, result) => {
+    const added = result?.addedLines ?? 0;
+    const removed = result?.removedLines ?? 0;
+    return `└ Added ${added} line${added === 1 ? '' : 's'}, Removed ${removed} line${removed === 1 ? '' : 's'}`;
+  },
 
   execute: async (args, context) => {
     const { absolutePath: targetPath, relativePath } = resolveDirectMutationPath(
@@ -90,6 +96,8 @@ export const editFileTool: ToolDefinition<typeof editFileInputSchema, EditFileOu
         return {
           file_path: args.file_path,
           replacementsMade: 0,
+          addedLines: 0,
+          removedLines: 0,
           message: `old_string and new_string are identical; no changes made to ${relativePath}`,
         };
       }
@@ -110,6 +118,39 @@ export const editFileTool: ToolDefinition<typeof editFileInputSchema, EditFileOu
       const updatedContent = args.replace_all
         ? currentContent.replaceAll(args.old_string, args.new_string)
         : currentContent.replace(args.old_string, args.new_string);
+
+      // Compute actual line deltas from the before & after sequences
+      const beforeLines = currentContent.split(/\r?\n/);
+      const afterLines = updatedContent.split(/\r?\n/);
+      const lineDelta = afterLines.length - beforeLines.length;
+
+      let addedLines = 0;
+      let removedLines = 0;
+
+      // When old_string and new_string are replaced matchCount times:
+      const oldLinesInMatch = args.old_string.split(/\r?\n/).length;
+      const newLinesInMatch = args.new_string.split(/\r?\n/).length;
+      const totalReplacedOccurrences = args.replace_all ? matchCount : 1;
+
+      if (
+        oldLinesInMatch === newLinesInMatch &&
+        !args.old_string.includes('\n') &&
+        !args.new_string.includes('\n')
+      ) {
+        // Single-line modified in place
+        addedLines = totalReplacedOccurrences;
+        removedLines = totalReplacedOccurrences;
+      } else {
+        removedLines =
+          (oldLinesInMatch - 1) * totalReplacedOccurrences +
+          (lineDelta < 0 ? Math.abs(lineDelta) : 0);
+        addedLines =
+          (newLinesInMatch - 1) * totalReplacedOccurrences + (lineDelta > 0 ? lineDelta : 0);
+        if (addedLines === 0 && removedLines === 0 && args.old_string !== args.new_string) {
+          addedLines = totalReplacedOccurrences;
+          removedLines = totalReplacedOccurrences;
+        }
+      }
 
       const newBuffer = Buffer.from(updatedContent, 'utf-8');
       const dir = dirname(targetPath);
@@ -154,6 +195,8 @@ export const editFileTool: ToolDefinition<typeof editFileInputSchema, EditFileOu
       return {
         file_path: args.file_path,
         replacementsMade: matchCount,
+        addedLines,
+        removedLines,
         message: `Successfully replaced ${matchCount} occurrence(s) in ${relativePath}`,
       };
     } finally {

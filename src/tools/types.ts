@@ -1,6 +1,15 @@
 import type { z } from 'zod';
 import type { MutationCheckpointTracker, MutationLockManager } from '../checkpoint/index.js';
 
+export interface BashPermissionRequest {
+  command: string;
+  explanation: string;
+}
+
+export interface BashPermissionResponse {
+  allowed: boolean;
+}
+
 /**
  * Execution context passed to tools during execution.
  */
@@ -9,6 +18,7 @@ export interface ToolContext {
   abortSignal?: AbortSignal;
   checkpointTracker?: MutationCheckpointTracker;
   mutationLocks?: MutationLockManager;
+  requestBashPermission?: (req: BashPermissionRequest) => Promise<BashPermissionResponse>;
 }
 
 /**

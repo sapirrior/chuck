@@ -9,6 +9,7 @@ import ModelPicker from '../../src/tui/components/docks/ModelPicker.js';
 import SessionMenu from '../../src/tui/components/docks/SessionMenu.js';
 import EffortPicker from '../../src/tui/components/docks/EffortPicker.js';
 import RewindMenu from '../../src/tui/components/docks/RewindMenu.js';
+import BashPermissionDock from '../../src/tui/components/docks/BashPermissionDock.js';
 import TrustGate from '../../src/tui/components/TrustGate.js';
 import { formatAssistantMessage, formatToolStatus } from '../../src/tui/utils/message-formatter.js';
 import { captureHeadlessRender, assertGoldenMatch } from './harness.js';
@@ -613,5 +614,47 @@ describe('TUI Engine Headless Golden Snapshots', () => {
 
     engine120.cleanupSync();
     assertGoldenMatch('dock-rewind-menu-120', result120.rawAnsi);
+  });
+
+  it('golden: bash-permission-dock (BashPermissionDock open at 80 cols)', () => {
+    const engine80 = new TerminalEngine();
+    const dock80 = new BashPermissionDock({
+      command: 'bun test tests/tools/bash.test.ts',
+      explanation: 'Run bash test suite to verify command policy and execution safety',
+      onDecision: () => {},
+    });
+
+    engine80.mount(dock80, { kind: 'dock' });
+
+    const result80 = captureHeadlessRender(
+      (renderer) => {
+        return renderer.render(engine80.tree, 0, true);
+      },
+      { cols: 80, rows: 24 },
+    );
+
+    engine80.cleanupSync();
+    assertGoldenMatch('bash-permission-dock', result80.rawAnsi);
+  });
+
+  it('golden: bash-permission-dock-120 (BashPermissionDock open at 120 cols)', () => {
+    const engine120 = new TerminalEngine();
+    const dock120 = new BashPermissionDock({
+      command: 'bun test tests/tools/bash.test.ts',
+      explanation: 'Run bash test suite to verify command policy and execution safety',
+      onDecision: () => {},
+    });
+
+    engine120.mount(dock120, { kind: 'dock' });
+
+    const result120 = captureHeadlessRender(
+      (renderer) => {
+        return renderer.render(engine120.tree, 0, true);
+      },
+      { cols: 120, rows: 24 },
+    );
+
+    engine120.cleanupSync();
+    assertGoldenMatch('bash-permission-dock-120', result120.rawAnsi);
   });
 });

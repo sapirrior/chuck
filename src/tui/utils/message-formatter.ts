@@ -115,7 +115,18 @@ export function formatToolStatus(options: {
   if (argsSummary) {
     try {
       const parsed = JSON.parse(argsSummary);
-      const primaryKeys = ['path', 'file', 'url', 'query', 'pattern', 'name', 'prompt'];
+      const primaryKeys = [
+        'path',
+        'file_path',
+        'command',
+        'pattern',
+        'query',
+        'seconds',
+        'url',
+        'file',
+        'name',
+        'prompt',
+      ];
       for (const k of primaryKeys) {
         if (parsed[k] !== undefined) {
           const val = parsed[k];
@@ -144,7 +155,20 @@ export function formatToolStatus(options: {
 
   const lines: string[] = [mainLine];
 
-  // Only failed calls display a single-line error continuation
+  // Completed successful calls display the compact tool summary
+  if (status === 'completed' && options.toolOutput) {
+    const cleanOutput = options.toolOutput.trim();
+    if (cleanOutput) {
+      const firstLineOut = cleanOutput.split('\n')[0]?.trim() || cleanOutput;
+      const formattedOut = firstLineOut.startsWith('└ ') ? firstLineOut.slice(2) : firstLineOut;
+      const maxOutLen = Math.max(10, fullTermWidth - 6);
+      const truncatedOut =
+        formattedOut.length > maxOutLen ? `${formattedOut.slice(0, maxOutLen - 1)}…` : formattedOut;
+      lines.push(`  ${chalk.dim('└ ')}${chalk.white(truncatedOut)}`);
+    }
+  }
+
+  // Failed calls display a single-line red error continuation
   if (status === 'failed' || error) {
     const rawError = error || 'Operation failed';
     const firstLineErr = rawError.split('\n')[0]?.trim() || rawError;

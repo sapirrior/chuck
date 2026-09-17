@@ -1,0 +1,24 @@
+[?2026h[H[J────────────────────────────────────────────────────────────────────────────────
+
+Bash command
+
+    bun test tests/tools/bash.test.ts
+
+    Run bash test suite to verify command policy and execution safety
+
+Do you want to proceed?
+
+❯ 1. Yes
+  2. No
+
+Esc to cancel · f to review
+
+
+
+
+
+
+
+
+
+[?25l[?2026l

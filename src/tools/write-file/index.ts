@@ -31,6 +31,7 @@ export type WriteFileInput = z.infer<typeof writeFileInputSchema>;
 export interface WriteFileOutput {
   file_path: string;
   bytesWritten: number;
+  linesWritten: number;
   isNew: boolean;
   message: string;
 }
@@ -39,11 +40,14 @@ export const writeFileTool: ToolDefinition<typeof writeFileInputSchema, WriteFil
   name: 'write_file',
   displayName: 'Write',
   description:
-    'Writes or creates a file in the workspace. Automatically creates parent directories if needed. Every mutation is automatically checkpointed for guaranteed rewind safety.',
+    'Writes or creates a whole file in the workspace. Automatically creates parent directories if needed. Every write mutation participates in checkpointing for /rewind.',
   parameters: writeFileInputSchema,
   confirmationPolicy: 'never',
 
-  summarize: (args) => `write_file(${args.file_path})`,
+  summarize: (_args, result) => {
+    const lines = result?.linesWritten ?? 0;
+    return `└ Wrote ${lines} line${lines === 1 ? '' : 's'}`;
+  },
 
   execute: async (args, context) => {
     const { absolutePath: targetPath, relativePath } = resolveDirectMutationPath(
@@ -64,6 +68,7 @@ export const writeFileTool: ToolDefinition<typeof writeFileInputSchema, WriteFil
     try {
       const isNew = !existsSync(targetPath);
       const newBuffer = Buffer.from(args.content, 'utf-8');
+      const linesWritten = args.content.length === 0 ? 0 : args.content.split(/\r?\n/).length;
 
       if (!isNew) {
         // Check for no-op write
@@ -72,6 +77,7 @@ export const writeFileTool: ToolDefinition<typeof writeFileInputSchema, WriteFil
           return {
             file_path: args.file_path,
             bytesWritten: currentBuffer.length,
+            linesWritten,
             isNew: false,
             message: `File already matches requested content: ${relativePath}`,
           };
@@ -126,6 +132,7 @@ export const writeFileTool: ToolDefinition<typeof writeFileInputSchema, WriteFil
       return {
         file_path: args.file_path,
         bytesWritten: newBuffer.length,
+        linesWritten,
         isNew,
         message: isNew
           ? `Created file: ${relativePath} (${newBuffer.length} bytes)`

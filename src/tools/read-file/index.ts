@@ -31,6 +31,7 @@ export interface ReadFileOutput {
   endLine: number;
   content: string;
   isTruncated: boolean;
+  linesRead: number;
 }
 
 /**
@@ -50,13 +51,13 @@ export const readFileTool: ToolDefinition<typeof readFileInputSchema, ReadFileOu
   name: 'read_file',
   displayName: 'Read',
   description:
-    'Reads the contents of a file with 1-indexed line numbers. Supports reading specific line ranges via offset and limit.',
+    'Reads the contents of a file with 1-indexed line numbers. Supports reading specific line ranges via offset and limit. Read is read-only and does not mutate or checkpoint.',
   parameters: readFileInputSchema,
   confirmationPolicy: 'never',
 
-  summarize: (args) => {
-    const range = args.offset ? `:${args.offset}` : '';
-    return `read_file(${args.path}${range})`;
+  summarize: (_args, result) => {
+    const lines = result?.linesRead ?? 0;
+    return `└ Read ${lines} line${lines === 1 ? '' : 's'}`;
   },
 
   execute: async (args, context) => {
@@ -80,10 +81,23 @@ export const readFileTool: ToolDefinition<typeof readFileInputSchema, ReadFileOu
         endLine: 0,
         content: `[Binary file: size ${buffer.length} bytes]`,
         isTruncated: false,
+        linesRead: 0,
       };
     }
 
     const text = buffer.toString('utf-8');
+    if (text.length === 0) {
+      return {
+        path: args.path,
+        totalLines: 0,
+        startLine: 0,
+        endLine: 0,
+        content: '',
+        isTruncated: false,
+        linesRead: 0,
+      };
+    }
+
     const allLines = text.split(/\r?\n/);
     const totalLines = allLines.length;
 
@@ -109,6 +123,7 @@ export const readFileTool: ToolDefinition<typeof readFileInputSchema, ReadFileOu
       endLine: endIndex,
       content: formattedContent,
       isTruncated: endIndex < totalLines,
+      linesRead: slice.length,
     };
   },
 };

@@ -1,23 +1,27 @@
 import { defaultToolCatalog, ToolCatalog } from './catalog.js';
 import { readFileTool } from './read-file/index.js';
-import { findFilesTool } from './find-files/index.js';
-import { searchTextTool } from './search-text/index.js';
-import { listDirTool } from './list-dir/index.js';
-import { webFetchTool } from './web-fetch/index.js';
-import { webSearchTool } from './web-search/index.js';
 import { writeFileTool } from './write-file/index.js';
 import { editFileTool } from './edit-file/index.js';
+import { globTool } from './glob/index.js';
+import { grepTool } from './grep/index.js';
+import { listDirTool } from './list-dir/index.js';
+import { sleepTool } from './sleep/index.js';
+import { bashTool } from './bash/index.js';
+import { webFetchTool } from './web-fetch/index.js';
+import { webSearchTool } from './web-search/index.js';
 import type { ToolContext, ToolDefinition } from './types.js';
 
 export const builtInTools: ToolDefinition<any, any>[] = [
   readFileTool,
-  findFilesTool,
-  searchTextTool,
-  listDirTool,
-  webFetchTool,
-  webSearchTool,
   writeFileTool,
   editFileTool,
+  globTool,
+  grepTool,
+  listDirTool,
+  sleepTool,
+  bashTool,
+  webFetchTool,
+  webSearchTool,
 ];
 
 // Register all built-in tools into defaultToolCatalog
@@ -37,11 +41,13 @@ export function getAISDKTools(
 
 export * from './catalog.js';
 export * from './read-file/index.js';
-export * from './find-files/index.js';
-export * from './search-text/index.js';
-export * from './list-dir/index.js';
-export * from './web-fetch/index.js';
-export * from './web-search/index.js';
 export * from './write-file/index.js';
 export * from './edit-file/index.js';
+export * from './glob/index.js';
+export * from './grep/index.js';
+export * from './list-dir/index.js';
+export * from './sleep/index.js';
+export * from './bash/index.js';
+export * from './web-fetch/index.js';
+export * from './web-search/index.js';
 export * from './types.js';

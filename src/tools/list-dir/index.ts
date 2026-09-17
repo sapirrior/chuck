@@ -26,6 +26,8 @@ export interface ListDirOutput {
   path: string;
   entries: DirEntryInfo[];
   totalEntries: number;
+  fileCount: number;
+  dirCount: number;
 }
 
 /**
@@ -35,12 +37,14 @@ export interface ListDirOutput {
 export const listDirTool: ToolDefinition<typeof listDirInputSchema, ListDirOutput> = {
   name: 'list_dir',
   displayName: 'List',
-  description: 'Lists files and folders in a specified directory.',
+  description: 'Lists files and folders in a specified directory. Read-only operation.',
   parameters: listDirInputSchema,
   confirmationPolicy: 'never',
 
-  summarize: (args) => {
-    return `list_dir(${args.path || '.'})`;
+  summarize: (_args, result) => {
+    const files = result?.fileCount ?? 0;
+    const dirs = result?.dirCount ?? 0;
+    return `└ Listed ${files} file${files === 1 ? '' : 's'}, ${dirs} director${dirs === 1 ? 'y' : 'ies'}`;
   },
 
   execute: async (args, context) => {
@@ -52,6 +56,8 @@ export const listDirTool: ToolDefinition<typeof listDirInputSchema, ListDirOutpu
 
     const rawEntries = readdirSync(targetPath, { withFileTypes: true });
     const entries: DirEntryInfo[] = [];
+    let fileCount = 0;
+    let dirCount = 0;
 
     for (const entry of rawEntries) {
       if (entry.name === '.git') continue;
@@ -61,13 +67,17 @@ export const listDirTool: ToolDefinition<typeof listDirInputSchema, ListDirOutpu
 
       if (entry.isDirectory()) {
         type = 'directory';
+        dirCount++;
       } else if (entry.isFile()) {
         type = 'file';
+        fileCount++;
         try {
           sizeBytes = statSync(join(targetPath, entry.name)).size;
         } catch {
           // Ignore stat errors
         }
+      } else {
+        fileCount++;
       }
 
       entries.push({
@@ -81,6 +91,8 @@ export const listDirTool: ToolDefinition<typeof listDirInputSchema, ListDirOutpu
       path: args.path || '.',
       entries,
       totalEntries: entries.length,
+      fileCount,
+      dirCount,
     };
   },
 };
