@@ -38,6 +38,6 @@ describe('grep tool', () => {
       },
     );
 
-    expect(summary).toBe('└ Found 2 matches in 2 files');
+    expect(summary).toBe('Found 2 matches in 2 files');
   });
 });

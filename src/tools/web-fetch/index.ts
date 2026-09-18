@@ -56,8 +56,23 @@ export const webFetchTool: ToolDefinition<typeof webFetchInputSchema, WebFetchOu
   parameters: webFetchInputSchema,
   confirmationPolicy: 'never',
 
-  summarize: (args) => {
-    return `web_fetch(${args.url})`;
+  summarize: (args, result) => {
+    if (!result) return `Fetching ${args.url}`;
+    const chars = result.content.length;
+    const truncated = result.isTruncated ? ' (truncated)' : '';
+    const type = result.contentType.split(';')[0]?.trim() ?? 'text';
+    const label = type.includes('html')
+      ? 'HTML'
+      : type.includes('json')
+        ? 'JSON'
+        : type.includes('markdown') || type.includes('text/plain')
+          ? 'text'
+          : (type.split('/').pop() ?? 'content');
+    let host = args.url;
+    try {
+      host = new URL(args.url).hostname;
+    } catch {}
+    return `Fetched ${chars.toLocaleString()} chars of ${label} from ${host}${truncated}`;
   },
 
   execute: async (args, context) => {

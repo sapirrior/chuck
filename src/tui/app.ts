@@ -677,8 +677,9 @@ export class TUIApp {
             }
             case 'turn-complete': {
               this.streamingView.setActiveTool(null);
-              if (accumulatedText.trim()) {
-                this.engine.commit('assistant-message', formatAssistantMessage(accumulatedText), {
+              const finalText = (accumulatedText || event.summary.text || '').trim();
+              if (finalText) {
+                this.engine.commit('assistant-message', formatAssistantMessage(finalText), {
                   hangingIndent: 2,
                 });
               }

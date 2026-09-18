@@ -24,6 +24,6 @@ describe('sleep tool', () => {
 
   it('formats human readable summary correctly', () => {
     const summary = sleepTool.summarize?.({ seconds: 2 }, { seconds: 2 });
-    expect(summary).toBe('└ Slept for 2 seconds');
+    expect(summary).toBe('Slept for 2 seconds');
   });
 });

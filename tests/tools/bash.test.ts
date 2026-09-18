@@ -123,7 +123,7 @@ describe('Bash Tool & Command Policy', () => {
         { command: 'ls', explanation: 'List' },
         { command: 'ls', exitCode: 0, stdout: '', stderr: '', durationMs: 10 },
       );
-      expect(summary).toBe('└ Ran successfully · exit code: 0');
+      expect(summary).toBe('Ran successfully · exit code: 0');
 
       const bgSummary = bashTool.summarize?.(
         { command: 'sleep 20', explanation: 'Sleep' },
@@ -134,7 +134,7 @@ describe('Bash Tool & Command Policy', () => {
           message: 'moved to background',
         },
       );
-      expect(bgSummary).toBe('└ Moved to background · task id: task-1234');
+      expect(bgSummary).toBe('Moved to background · task id: task-1234');
     });
   });
 });

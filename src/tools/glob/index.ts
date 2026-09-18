@@ -92,7 +92,7 @@ export const globTool: ToolDefinition<typeof globInputSchema, GlobOutput> = {
 
   summarize: (_args, result) => {
     const count = result?.totalMatches ?? 0;
-    return `└ Found ${count} file${count === 1 ? '' : 's'}`;
+    return `Found ${count} file${count === 1 ? '' : 's'}`;
   },
 
   execute: async (args, context) => {

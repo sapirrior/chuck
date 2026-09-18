@@ -106,8 +106,14 @@ export const searchTextTool: ToolDefinition<typeof searchTextInputSchema, Search
   parameters: searchTextInputSchema,
   confirmationPolicy: 'never',
 
-  summarize: (args) => {
-    return `search_text(${args.query})`;
+  summarize: (args, result) => {
+    if (!result) return `Searching for "${args.query}"`;
+    const count = result.totalMatches;
+    const files = new Set(result.matches.map((m) => m.file)).size;
+    const truncated = result.isTruncated ? ' (truncated)' : '';
+    const ms = result.durationMs;
+    const timeStr = ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
+    return `Found ${count} match${count === 1 ? '' : 'es'} in ${files} file${files === 1 ? '' : 's'} · ${timeStr}${truncated}`;
   },
 
   execute: async (args, context) => {

@@ -5,7 +5,7 @@ import { createMistral } from '@ai-sdk/mistral';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { createXai } from '@ai-sdk/xai';
-import { wrapLanguageModel, extractReasoningMiddleware, type LanguageModel } from 'ai';
+import type { LanguageModel } from 'ai';
 import {
   getAvailableProviders,
   getEnvConfig,
@@ -65,7 +65,7 @@ export const PROVIDER_REGISTRY: Record<ProviderName, ProviderDescriptor> = {
     name: 'deepseek',
     envVar: 'DEEPSEEK_API_KEY',
     apiKey: (c) => c.deepseekApiKey,
-    defaultModel: 'deepseek-flash',
+    defaultModel: 'deepseek-chat',
     create: (apiKey) => createDeepSeek({ apiKey }),
     isTaggedReasoning: () => true,
   },
@@ -73,7 +73,7 @@ export const PROVIDER_REGISTRY: Record<ProviderName, ProviderDescriptor> = {
     name: 'openrouter',
     envVar: 'OPENROUTER_API_KEY',
     apiKey: (c) => c.openrouterApiKey,
-    defaultModel: 'openrouter/free',
+    defaultModel: 'meta-llama/llama-3.3-70b-instruct:free',
     create: (apiKey) =>
       createOpenAICompatible({
         name: 'openrouter',
@@ -269,7 +269,7 @@ export function resolveActiveModelSelection(
 
 /**
  * Instantiates an AI SDK LanguageModel instance for the given selection using the declarative provider registry
- * and applies the universal middleware pipeline.
+ * and applies any active model-level wrappers.
  */
 export function createModelInstance(
   selection: ModelSelection,
@@ -295,26 +295,15 @@ export function createModelInstance(
 }
 
 /**
- * Universal middleware pipeline: applies reasoning extraction and model-level interceptors.
+ * Universal middleware pipeline: applies model-level interceptors or wraps.
  */
 export function applyModelMiddlewarePipeline(
   model: LanguageModel,
-  selection: ModelSelection,
-  descriptor?: ProviderDescriptor,
+  _selection: ModelSelection,
+  _descriptor?: ProviderDescriptor,
 ): LanguageModel {
-  let wrapped = model;
-
-  const requiresTaggedReasoning =
-    descriptor?.isTaggedReasoning?.(selection.modelId) ?? isTaggedReasoningModel(selection.modelId);
-
-  if (requiresTaggedReasoning) {
-    wrapped = wrapLanguageModel({
-      model: wrapped,
-      middleware: extractReasoningMiddleware({ tagName: 'think' }),
-    });
-  }
-
-  return wrapped;
+  // Return the model cleanly. AI SDK v7 handles reasoning natively inside ModelMessage[]
+  return model;
 }
 
 /**
@@ -322,7 +311,15 @@ export function applyModelMiddlewarePipeline(
  */
 function isTaggedReasoningModel(modelId: string): boolean {
   const lower = modelId.toLowerCase();
-  return lower.includes('deepseek') || lower.includes('r1') || lower.includes('think');
+  return (
+    lower.startsWith('deepseek-r1') ||
+    lower.includes('/deepseek-r1') ||
+    lower.includes('deepseek-reasoner') ||
+    lower === 'r1' ||
+    lower.endsWith('-r1') ||
+    lower.startsWith('qwq') ||
+    (lower.includes('qwen') && lower.includes('think'))
+  );
 }
 
 /**
@@ -332,7 +329,7 @@ function inferProviderFromModelId(modelId: string): ProviderName | null {
   const lower = modelId.toLowerCase();
 
   // Namespaced OpenRouter IDs, e.g. "openai/gpt-4", "anthropic/claude-sonnet-5"
-  if (lower.includes('/')) return 'openrouter';
+  if (/^[a-z0-9-_.]+\/[a-z0-9-_.]+$/.test(lower)) return 'openrouter';
 
   if (lower.startsWith('gemini-') || lower.startsWith('gemma-')) return 'gemini';
   if (lower.startsWith('claude-')) return 'anthropic';

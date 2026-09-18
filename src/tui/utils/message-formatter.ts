@@ -124,16 +124,21 @@ export function formatToolStatus(options: {
 
   const lines: string[] = [mainLine];
 
-  // Completed successful calls display the compact tool summary
+  // Completed successful calls display the tool summary and optional detail block
   if (status === 'completed' && options.toolOutput) {
     const cleanOutput = options.toolOutput.trim();
     if (cleanOutput) {
-      const firstLineOut = cleanOutput.split('\n')[0]?.trim() || cleanOutput;
-      const formattedOut = firstLineOut.startsWith('└ ') ? firstLineOut.slice(2) : firstLineOut;
+      const outputLines = cleanOutput.split('\n');
+      const summaryText = outputLines[0]?.trim() ?? '';
       const maxOutLen = Math.max(10, fullTermWidth - 6);
-      const truncatedOut =
-        formattedOut.length > maxOutLen ? `${formattedOut.slice(0, maxOutLen - 1)}…` : formattedOut;
-      lines.push(`  ${chalk.dim('└ ')}${chalk.white(truncatedOut)}`);
+      const truncatedSummary =
+        summaryText.length > maxOutLen ? `${summaryText.slice(0, maxOutLen - 1)}…` : summaryText;
+      lines.push(`  ${chalk.dim('└ ')}${chalk.white(truncatedSummary)}`);
+
+      // Detail lines (pre-rendered with ANSI by summarize()) pass through with 3-space indent
+      for (let i = 1; i < outputLines.length; i++) {
+        lines.push(`   ${outputLines[i]}`);
+      }
     }
   }
 

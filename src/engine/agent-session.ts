@@ -269,7 +269,12 @@ export class AgentSession {
           this.messages.push(msg);
           responseMessages.push(msg);
         }
-      } else if (summary.text) {
+      }
+
+      // If the model produced final text (e.g. Gemini, Anthropic, OpenAI) that was not
+      // represented in rawMessages, ensure it is preserved in history and persisted
+      const hasAssistantMessage = responseMessages.some((m) => m.role === 'assistant');
+      if (summary.text && !hasAssistantMessage) {
         const assistantMsg: ModelMessage = {
           role: 'assistant',
           content: summary.text,
@@ -315,6 +320,18 @@ export class AgentSession {
       const turnMessages: ModelMessage[] = [userMessage, ...responseMessages];
 
       if (summary) {
+        this.accumulatedUsage.inputTokens += summary.usage.inputTokens;
+        this.accumulatedUsage.outputTokens += summary.usage.outputTokens;
+        this.accumulatedUsage.totalTokens += summary.usage.totalTokens;
+        if (summary.usage.reasoningTokens) {
+          this.accumulatedUsage.reasoningTokens =
+            (this.accumulatedUsage.reasoningTokens ?? 0) + summary.usage.reasoningTokens;
+        }
+        if (summary.usage.cacheReadTokens) {
+          this.accumulatedUsage.cacheReadTokens =
+            (this.accumulatedUsage.cacheReadTokens ?? 0) + summary.usage.cacheReadTokens;
+        }
+
         recordSessionTurn(this.sessionData, {
           id: turnId,
           status: 'interrupted',

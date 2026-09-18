@@ -13,6 +13,7 @@ import {
 } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { z } from 'zod';
+import chalk from 'chalk';
 import { resolveDirectMutationPath } from '../../services/checkpoint/path.js';
 import type { ToolDefinition } from '../types.js';
 
@@ -61,10 +62,38 @@ export const editFileTool: ToolDefinition<typeof editFileInputSchema, EditFileOu
   parameters: editFileInputSchema,
   confirmationPolicy: 'never',
 
-  summarize: (_args, result) => {
+  summarize: (args, result) => {
     const added = result?.addedLines ?? 0;
     const removed = result?.removedLines ?? 0;
-    return `└ Added ${added} line${added === 1 ? '' : 's'}, Removed ${removed} line${removed === 1 ? '' : 's'}`;
+    const summary = `Added ${added} line${added === 1 ? '' : 's'}, removed ${removed} line${removed === 1 ? '' : 's'}`;
+
+    const oldLines = args.old_string.split(/\r?\n/);
+    const newLines = args.new_string.split(/\r?\n/);
+
+    // No-op: nothing changed
+    if (added === 0 && removed === 0) return summary;
+
+    const cap = 30;
+    const padWidth = String(Math.max(oldLines.length, newLines.length)).length;
+
+    const removedDetail = oldLines
+      .slice(0, cap)
+      .map((l, i) => chalk.red(`${String(i + 1).padStart(padWidth)} -${l}`))
+      .join('\n');
+    const addedDetail = newLines
+      .slice(0, cap)
+      .map((l, i) => chalk.green(`${String(i + 1).padStart(padWidth)} +${l}`))
+      .join('\n');
+
+    const overflowOld =
+      oldLines.length > cap ? `\n   … (${oldLines.length - cap} more removed)` : '';
+    const overflowNew = newLines.length > cap ? `\n   … (${newLines.length - cap} more added)` : '';
+
+    const diffBlock = [removedDetail + overflowOld, addedDetail + overflowNew]
+      .filter(Boolean)
+      .join('\n');
+
+    return `${summary}\n${diffBlock}`;
   },
 
   execute: async (args, context) => {

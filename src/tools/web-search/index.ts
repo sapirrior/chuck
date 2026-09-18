@@ -154,8 +154,11 @@ export const webSearchTool: ToolDefinition<typeof webSearchInputSchema, WebSearc
   parameters: webSearchInputSchema,
   confirmationPolicy: 'never',
 
-  summarize: (args) => {
-    return `web_search("${args.query}"${args.site ? ` site:${args.site}` : ''})`;
+  summarize: (args, result) => {
+    if (!result) return `Searching "${args.query}"`;
+    const count = result.resultCount;
+    const site = args.site ? ` on ${args.site}` : '';
+    return `Found ${count} result${count === 1 ? '' : 's'}${site} via DuckDuckGo`;
   },
 
   execute: async (args, context) => {

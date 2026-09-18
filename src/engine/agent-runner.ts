@@ -40,7 +40,6 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<TurnSu
   const toolResults: ToolResultInfo[] = [];
 
   let accumulatedText = '';
-  let accumulatedReasoning = '';
   let stepIndex = 0;
 
   try {
@@ -52,9 +51,10 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<TurnSu
       abortSignal: options.abortSignal,
       stopWhen: isStepCount(maxSteps),
       ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
-      ...(options.reasoningEffort && options.reasoningEffort !== 'provider-default'
-        ? { reasoning: options.reasoningEffort }
-        : {}),
+      // Pass reasoning effort to the model. 'provider-default' is a valid v7 token
+      // meaning "use whatever the provider defaults to". Only omit the field entirely
+      // when the caller passes undefined/null (unset — not the same as provider-default).
+      ...(options.reasoningEffort != null ? { reasoning: options.reasoningEffort } : {}),
     });
 
     for await (const chunk of result.stream) {
@@ -68,15 +68,6 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<TurnSu
           options.onEvent?.({
             type: 'text-delta',
             text: chunk.text,
-          });
-          break;
-        }
-
-        case 'reasoning-delta': {
-          accumulatedReasoning += chunk.text;
-          options.onEvent?.({
-            type: 'reasoning-delta',
-            reasoning: chunk.text,
           });
           break;
         }
@@ -133,6 +124,7 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<TurnSu
                 inputTokens: chunk.usage.inputTokens ?? 0,
                 outputTokens: chunk.usage.outputTokens ?? 0,
                 totalTokens: chunk.usage.totalTokens ?? 0,
+                // AI SDK v7: nested under outputTokenDetails / inputTokenDetails
                 reasoningTokens: chunk.usage.outputTokenDetails?.reasoningTokens,
                 cacheReadTokens: chunk.usage.inputTokenDetails?.cacheReadTokens,
                 cacheWriteTokens: chunk.usage.inputTokenDetails?.cacheWriteTokens,
@@ -163,6 +155,35 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<TurnSu
     const finishReason = await result.finishReason;
     const rawTurnMessages = (await result.responseMessages) as ModelMessage[];
 
+    // Ensure finalTurnText captures the complete output (including Gemini buffered steps)
+    let finalTurnText = accumulatedText;
+    if (!finalTurnText) {
+      try {
+        const resolvedText = await result.text;
+        if (resolvedText) {
+          finalTurnText = resolvedText;
+        }
+      } catch {}
+    }
+
+    if (!finalTurnText && rawTurnMessages.length > 0) {
+      for (const msg of rawTurnMessages) {
+        if (msg.role === 'assistant') {
+          if (typeof msg.content === 'string' && msg.content.trim()) {
+            finalTurnText = msg.content;
+          } else if (Array.isArray(msg.content)) {
+            const textParts = msg.content
+              .filter((p: any) => p.type === 'text')
+              .map((p: any) => p.text)
+              .join('');
+            if (textParts.trim()) {
+              finalTurnText = textParts;
+            }
+          }
+        }
+      }
+    }
+
     const hitStepCeiling = stepIndex >= maxSteps;
     const wasAborted = Boolean(options.abortSignal?.aborted);
     const stopReason = classifyStopReason(hitStepCeiling, wasAborted);
@@ -171,14 +192,14 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<TurnSu
       inputTokens: rawUsage.inputTokens ?? 0,
       outputTokens: rawUsage.outputTokens ?? 0,
       totalTokens: rawUsage.totalTokens ?? 0,
+      // AI SDK v7: nested under outputTokenDetails / inputTokenDetails
       reasoningTokens: rawUsage.outputTokenDetails?.reasoningTokens,
       cacheReadTokens: rawUsage.inputTokenDetails?.cacheReadTokens,
       cacheWriteTokens: rawUsage.inputTokenDetails?.cacheWriteTokens,
     };
 
     const summary: TurnSummary = {
-      text: accumulatedText,
-      reasoning: accumulatedReasoning || undefined,
+      text: finalTurnText,
       toolCalls: toolResults,
       usage,
       finishReason,

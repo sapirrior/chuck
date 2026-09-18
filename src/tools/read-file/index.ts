@@ -57,7 +57,7 @@ export const readFileTool: ToolDefinition<typeof readFileInputSchema, ReadFileOu
 
   summarize: (_args, result) => {
     const lines = result?.linesRead ?? 0;
-    return `└ Read ${lines} line${lines === 1 ? '' : 's'}`;
+    return `Read ${lines} line${lines === 1 ? '' : 's'}`;
   },
 
   execute: async (args, context) => {

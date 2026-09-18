@@ -16,7 +16,7 @@ export const taskKillTool: ToolDefinition<typeof taskKillInputSchema, ShellTaskK
   confirmationPolicy: 'never',
 
   summarize: (args, result) => {
-    return `└ Stopped task ${args.task_id} · status: ${result?.status ?? 'killed'}`;
+    return `Stopped task ${args.task_id} · status: ${result?.status ?? 'killed'}`;
   },
 
   execute: async (args, context) => {

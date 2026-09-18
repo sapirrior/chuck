@@ -139,8 +139,8 @@ describe('Provider Configuration & Discovery', () => {
   it('should have sensible defaults in DEFAULT_MODELS_BY_PROVIDER', () => {
     expect(DEFAULT_MODELS_BY_PROVIDER.xai).toBe('grok-4-fast-non-reasoning');
     expect(DEFAULT_MODELS_BY_PROVIDER.mistral).toBe('mistral-small-latest');
-    expect(DEFAULT_MODELS_BY_PROVIDER.deepseek).toBe('deepseek-flash');
-    expect(DEFAULT_MODELS_BY_PROVIDER.openrouter).toBe('openrouter/free');
+    expect(DEFAULT_MODELS_BY_PROVIDER.deepseek).toBe('deepseek-chat');
+    expect(DEFAULT_MODELS_BY_PROVIDER.openrouter).toBe('meta-llama/llama-3.3-70b-instruct:free');
   });
 
   it('should have all 8 providers declared in PROVIDER_REGISTRY with correct metadata', async () => {

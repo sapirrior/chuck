@@ -136,7 +136,7 @@ export const grepTool: ToolDefinition<typeof grepInputSchema, GrepOutput> = {
   summarize: (_args, result) => {
     const matches = result?.totalMatches ?? 0;
     const files = result?.fileCount ?? 0;
-    return `└ Found ${matches} match${matches === 1 ? '' : 'es'} in ${files} file${files === 1 ? '' : 's'}`;
+    return `Found ${matches} match${matches === 1 ? '' : 'es'} in ${files} file${files === 1 ? '' : 's'}`;
   },
 
   execute: async (args, context) => {

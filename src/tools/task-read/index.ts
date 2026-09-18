@@ -17,7 +17,7 @@ export const taskReadTool: ToolDefinition<typeof taskReadInputSchema, ShellTaskR
   confirmationPolicy: 'never',
 
   summarize: (args, result) => {
-    return `└ Task ${args.task_id} · status: ${result?.status ?? 'unknown'}`;
+    return `Task ${args.task_id} · status: ${result?.status ?? 'unknown'}`;
   },
 
   execute: async (args, context) => {

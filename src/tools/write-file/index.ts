@@ -44,9 +44,24 @@ export const writeFileTool: ToolDefinition<typeof writeFileInputSchema, WriteFil
   parameters: writeFileInputSchema,
   confirmationPolicy: 'never',
 
-  summarize: (_args, result) => {
+  summarize: (args, result) => {
     const lines = result?.linesWritten ?? 0;
-    return `└ Wrote ${lines} line${lines === 1 ? '' : 's'}`;
+    const filePath = args.file_path;
+    const summary = `Wrote ${lines} line${lines === 1 ? '' : 's'} to ${filePath}`;
+
+    const contentLines = args.content.split(/\r?\n/);
+    if (contentLines.length === 0 || (contentLines.length === 1 && !contentLines[0])) {
+      return summary;
+    }
+
+    const cap = 50;
+    const shown = contentLines.slice(0, cap);
+    const padWidth = String(contentLines.length).length;
+    const detail = shown.map((l, i) => `${String(i + 1).padStart(padWidth)}  ${l}`).join('\n');
+    const overflow =
+      contentLines.length > cap ? `\n   … (${contentLines.length - cap} more lines)` : '';
+
+    return `${summary}\n${detail}${overflow}`;
   },
 
   execute: async (args, context) => {

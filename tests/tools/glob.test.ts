@@ -31,6 +31,6 @@ describe('glob tool', () => {
       },
     );
 
-    expect(summary).toBe('└ Found 2 files');
+    expect(summary).toBe('Found 2 files');
   });
 });

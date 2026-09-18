@@ -50,10 +50,10 @@ export const bashTool: ToolDefinition<typeof bashInputSchema, BashOutput> = {
 
   summarize: (_args, result) => {
     if (result && 'status' in result && result.status === 'backgrounded') {
-      return `└ Moved to background · task id: ${result.taskId}`;
+      return `Moved to background · task id: ${result.taskId}`;
     }
     const code = (result as any)?.exitCode ?? 0;
-    return `└ Ran successfully · exit code: ${code}`;
+    return `Ran successfully · exit code: ${code}`;
   },
 
   execute: async (args, context) => {

@@ -44,7 +44,7 @@ export const listDirTool: ToolDefinition<typeof listDirInputSchema, ListDirOutpu
   summarize: (_args, result) => {
     const files = result?.fileCount ?? 0;
     const dirs = result?.dirCount ?? 0;
-    return `└ Listed ${files} file${files === 1 ? '' : 's'}, ${dirs} director${dirs === 1 ? 'y' : 'ies'}`;
+    return `Listed ${files} file${files === 1 ? '' : 's'}, ${dirs} director${dirs === 1 ? 'y' : 'ies'}`;
   },
 
   execute: async (args, context) => {

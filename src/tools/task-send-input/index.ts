@@ -44,7 +44,7 @@ export const taskSendInputTool: ToolDefinition<
   confirmationPolicy: 'never',
 
   summarize: (args) => {
-    return `└ Sent input to ${args.task_id} (${args.input.length} chars)`;
+    return `Sent input to ${args.task_id} (${args.input.length} chars)`;
   },
 
   execute: async (args, context) => {

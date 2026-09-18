@@ -32,7 +32,7 @@ export const sleepTool: ToolDefinition<typeof sleepInputSchema, SleepOutput> = {
 
   summarize: (_args, result) => {
     const s = result?.seconds ?? _args.seconds ?? 0;
-    return `└ Slept for ${s} second${s === 1 ? '' : 's'}`;
+    return `Slept for ${s} second${s === 1 ? '' : 's'}`;
   },
 
   execute: async (args, context) => {
