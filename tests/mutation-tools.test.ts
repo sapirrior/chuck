@@ -396,4 +396,29 @@ describe('Mutation Tools (write_file & edit_file)', () => {
       expect(pending?.files?.length ?? 0).toBe(0);
     });
   });
+
+  describe('edit_file summarize output', () => {
+    it('formats human readable summary with colored diff lines', () => {
+      const summary = editFileTool.summarize?.(
+        {
+          file_path: 'foo.ts',
+          old_string: 'const a = 1;',
+          new_string: 'const a = 2;\nconst b = 3;',
+        },
+        {
+          success: true,
+          filePath: 'foo.ts',
+          modifiedBytes: 25,
+          addedLines: 2,
+          removedLines: 1,
+        },
+      );
+
+      expect(summary).toBeDefined();
+      expect(summary).toContain('Added 2 lines, removed 1 line');
+      expect(summary).toContain('-const a = 1;');
+      expect(summary).toContain('+const a = 2;');
+      expect(summary).toContain('+const b = 3;');
+    });
+  });
 });

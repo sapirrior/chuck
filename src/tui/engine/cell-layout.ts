@@ -283,6 +283,17 @@ export function wrapVisualLineWithCursor(
 
   function emitCurrentLine() {
     const activeStyles = getActiveStyleCodes();
+    // If active background is set, fill remaining columns to maxCols with background spaces
+    if (activeBg && currentWidth < maxCols) {
+      const remainingCols = maxCols - currentWidth;
+      currentTokens.push({
+        type: 'char',
+        value: ' '.repeat(remainingCols),
+        width: remainingCols,
+      });
+      currentWidth = maxCols;
+    }
+
     let lineStr = currentTokens.map((t) => t.value).join('');
     if (activeStyles.length > 0 && !lineStr.endsWith('\x1b[0m')) {
       lineStr += '\x1b[0m';
@@ -294,15 +305,18 @@ export function wrapVisualLineWithCursor(
 
     // Apply hanging continuation indent to next line
     if (continuationIndent) {
+      // If active styles exist (e.g. background color), wrap continuation indent with them
+      if (activeStyles.length > 0) {
+        for (const s of activeStyles) {
+          currentTokens.push({ type: 'ansi', value: s, width: 0 });
+        }
+      }
       const contTokens = tokenizeAnsi(continuationIndent);
       for (const t of contTokens) {
         currentTokens.push(t);
       }
       currentWidth = stringWidth(stripAnsi(continuationIndent));
-    }
-
-    // Carry forward active styles to next line after the continuation prefix
-    if (activeStyles.length > 0) {
+    } else if (activeStyles.length > 0) {
       for (const s of activeStyles) {
         currentTokens.push({ type: 'ansi', value: s, width: 0 });
       }
@@ -414,6 +428,17 @@ export function wrapVisualLineWithCursor(
 
   if (currentTokens.length > 0 || lines.length === 0) {
     const activeStyles = getActiveStyleCodes();
+    // If active background is set, fill remaining columns to maxCols with background spaces
+    if (activeBg && currentWidth < maxCols) {
+      const remainingCols = maxCols - currentWidth;
+      currentTokens.push({
+        type: 'char',
+        value: ' '.repeat(remainingCols),
+        width: remainingCols,
+      });
+      currentWidth = maxCols;
+    }
+
     let lineStr = currentTokens.map((t) => t.value).join('');
     if (activeStyles.length > 0 && lines.length > 0 && !lineStr.endsWith('\x1b[0m')) {
       lineStr += '\x1b[0m';

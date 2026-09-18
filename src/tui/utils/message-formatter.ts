@@ -136,8 +136,29 @@ export function formatToolStatus(options: {
       lines.push(`  ${chalk.dim('└ ')}${chalk.white(truncatedSummary)}`);
 
       // Detail lines (pre-rendered with ANSI by summarize()) pass through with 3-space indent
+      // If the line has an ANSI background, pad it to the right edge with the background color intact
+      const diffDeleteBg = themeBgColor(theme.diffDeleteBG);
+      const diffAddBg = themeBgColor(theme.diffAddBG);
+      const rawDiffDelBg = theme.diffDeleteBG;
+      const rawDiffAddBg = theme.diffAddBG;
+
       for (let i = 1; i < outputLines.length; i++) {
-        lines.push(`   ${outputLines[i]}`);
+        const line = outputLines[i] ?? '';
+        const plain = stripAnsi(line);
+        // Check if this line is a deletion or addition diff line
+        const isDelete =
+          line.includes(rawDiffDelBg) || /\d+\s+-/.test(plain) || plain.startsWith('-');
+        const isAdd =
+          line.includes(rawDiffAddBg) || /\d+\s+\+/.test(plain) || plain.startsWith('+');
+
+        if (isDelete || isAdd) {
+          const bgFn = isDelete ? diffDeleteBg : diffAddBg;
+          const visLen = 3 + stringWidth(plain);
+          const padLen = Math.max(0, fullTermWidth - visLen);
+          lines.push(bgFn(`   ${line}${' '.repeat(padLen)}`));
+        } else {
+          lines.push(`   ${line}`);
+        }
       }
     }
   }

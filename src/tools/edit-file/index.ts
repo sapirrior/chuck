@@ -14,6 +14,8 @@ import {
 import { dirname, join } from 'node:path';
 import { z } from 'zod';
 import chalk from 'chalk';
+import { getTheme } from '../../theme/index.js';
+import { themeColor, themeBgColor } from '../../tui/utils/format.js';
 import { resolveDirectMutationPath } from '../../services/checkpoint/path.js';
 import type { ToolDefinition } from '../types.js';
 
@@ -76,13 +78,19 @@ export const editFileTool: ToolDefinition<typeof editFileInputSchema, EditFileOu
     const cap = 30;
     const padWidth = String(Math.max(oldLines.length, newLines.length)).length;
 
+    const theme = getTheme();
+    const deleteStyle = (str: string) =>
+      themeBgColor(theme.diffDeleteBG)(themeColor(theme.diffDeleteFG)(str));
+    const addStyle = (str: string) =>
+      themeBgColor(theme.diffAddBG)(themeColor(theme.diffAddFG)(str));
+
     const removedDetail = oldLines
       .slice(0, cap)
-      .map((l, i) => chalk.red(`${String(i + 1).padStart(padWidth)} -${l}`))
+      .map((l, i) => deleteStyle(`${String(i + 1).padStart(padWidth)} -${l}`))
       .join('\n');
     const addedDetail = newLines
       .slice(0, cap)
-      .map((l, i) => chalk.green(`${String(i + 1).padStart(padWidth)} +${l}`))
+      .map((l, i) => addStyle(`${String(i + 1).padStart(padWidth)} +${l}`))
       .join('\n');
 
     const overflowOld =
