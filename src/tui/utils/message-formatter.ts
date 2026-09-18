@@ -8,6 +8,7 @@ import {
   stripAnsi,
   getStatusBullet,
   truncateMiddle,
+  extractPrimaryToolParam,
 } from './format.js';
 import { wrapVisualLine } from '../engine/cell-layout.js';
 import type { ToolExecutionStatus } from '../types.js';
@@ -111,39 +112,7 @@ export function formatToolStatus(options: {
   const dispName = displayName ?? icon ?? toolName;
 
   // Extract primary single-line argument
-  let rawArg = '';
-  if (argsSummary) {
-    try {
-      const parsed = JSON.parse(argsSummary);
-      const primaryKeys = [
-        'path',
-        'file_path',
-        'command',
-        'pattern',
-        'query',
-        'seconds',
-        'url',
-        'file',
-        'name',
-        'prompt',
-      ];
-      for (const k of primaryKeys) {
-        if (parsed[k] !== undefined) {
-          const val = parsed[k];
-          rawArg = typeof val === 'object' && val !== null ? JSON.stringify(val) : String(val);
-          break;
-        }
-      }
-      if (!rawArg && Object.values(parsed)[0] !== undefined) {
-        const val = Object.values(parsed)[0];
-        rawArg = typeof val === 'object' && val !== null ? JSON.stringify(val) : String(val);
-      }
-    } catch {
-      rawArg = argsSummary;
-    }
-  }
-
-  const cleanFirstLine = rawArg.split('\n')[0] ?? '';
+  const cleanFirstLine = extractPrimaryToolParam(argsSummary);
   const maxArgLen = Math.max(10, fullTermWidth - dispName.length - 8);
   const truncatedArg =
     cleanFirstLine.length > maxArgLen ? truncateMiddle(cleanFirstLine, maxArgLen) : cleanFirstLine;

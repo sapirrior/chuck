@@ -5,7 +5,7 @@ import { createMistral } from '@ai-sdk/mistral';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { createXai } from '@ai-sdk/xai';
-import type { LanguageModel } from 'ai';
+import { wrapLanguageModel, extractReasoningMiddleware, type LanguageModel } from 'ai';
 import {
   getAvailableProviders,
   getEnvConfig,
@@ -14,20 +14,105 @@ import {
   type EnvConfig,
   type ProviderName,
 } from '../config/index.js';
-import type { ModelSelection } from './types.js';
+import type { ModelSelection, ReasoningEffort } from './types.js';
+
+export interface ProviderDescriptor {
+  readonly name: ProviderName;
+  readonly envVar: string;
+  readonly apiKey: (cfg: EnvConfig) => string | undefined;
+  readonly defaultModel: string;
+  readonly create: (apiKey: string, cfg: EnvConfig) => (modelId: string) => LanguageModel;
+  readonly isTaggedReasoning?: (modelId: string) => boolean;
+}
+
+export const PROVIDER_REGISTRY: Record<ProviderName, ProviderDescriptor> = {
+  gemini: {
+    name: 'gemini',
+    envVar: 'GEMINI_API_KEY',
+    apiKey: (c) => c.geminiApiKey,
+    defaultModel: 'gemini-2.5-flash',
+    create: (apiKey) => createGoogle({ apiKey }),
+  },
+  anthropic: {
+    name: 'anthropic',
+    envVar: 'ANTHROPIC_API_KEY',
+    apiKey: (c) => c.anthropicApiKey,
+    defaultModel: 'claude-3-7-sonnet-20250219',
+    create: (apiKey) => createAnthropic({ apiKey }),
+  },
+  openai: {
+    name: 'openai',
+    envVar: 'OPENAI_API_KEY',
+    apiKey: (c) => c.openaiApiKey,
+    defaultModel: 'gpt-4o-mini',
+    create: (apiKey) => createOpenAI({ apiKey }),
+  },
+  xai: {
+    name: 'xai',
+    envVar: 'XAI_API_KEY',
+    apiKey: (c) => c.xaiApiKey,
+    defaultModel: 'grok-4-fast-non-reasoning',
+    create: (apiKey) => createXai({ apiKey }),
+  },
+  mistral: {
+    name: 'mistral',
+    envVar: 'MISTRAL_API_KEY',
+    apiKey: (c) => c.mistralApiKey,
+    defaultModel: 'mistral-small-latest',
+    create: (apiKey) => createMistral({ apiKey }),
+  },
+  deepseek: {
+    name: 'deepseek',
+    envVar: 'DEEPSEEK_API_KEY',
+    apiKey: (c) => c.deepseekApiKey,
+    defaultModel: 'deepseek-flash',
+    create: (apiKey) => createDeepSeek({ apiKey }),
+    isTaggedReasoning: () => true,
+  },
+  openrouter: {
+    name: 'openrouter',
+    envVar: 'OPENROUTER_API_KEY',
+    apiKey: (c) => c.openrouterApiKey,
+    defaultModel: 'openrouter/free',
+    create: (apiKey) =>
+      createOpenAICompatible({
+        name: 'openrouter',
+        baseURL: 'https://openrouter.ai/api/v1',
+        apiKey,
+        headers: {
+          'HTTP-Referer': 'https://github.com/sapirrior/steward',
+          'X-Title': 'steward',
+        },
+      }),
+    isTaggedReasoning: (modelId) => isTaggedReasoningModel(modelId),
+  },
+  custom: {
+    name: 'custom',
+    envVar: 'CUSTOM_API_URL / CUSTOM_API_KEY',
+    apiKey: (c) => c.custom.baseURL,
+    defaultModel: 'default',
+    create: (_key, cfg) =>
+      createOpenAICompatible({
+        name: 'custom',
+        baseURL: cfg.custom.baseURL!,
+        apiKey: cfg.custom.apiKey,
+      }),
+    isTaggedReasoning: (modelId) => isTaggedReasoningModel(modelId),
+  },
+};
 
 /**
  * Hardcoded default models per provider.
  */
 export const DEFAULT_MODELS_BY_PROVIDER: Record<ProviderName, string> = {
-  gemini: 'gemini-2.5-flash',
-  anthropic: 'claude-3-7-sonnet-20250219',
-  openai: 'gpt-4o-mini',
-  xai: 'grok-4-fast-non-reasoning',
-  mistral: 'mistral-small-latest',
-  deepseek: 'deepseek-flash',
-  openrouter: 'openrouter/free',
-  custom: 'default',
+  gemini: PROVIDER_REGISTRY.gemini.defaultModel,
+  anthropic: PROVIDER_REGISTRY.anthropic.defaultModel,
+  openai: PROVIDER_REGISTRY.openai.defaultModel,
+  xai: PROVIDER_REGISTRY.xai.defaultModel,
+  mistral: PROVIDER_REGISTRY.mistral.defaultModel,
+  deepseek: PROVIDER_REGISTRY.deepseek.defaultModel,
+  openrouter: PROVIDER_REGISTRY.openrouter.defaultModel,
+  custom: PROVIDER_REGISTRY.custom.defaultModel,
 };
 
 export const DEFAULT_REASONING_EFFORT: ReasoningEffort = 'provider-default';
@@ -72,14 +157,6 @@ export function parseReasoningEffort(input?: string | number): ReasoningEffort |
 
 /**
  * Priority hierarchy for selecting a default provider when multiple are configured.
- * Level 1: Gemini
- * Level 2: Anthropic
- * Level 3: OpenAI
- * Level 4: xAI
- * Level 5: Mistral
- * Level 6: DeepSeek
- * Level 7: OpenRouter
- * Level 8: Custom OpenAI-compatible
  */
 export const PROVIDER_SELECTION_PRIORITY: readonly ProviderName[] = [
   'gemini',
@@ -191,101 +268,61 @@ export function resolveActiveModelSelection(
 }
 
 /**
- * Instantiates an AI SDK LanguageModel instance for the given selection.
+ * Instantiates an AI SDK LanguageModel instance for the given selection using the declarative provider registry
+ * and applies the universal middleware pipeline.
  */
 export function createModelInstance(
   selection: ModelSelection,
   config: EnvConfig = getEnvConfig(),
 ): LanguageModel {
-  switch (selection.provider) {
-    case 'gemini': {
-      if (!config.geminiApiKey) {
-        throw new Error('GEMINI_API_KEY is not configured in the environment.');
-      }
-      const google = createGoogle({
-        apiKey: config.geminiApiKey,
-      });
-      return google(selection.modelId);
-    }
-
-    case 'openai': {
-      if (!config.openaiApiKey) {
-        throw new Error('OPENAI_API_KEY is not configured in the environment.');
-      }
-      const openai = createOpenAI({
-        apiKey: config.openaiApiKey,
-      });
-      return openai(selection.modelId);
-    }
-
-    case 'anthropic': {
-      if (!config.anthropicApiKey) {
-        throw new Error('ANTHROPIC_API_KEY is not configured in the environment.');
-      }
-      const anthropic = createAnthropic({
-        apiKey: config.anthropicApiKey,
-      });
-      return anthropic(selection.modelId);
-    }
-
-    case 'xai': {
-      if (!config.xaiApiKey) {
-        throw new Error('XAI_API_KEY is not configured in the environment.');
-      }
-      const xai = createXai({
-        apiKey: config.xaiApiKey,
-      });
-      return xai(selection.modelId);
-    }
-
-    case 'mistral': {
-      if (!config.mistralApiKey) {
-        throw new Error('MISTRAL_API_KEY is not configured in the environment.');
-      }
-      const mistral = createMistral({
-        apiKey: config.mistralApiKey,
-      });
-      return mistral(selection.modelId);
-    }
-
-    case 'deepseek': {
-      if (!config.deepseekApiKey) {
-        throw new Error('DEEPSEEK_API_KEY is not configured in the environment.');
-      }
-      const deepSeek = createDeepSeek({
-        apiKey: config.deepseekApiKey,
-      });
-      return deepSeek(selection.modelId);
-    }
-
-    case 'openrouter': {
-      if (!config.openrouterApiKey) {
-        throw new Error('OPENROUTER_API_KEY is not configured in the environment.');
-      }
-      const openrouter = createOpenAICompatible({
-        name: 'openrouter',
-        baseURL: 'https://openrouter.ai/api/v1',
-        apiKey: config.openrouterApiKey,
-        headers: {
-          'HTTP-Referer': 'https://github.com/sapirrior/steward',
-          'X-Title': 'steward',
-        },
-      });
-      return openrouter(selection.modelId);
-    }
-
-    case 'custom': {
-      if (!config.custom.baseURL) {
-        throw new Error('CUSTOM_API_URL is not configured in the environment.');
-      }
-      const custom = createOpenAICompatible({
-        name: 'custom',
-        baseURL: config.custom.baseURL,
-        apiKey: config.custom.apiKey,
-      });
-      return custom(selection.modelId);
-    }
+  const descriptor = PROVIDER_REGISTRY[selection.provider];
+  if (!descriptor) {
+    throw new Error(`Unsupported model provider: "${selection.provider}"`);
   }
+
+  const apiKey = descriptor.apiKey(config);
+  if (!apiKey) {
+    throw new Error(`${descriptor.envVar} is not configured in the environment.`);
+  }
+
+  const modelId =
+    selection.provider === 'custom'
+      ? config.custom.modelName || selection.modelId
+      : selection.modelId;
+
+  const baseModel = descriptor.create(apiKey, config)(modelId);
+  return applyModelMiddlewarePipeline(baseModel, selection, descriptor);
+}
+
+/**
+ * Universal middleware pipeline: applies reasoning extraction and model-level interceptors.
+ */
+export function applyModelMiddlewarePipeline(
+  model: LanguageModel,
+  selection: ModelSelection,
+  descriptor?: ProviderDescriptor,
+): LanguageModel {
+  let wrapped = model;
+
+  const requiresTaggedReasoning =
+    descriptor?.isTaggedReasoning?.(selection.modelId) ?? isTaggedReasoningModel(selection.modelId);
+
+  if (requiresTaggedReasoning) {
+    wrapped = wrapLanguageModel({
+      model: wrapped,
+      middleware: extractReasoningMiddleware({ tagName: 'think' }),
+    });
+  }
+
+  return wrapped;
+}
+
+/**
+ * Helper to check whether a model ID represents a model emitting inline <think> tags.
+ */
+function isTaggedReasoningModel(modelId: string): boolean {
+  const lower = modelId.toLowerCase();
+  return lower.includes('deepseek') || lower.includes('r1') || lower.includes('think');
 }
 
 /**

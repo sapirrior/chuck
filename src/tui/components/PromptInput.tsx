@@ -569,37 +569,10 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
 
     const borderColor = disabled ? themeColor(theme.subtle) : themeColor(theme.promptBorder);
 
-    // 1. Disabled (generating) state — Compact layout (Section 19)
+    // 1. Disabled (generating) state — Clean minimal layout with Esc to stop
     if (disabled) {
-      const brand = themeColor(theme.brand);
-      const shimmer = themeColor(theme.brandShimmer);
-      const spinnerGlyphs = figures.spinnerFrames;
-      const glyph = brand(spinnerGlyphs[spinnerFrame % spinnerGlyphs.length] ?? '⠋');
-
-      const wordIdx = Math.floor(spinnerFrame / 24) % STATUS_WORDS.length;
-      const word = STATUS_WORDS[wordIdx] ?? 'thinking…';
-      const wavePos = Math.floor(spinnerFrame / 2) % (word.length + 5);
-
-      let waveText = '';
-      for (let idx = 0; idx < word.length; idx++) {
-        const char = word[idx]!;
-        const dist = idx - (wavePos - 2);
-        if (dist === 1) {
-          waveText += shimmer(char);
-        } else if (dist === 0 || dist === 2) {
-          waveText += brand(char);
-        } else {
-          waveText += chalk.dim(char);
-        }
-      }
-
       lines.push(borderColor(figures.horizontalLine.repeat(dividerWidth)));
-      lines.push(
-        truncateToWidth(
-          `${glyph} ${chalk.italic(waveText)}   ${chalk.dim('Esc to stop')}`,
-          maxCols,
-        ),
-      );
+      lines.push(truncateToWidth(`  ${chalk.dim('Esc to stop')}`, maxCols));
       lines.push(borderColor(figures.horizontalLine.repeat(dividerWidth)));
       return { lines, cursor: null };
     }

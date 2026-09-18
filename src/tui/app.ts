@@ -588,6 +588,7 @@ export class TUIApp {
     // 2. Submit user prompt to AgentSession
     this.engine.commitPrompt(text);
     this.setBusy(true);
+    this.streamingView.setThinking(true);
 
     const turnStartTime = performance.now();
     let accumulatedText = '';
@@ -621,9 +622,11 @@ export class TUIApp {
               }
 
               activeToolStartTimes.set(event.toolCall.id, performance.now());
+              const toolDef = defaultToolCatalog.get(event.toolCall.name);
               this.streamingView.setActiveTool({
                 id: event.toolCall.id,
                 name: event.toolCall.name,
+                displayName: toolDef?.displayName,
                 args: event.toolCall.args,
                 startTime: performance.now(),
               });
@@ -669,6 +672,7 @@ export class TUIApp {
                   }),
                 { hangingIndent: 2 },
               );
+              this.streamingView.setThinking(true);
               break;
             }
             case 'turn-complete': {
@@ -698,6 +702,7 @@ export class TUIApp {
               break;
             }
             case 'error': {
+              this.streamingView.reset();
               const structured = classifyError(event.error);
               this.engine.commit('system', formatErrorBadge(structured));
               break;
@@ -706,20 +711,15 @@ export class TUIApp {
         },
       });
     } catch (err: any) {
-      this.streamingView.setActiveTool(null);
+      this.streamingView.reset();
       const structured = classifyError(err);
-      if (structured.category === 'aborted') {
-        if (accumulatedText.trim()) {
-          this.engine.commit('assistant-message', formatAssistantMessage(accumulatedText), {
-            hangingIndent: 2,
-          });
-        }
+      if (accumulatedText.trim()) {
+        this.engine.commit('assistant-message', formatAssistantMessage(accumulatedText), {
+          hangingIndent: 2,
+        });
         accumulatedText = '';
-        this.streamingView.reset();
-        this.engine.commit('system', formatErrorBadge(structured));
-      } else {
-        this.engine.commit('system', formatErrorBadge(structured));
       }
+      this.engine.commit('system', formatErrorBadge(structured));
     } finally {
       if (this.activeModal) {
         this.closeModal();

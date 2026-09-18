@@ -142,6 +142,24 @@ describe('Provider Configuration & Discovery', () => {
     expect(DEFAULT_MODELS_BY_PROVIDER.deepseek).toBe('deepseek-flash');
     expect(DEFAULT_MODELS_BY_PROVIDER.openrouter).toBe('openrouter/free');
   });
+
+  it('should have all 8 providers declared in PROVIDER_REGISTRY with correct metadata', async () => {
+    const { PROVIDER_REGISTRY } = await import('../src/engine/model-provider.js');
+    expect(Object.keys(PROVIDER_REGISTRY).sort()).toEqual([
+      'anthropic',
+      'custom',
+      'deepseek',
+      'gemini',
+      'mistral',
+      'openai',
+      'openrouter',
+      'xai',
+    ]);
+
+    expect(PROVIDER_REGISTRY.deepseek.isTaggedReasoning?.('deepseek-flash')).toBe(true);
+    expect(PROVIDER_REGISTRY.openrouter.isTaggedReasoning?.('deepseek/deepseek-r1')).toBe(true);
+    expect(PROVIDER_REGISTRY.openrouter.isTaggedReasoning?.('openai/gpt-4o')).toBe(false);
+  });
 });
 
 describe('Provider Model Discovery Filtering', () => {

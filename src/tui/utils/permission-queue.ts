@@ -48,6 +48,10 @@ export class PermissionQueue {
     return this.queue.length;
   }
 
+  public get isEmpty(): boolean {
+    return this.activeItem === null && this.queue.length === 0;
+  }
+
   public enqueueBash(
     request: BashPermissionRequest,
     abortSignal?: AbortSignal,
