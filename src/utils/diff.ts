@@ -373,4 +373,3 @@ export function applyUnifiedDiff(before: string, diff: UnifiedDiff): string {
 
   return resultTokens.map((t) => t.text + t.ending).join('');
 }
-
