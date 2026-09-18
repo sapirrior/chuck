@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, lstatSync, realpathSync } from 'node:fs';
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
-import { normalizeFolderPath } from '../config/settings.js';
+import { normalizeFolderPath } from '../../config/settings.js';
 
 /**
  * Computes a stable workspace hash from the workspace root path.

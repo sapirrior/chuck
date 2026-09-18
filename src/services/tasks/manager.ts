@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { rmSync } from 'node:fs';
-import { boundResultText } from '../tools/bounding.js';
+import { boundResultText } from '../../utils/bounding.js';
+
 import { ShellExecution, type ShellExecutionOptions } from './process.js';
 import type {
   ShellTask,

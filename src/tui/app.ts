@@ -15,10 +15,14 @@ import TrustGate from './components/TrustGate.js';
 import ModelPicker from './components/docks/ModelPicker.js';
 import SessionMenu from './components/docks/SessionMenu.js';
 import ShortcutsMenu from './components/docks/ShortcutsMenu.js';
+
 import EffortPicker from './components/docks/EffortPicker.js';
 import RewindMenu, { type RewindItem } from './components/docks/RewindMenu.js';
 import BashPermissionDock from './components/docks/BashPermissionDock.js';
-import { executeRewind } from '../checkpoint/index.js';
+import FilePermissionDock from './components/docks/FilePermissionDock.js';
+import { PermissionQueue } from './utils/permission-queue.js';
+
+import { executeRewind } from '../services/checkpoint/index.js';
 import {
   formatSystemMessage,
   formatAssistantMessage,
@@ -54,11 +58,13 @@ export class TUIApp {
     | EffortPicker
     | RewindMenu
     | BashPermissionDock
+    | FilePermissionDock
     | null = null;
   private ctrlCPending = false;
   private ctrlCTimer: NodeJS.Timeout | null = null;
   private isBusy = false;
   private voiceController: VoiceController;
+  private permissionQueue: PermissionQueue;
 
   constructor(options: TUIAppOptions = {}) {
     this.cwd = options.cwd ?? process.cwd();
@@ -133,6 +139,44 @@ export class TUIApp {
       },
       onWarning: (warning) => {
         this.statusBar.showWarning(warning);
+      },
+    });
+
+    this.permissionQueue = new PermissionQueue({
+      onShow: (item) => {
+        if (this.activeModal) this.closeModal();
+        this.engine.unmount(this.promptInput);
+        this.engine.unmount(this.statusBar);
+
+        if (item.kind === 'bash') {
+          const dock = new BashPermissionDock({
+            command: item.request.command,
+            explanation: item.request.explanation,
+            onDecision: (allowed) => {
+              this.permissionQueue.resolveActive(allowed);
+            },
+          });
+          this.activeModal = dock;
+          this.engine.mount(dock, { kind: 'dock' });
+        } else if (item.kind === 'file') {
+          const dock = new FilePermissionDock({
+            request: item.request,
+            onDecision: (allowed) => {
+              this.permissionQueue.resolveActive(allowed);
+            },
+          });
+          this.activeModal = dock;
+          this.engine.mount(dock, { kind: 'dock' });
+        }
+        this.engine.mount(this.statusBar);
+      },
+      onHide: () => {
+        if (
+          this.activeModal instanceof BashPermissionDock ||
+          this.activeModal instanceof FilePermissionDock
+        ) {
+          this.closeModal();
+        }
       },
     });
   }
@@ -333,6 +377,7 @@ export class TUIApp {
   }
 
   private switchToSession(selected: SessionData): void {
+    this.permissionQueue.clear();
     this.session.shutdown().catch(() => {});
     this.session = AgentSession.resume(selected);
     const model = this.session.getModel();
@@ -465,6 +510,7 @@ export class TUIApp {
 
   private handleAbort(): void {
     if (this.isBusy) {
+      this.permissionQueue.clear();
       this.session.abort();
     }
   }
@@ -550,26 +596,9 @@ export class TUIApp {
     try {
       await this.session.submitPrompt(text, {
         cwd: this.cwd,
-        requestBashPermission: (req) => {
-          return new Promise((resolve) => {
-            if (this.activeModal) this.closeModal();
-            this.engine.unmount(this.promptInput);
-            this.engine.unmount(this.statusBar);
+        requestBashPermission: (req) => this.permissionQueue.enqueueBash(req),
+        requestFilePermission: (req) => this.permissionQueue.enqueueFile(req),
 
-            const dock = new BashPermissionDock({
-              command: req.command,
-              explanation: req.explanation,
-              onDecision: (allowed) => {
-                this.closeModal();
-                resolve({ allowed });
-              },
-            });
-
-            this.activeModal = dock;
-            this.engine.mount(dock, { kind: 'dock' });
-            this.engine.mount(this.statusBar);
-          });
-        },
         onEvent: (event) => {
           switch (event.type) {
             case 'reasoning-delta': {
@@ -709,6 +738,7 @@ export class TUIApp {
   }
 
   private exit(): void {
+    this.permissionQueue.clear();
     this.session.shutdown().catch(() => {});
     this.voiceController.dispose();
     this.engine.cleanupSync();

@@ -1,0 +1,24 @@
+[?2026h[H[J────────────────────────────────────────────────────────────────────────────────
+
+Edit file (review)
+    src/server.ts
+
+  1 -const port = 3000;
+  2 -app.listen(port, () => {
+  3 -  console.log("listening");
+  1 +const port = 8080;
+  2 +const host = "0.0.0.0";
+  3 +app.listen(port, host, () => {
+  4 +  console.log(`listening on ${host}:${port}`);
+  5  });
+
+↑/↓ scroll · Esc / f to return
+
+
+
+
+
+
+
+
+[?25l[?2026l

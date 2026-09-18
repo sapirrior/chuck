@@ -292,20 +292,20 @@ export function wrapVisualLineWithCursor(
     currentTokens = [];
     currentWidth = 0;
 
-    // Carry forward active styles to next line with a reset followed by active styles
+    // Apply hanging continuation indent to next line
+    if (continuationIndent) {
+      const contTokens = tokenizeAnsi(continuationIndent);
+      for (const t of contTokens) {
+        currentTokens.push(t);
+      }
+      currentWidth = stringWidth(stripAnsi(continuationIndent));
+    }
+
+    // Carry forward active styles to next line after the continuation prefix
     if (activeStyles.length > 0) {
-      currentTokens.push({ type: 'ansi', value: '\x1b[0m', width: 0 });
       for (const s of activeStyles) {
         currentTokens.push({ type: 'ansi', value: s, width: 0 });
       }
-    }
-
-    // Apply hanging continuation indent to next line
-    if (continuationIndent) {
-      for (const char of continuationIndent) {
-        currentTokens.push({ type: 'char', value: char, width: 1 });
-      }
-      currentWidth = stringWidth(continuationIndent);
     }
   }
 

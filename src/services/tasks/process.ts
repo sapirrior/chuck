@@ -2,7 +2,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { createWriteStream, type WriteStream, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir, homedir } from 'node:os';
-import { getPlatformShell } from '../tools/bash/shell.js';
+import { getPlatformShell } from './shell.js';
 import type { ShellTaskStatus } from './types.js';
 
 export const MAX_OUTPUT_BYTES = 5 * 1024 * 1024; // 5 MB hard cap on disk output

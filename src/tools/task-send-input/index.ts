@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { ToolDefinition } from '../types.js';
-import type { ShellTaskSendInputResult } from '../../tasks/types.js';
+import type { ShellTaskSendInputResult } from '../../services/tasks/types.js';
 
 export const taskSendInputSchema = z.object({
   task_id: z.string().min(1).describe('The ID of the shell task to send input to.'),

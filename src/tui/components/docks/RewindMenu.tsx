@@ -1,8 +1,8 @@
 import { SelectList } from '../../primitives/index.js';
 import type { SessionData, SessionTurn } from '../../../session/types.js';
-import { loadCheckpointManifest } from '../../../checkpoint/store.js';
-import { readCasBlob } from '../../../checkpoint/cas.js';
-import { computeWorkspaceHash } from '../../../checkpoint/path.js';
+import { loadCheckpointManifest } from '../../../services/checkpoint/store.js';
+import { readCasBlob } from '../../../services/checkpoint/cas.js';
+import { computeWorkspaceHash } from '../../../services/checkpoint/path.js';
 import { getTheme, figures } from '../../../theme/index.js';
 import { themeColor, chalk } from '../../utils/format.js';
 import { Box, Text } from '../../primitives/index.js';

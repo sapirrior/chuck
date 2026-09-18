@@ -14,7 +14,7 @@ import {
 } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { z } from 'zod';
-import { resolveDirectMutationPath } from '../../checkpoint/path.js';
+import { resolveDirectMutationPath } from '../../services/checkpoint/path.js';
 import type { ToolDefinition } from '../types.js';
 
 export const writeFileInputSchema = z.object({
@@ -55,6 +55,24 @@ export const writeFileTool: ToolDefinition<typeof writeFileInputSchema, WriteFil
       args.file_path,
     );
 
+    const isNew = !existsSync(targetPath);
+    const beforeContent = isNew ? null : readFileSync(targetPath, 'utf-8');
+    const afterContent = args.content;
+    const linesWritten = afterContent.length === 0 ? 0 : afterContent.split(/\r?\n/).length;
+
+    // 1. Check for no-op write (exact before == after)
+    if (!isNew && beforeContent === afterContent) {
+      const currentBuffer = Buffer.from(beforeContent, 'utf-8');
+      return {
+        file_path: args.file_path,
+        bytesWritten: currentBuffer.length,
+        linesWritten,
+        isNew: false,
+        message: `File already matches requested content: ${relativePath}`,
+      };
+    }
+
+    // 2. Prepare checkpoint and acquire mutation lock
     let releaseLock: (() => void) | null = null;
     let prepResult: { preState: any; releaseLock: () => void } | null = null;
 
@@ -66,24 +84,45 @@ export const writeFileTool: ToolDefinition<typeof writeFileInputSchema, WriteFil
     }
 
     try {
-      const isNew = !existsSync(targetPath);
-      const newBuffer = Buffer.from(args.content, 'utf-8');
-      const linesWritten = args.content.length === 0 ? 0 : args.content.split(/\r?\n/).length;
+      // 3. Request user permission
+      if (!context.requestFilePermission) {
+        throw new Error('File write permission denied (non-interactive).');
+      }
 
-      if (!isNew) {
-        // Check for no-op write
-        const currentBuffer = readFileSync(targetPath);
-        if (currentBuffer.equals(newBuffer)) {
-          return {
-            file_path: args.file_path,
-            bytesWritten: currentBuffer.length,
-            linesWritten,
-            isNew: false,
-            message: `File already matches requested content: ${relativePath}`,
-          };
+      const perm = await context.requestFilePermission({
+        kind: isNew ? 'create' : 'overwrite',
+        filePath: relativePath,
+        before: beforeContent,
+        after: afterContent,
+      });
+
+      if (!perm.allowed) {
+        throw new Error('File write permission denied by user.');
+      }
+
+      // 4. Validate target state hasn't changed externally during review window
+      if (isNew) {
+        if (existsSync(targetPath)) {
+          throw new Error(
+            `File was created externally during approval review: "${relativePath}". Mutation aborted to prevent data loss.`,
+          );
+        }
+      } else {
+        if (!existsSync(targetPath)) {
+          throw new Error(
+            `File was deleted externally during approval review: "${relativePath}". Mutation aborted.`,
+          );
+        }
+        const freshContent = readFileSync(targetPath, 'utf-8');
+        if (freshContent !== beforeContent) {
+          throw new Error(
+            `File was modified externally during approval review: "${relativePath}". Mutation aborted to prevent data loss.`,
+          );
         }
       }
 
+      // 5. Atomic file write
+      const newBuffer = Buffer.from(afterContent, 'utf-8');
       const dir = dirname(targetPath);
       if (!existsSync(dir)) {
         mkdirSync(dir, { recursive: true });
@@ -125,6 +164,7 @@ export const writeFileTool: ToolDefinition<typeof writeFileInputSchema, WriteFil
         throw err;
       }
 
+      // 6. Complete checkpoint mutation
       if (context.checkpointTracker) {
         await context.checkpointTracker.completeMutation(targetPath);
       }

@@ -1,7 +1,7 @@
 import { rmSync } from 'node:fs';
 import { z } from 'zod';
 import type { ToolDefinition } from '../types.js';
-import { ShellExecution } from '../../tasks/process.js';
+import { ShellExecution } from '../../services/tasks/process.js';
 import { evaluateBashPermission } from './permissions.js';
 
 export const bashInputSchema = z.object({

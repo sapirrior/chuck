@@ -21,6 +21,7 @@ Universal operational guidelines for AI coding agents working in the `steward` r
 All application source code resides in `src/`. Source code maintains strict separation of concerns:
 
 - **Agent Core / Orchestration (`src/engine/`):** Model loops, context management, prompt construction.
+- **Services (`src/services/`):** Infrastructure subsystems (Background Shell Tasks, Pre-mutation Checkpoint manager).
 - **Tools (`src/tools/`):** Action and tool definitions exposed to the model (`write_artifact`, `edit_artifact`, `write_plan`, `read_file`, `find_files`, `search_text`, `list_dir`, `web_fetch`, `web_search`). Artifacts and plans are strictly confined to `.steward/`.
 - **Session (`src/session/`):** Canonical session schema v1 storing ordered `ModelMessage[]`. Derived UI projections are computed at runtime.
 - **TUI (`src/tui/`):** Alternate-screen engine, diff-free minimal rendering, layout, and overlay components. Strictly follows the 3-layer architecture and frozen engine contract defined in [`src/tui/Rules.txt`](src/tui/Rules.txt). Components are written in declarative JSX (`.tsx`).

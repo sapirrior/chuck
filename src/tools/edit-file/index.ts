@@ -13,7 +13,7 @@ import {
 } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { z } from 'zod';
-import { resolveDirectMutationPath } from '../../checkpoint/path.js';
+import { resolveDirectMutationPath } from '../../services/checkpoint/path.js';
 import type { ToolDefinition } from '../types.js';
 
 export const editFileInputSchema = z.object({
@@ -79,6 +79,48 @@ export const editFileTool: ToolDefinition<typeof editFileInputSchema, EditFileOu
       );
     }
 
+    const currentContent = readFileSync(targetPath, 'utf-8');
+
+    // 1. Check for no-op edit (old_string === new_string)
+    if (args.old_string === args.new_string) {
+      return {
+        file_path: args.file_path,
+        replacementsMade: 0,
+        addedLines: 0,
+        removedLines: 0,
+        message: `old_string and new_string are identical; no changes made to ${relativePath}`,
+      };
+    }
+
+    const matchCount = countOccurrences(currentContent, args.old_string);
+    if (matchCount === 0) {
+      throw new Error(
+        `Target old_string not found in file: "${relativePath}". Please verify the exact whitespace and content.`,
+      );
+    }
+
+    if (matchCount > 1 && !args.replace_all) {
+      throw new Error(
+        `Target old_string matched ${matchCount} times in "${relativePath}". Please provide more surrounding context to make the replacement unique, or set replace_all to true.`,
+      );
+    }
+
+    const updatedContent = args.replace_all
+      ? currentContent.replaceAll(args.old_string, args.new_string)
+      : currentContent.replace(args.old_string, args.new_string);
+
+    // If replacement resulted in no net change
+    if (currentContent === updatedContent) {
+      return {
+        file_path: args.file_path,
+        replacementsMade: 0,
+        addedLines: 0,
+        removedLines: 0,
+        message: `No changes made to ${relativePath}`,
+      };
+    }
+
+    // 2. Prepare checkpoint and acquire mutation lock
     let releaseLock: (() => void) | null = null;
     let prepResult: { preState: any; releaseLock: () => void } | null = null;
 
@@ -90,36 +132,36 @@ export const editFileTool: ToolDefinition<typeof editFileInputSchema, EditFileOu
     }
 
     try {
-      const currentContent = readFileSync(targetPath, 'utf-8');
-
-      if (args.old_string === args.new_string) {
-        return {
-          file_path: args.file_path,
-          replacementsMade: 0,
-          addedLines: 0,
-          removedLines: 0,
-          message: `old_string and new_string are identical; no changes made to ${relativePath}`,
-        };
+      // 3. Request user permission
+      if (!context.requestFilePermission) {
+        throw new Error('File edit permission denied (non-interactive).');
       }
 
-      const matchCount = countOccurrences(currentContent, args.old_string);
-      if (matchCount === 0) {
+      const perm = await context.requestFilePermission({
+        kind: 'edit',
+        filePath: relativePath,
+        before: currentContent,
+        after: updatedContent,
+      });
+
+      if (!perm.allowed) {
+        throw new Error('File edit permission denied by user.');
+      }
+
+      // 4. Validate target state hasn't changed externally during review window
+      if (!existsSync(targetPath)) {
         throw new Error(
-          `Target old_string not found in file: "${relativePath}". Please verify the exact whitespace and content.`,
+          `File was deleted externally during approval review: "${relativePath}". Mutation aborted.`,
+        );
+      }
+      const freshContent = readFileSync(targetPath, 'utf-8');
+      if (freshContent !== currentContent) {
+        throw new Error(
+          `File was modified externally during approval review: "${relativePath}". Mutation aborted to prevent data loss.`,
         );
       }
 
-      if (matchCount > 1 && !args.replace_all) {
-        throw new Error(
-          `Target old_string matched ${matchCount} times in "${relativePath}". Please provide more surrounding context to make the replacement unique, or set replace_all to true.`,
-        );
-      }
-
-      const updatedContent = args.replace_all
-        ? currentContent.replaceAll(args.old_string, args.new_string)
-        : currentContent.replace(args.old_string, args.new_string);
-
-      // Compute actual line deltas from the before & after sequences
+      // 5. Compute actual line deltas
       const beforeLines = currentContent.split(/\r?\n/);
       const afterLines = updatedContent.split(/\r?\n/);
       const lineDelta = afterLines.length - beforeLines.length;
@@ -127,7 +169,6 @@ export const editFileTool: ToolDefinition<typeof editFileInputSchema, EditFileOu
       let addedLines = 0;
       let removedLines = 0;
 
-      // When old_string and new_string are replaced matchCount times:
       const oldLinesInMatch = args.old_string.split(/\r?\n/).length;
       const newLinesInMatch = args.new_string.split(/\r?\n/).length;
       const totalReplacedOccurrences = args.replace_all ? matchCount : 1;
@@ -152,6 +193,7 @@ export const editFileTool: ToolDefinition<typeof editFileInputSchema, EditFileOu
         }
       }
 
+      // 6. Atomic file write
       const newBuffer = Buffer.from(updatedContent, 'utf-8');
       const dir = dirname(targetPath);
       let existingMode = 0o644;
@@ -188,6 +230,7 @@ export const editFileTool: ToolDefinition<typeof editFileInputSchema, EditFileOu
         throw err;
       }
 
+      // 7. Complete checkpoint mutation
       if (context.checkpointTracker) {
         await context.checkpointTracker.completeMutation(targetPath);
       }

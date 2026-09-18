@@ -1,6 +1,9 @@
 import type { z } from 'zod';
-import type { MutationCheckpointTracker, MutationLockManager } from '../checkpoint/index.js';
-import type { ShellTaskManager } from '../tasks/manager.js';
+import type {
+  MutationCheckpointTracker,
+  MutationLockManager,
+} from '../services/checkpoint/index.js';
+import type { ShellTaskManager } from '../services/tasks/manager.js';
 
 export interface BashPermissionRequest {
   command: string;
@@ -8,6 +11,19 @@ export interface BashPermissionRequest {
 }
 
 export interface BashPermissionResponse {
+  allowed: boolean;
+}
+
+export type FilePermissionKind = 'create' | 'overwrite' | 'edit';
+
+export interface FilePermissionRequest {
+  kind: FilePermissionKind;
+  filePath: string;
+  before: string | null;
+  after: string;
+}
+
+export interface FilePermissionResponse {
   allowed: boolean;
 }
 
@@ -20,6 +36,7 @@ export interface ToolContext {
   checkpointTracker?: MutationCheckpointTracker;
   mutationLocks?: MutationLockManager;
   requestBashPermission?: (req: BashPermissionRequest) => Promise<BashPermissionResponse>;
+  requestFilePermission?: (req: FilePermissionRequest) => Promise<FilePermissionResponse>;
   shellTasks?: ShellTaskManager;
 }
 

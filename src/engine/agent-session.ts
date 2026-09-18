@@ -7,10 +7,13 @@ import {
   saveSession,
   type SessionData,
 } from '../session/index.js';
-import { MutationCheckpointTracker, globalMutationLockManager } from '../checkpoint/index.js';
+import {
+  MutationCheckpointTracker,
+  globalMutationLockManager,
+} from '../services/checkpoint/index.js';
 import { defaultToolCatalog } from '../tools/index.js';
 import type { ToolContext } from '../tools/types.js';
-import { ShellTaskManager } from '../tasks/manager.js';
+import { ShellTaskManager } from '../services/tasks/manager.js';
 import { saveSettings } from '../config/index.js';
 import { logError } from '../errors/index.js';
 import { runAgentTurn } from './agent-runner.js';
@@ -34,6 +37,9 @@ export interface SubmitPromptOptions {
   requestBashPermission?: (
     req: import('../tools/types.js').BashPermissionRequest,
   ) => Promise<import('../tools/types.js').BashPermissionResponse>;
+  requestFilePermission?: (
+    req: import('../tools/types.js').FilePermissionRequest,
+  ) => Promise<import('../tools/types.js').FilePermissionResponse>;
 }
 
 /**
@@ -223,6 +229,7 @@ export class AgentSession {
       checkpointTracker: tracker,
       mutationLocks: globalMutationLockManager,
       requestBashPermission: options.requestBashPermission,
+      requestFilePermission: options.requestFilePermission,
       shellTasks: this.shellTasks,
     };
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
-import { ShellTaskManager } from '../../src/tasks/manager.js';
-import { ShellExecution } from '../../src/tasks/process.js';
+import { ShellTaskManager } from '../../src/services/tasks/manager.js';
+import { ShellExecution } from '../../src/services/tasks/process.js';
 import { bashTool } from '../../src/tools/bash/index.js';
 import { taskReadTool } from '../../src/tools/task-read/index.js';
 import { taskSendInputTool } from '../../src/tools/task-send-input/index.js';

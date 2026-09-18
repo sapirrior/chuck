@@ -4,9 +4,9 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { writeFileTool } from '../src/tools/write-file/index.js';
 import { editFileTool } from '../src/tools/edit-file/index.js';
-import { MutationCheckpointTracker } from '../src/checkpoint/tracker.js';
-import { MutationLockManager } from '../src/checkpoint/lock.js';
-import { executeRewind } from '../src/checkpoint/rewind.js';
+import { MutationCheckpointTracker } from '../src/services/checkpoint/tracker.js';
+import { MutationLockManager } from '../src/services/checkpoint/lock.js';
+import { executeRewind } from '../src/services/checkpoint/rewind.js';
 import { createSession, saveSession } from '../src/session/store.js';
 
 describe('Definition of Done — Multi-Turn Parallel Mutation and Rewind Scenario (Section 33)', () => {
@@ -74,6 +74,7 @@ describe('Definition of Done — Multi-Turn Parallel Mutation and Rewind Scenari
       cwd: workspaceDir,
       checkpointTracker: tracker1,
       mutationLocks: lockManager,
+      requestFilePermission: async () => ({ allowed: true }),
     };
 
     await Promise.all([
@@ -117,6 +118,7 @@ describe('Definition of Done — Multi-Turn Parallel Mutation and Rewind Scenari
       cwd: workspaceDir,
       checkpointTracker: tracker2,
       mutationLocks: lockManager,
+      requestFilePermission: async () => ({ allowed: true }),
     };
 
     // Parallel calls: two edits on A (serialized internally) + one write on B (concurrent with A)
@@ -173,6 +175,7 @@ describe('Definition of Done — Multi-Turn Parallel Mutation and Rewind Scenari
       cwd: workspaceDir,
       checkpointTracker: tracker3,
       mutationLocks: lockManager,
+      requestFilePermission: async () => ({ allowed: true }),
     };
 
     await editFileTool.execute(
@@ -244,7 +247,12 @@ describe('Definition of Done — Multi-Turn Parallel Mutation and Rewind Scenari
       lockManager,
     });
     await tracker1.beginTurn('turn-1', 1);
-    const toolCtx1 = { cwd: workspaceDir, checkpointTracker: tracker1, mutationLocks: lockManager };
+    const toolCtx1 = {
+      cwd: workspaceDir,
+      checkpointTracker: tracker1,
+      mutationLocks: lockManager,
+      requestFilePermission: async () => ({ allowed: true }),
+    };
     await writeFileTool.execute({ file_path: 'A.txt', content: 'A0' }, toolCtx1);
     await tracker1.commitTurn('turn-1', 'complete');
 
@@ -263,7 +271,12 @@ describe('Definition of Done — Multi-Turn Parallel Mutation and Rewind Scenari
       lockManager,
     });
     await tracker2.beginTurn('turn-2', 2);
-    const toolCtx2 = { cwd: workspaceDir, checkpointTracker: tracker2, mutationLocks: lockManager };
+    const toolCtx2 = {
+      cwd: workspaceDir,
+      checkpointTracker: tracker2,
+      mutationLocks: lockManager,
+      requestFilePermission: async () => ({ allowed: true }),
+    };
     await editFileTool.execute(
       { file_path: 'A.txt', old_string: 'A0', new_string: 'A1' },
       toolCtx2,

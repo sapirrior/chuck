@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { ToolDefinition } from '../types.js';
-import type { ShellTaskReadResult } from '../../tasks/types.js';
+import type { ShellTaskReadResult } from '../../services/tasks/types.js';
 
 export const taskReadInputSchema = z.object({
   task_id: z.string().min(1).describe('The ID of the shell task to read (e.g. task-abc12345).'),

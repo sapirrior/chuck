@@ -13,8 +13,8 @@ import {
 } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import type { SessionData } from '../session/types.js';
-import { saveSession } from '../session/store.js';
+import type { SessionData } from '../../session/types.js';
+import { saveSession } from '../../session/store.js';
 import { readCasBlob, verifyCasBlob, computeSha256 } from './cas.js';
 import { globalMutationLockManager, MutationLockManager } from './lock.js';
 import { computeWorkspaceHash } from './path.js';

@@ -1,0 +1,24 @@
+[?2026h[H[J────────────────────────────────────────────────────────────────────────────────
+
+Create file
+    src/utils/new-helper.ts
+
+  1  export function helper() {
+  2    return "created";
+  3  }
+  4
+
+Do you want to create src/utils/new-helper.ts?
+
+❯ 1. Yes
+  2. No
+
+Esc to cancel · f to review
+
+
+
+
+
+
+
+[?25l[?2026l

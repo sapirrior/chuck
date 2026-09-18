@@ -8,16 +8,19 @@ import {
   hasCasBlob,
   verifyCasBlob,
   computeSha256,
-} from '../src/checkpoint/cas.js';
-import { computeWorkspaceHash, resolveDirectMutationPath } from '../src/checkpoint/path.js';
-import { MutationLockManager } from '../src/checkpoint/lock.js';
-import { MutationCheckpointTracker } from '../src/checkpoint/tracker.js';
+} from '../src/services/checkpoint/cas.js';
+import {
+  computeWorkspaceHash,
+  resolveDirectMutationPath,
+} from '../src/services/checkpoint/path.js';
+import { MutationLockManager } from '../src/services/checkpoint/lock.js';
+import { MutationCheckpointTracker } from '../src/services/checkpoint/tracker.js';
 import {
   loadCheckpointManifest,
   saveCheckpointManifest,
   loadPendingJournal,
-} from '../src/checkpoint/store.js';
-import { executeRewind } from '../src/checkpoint/rewind.js';
+} from '../src/services/checkpoint/store.js';
+import { executeRewind } from '../src/services/checkpoint/rewind.js';
 import { createSession } from '../src/session/store.js';
 
 describe('Checkpoint Core (CAS, Path, Lock, Tracker, Rewind)', () => {

@@ -17,3 +17,27 @@ export function prefixedLine(prefix: string, body: string, opts?: PrefixedLineOp
   const fullText = `${prefix}${body}`;
   return wrapVisualLine(fullText, maxCols, continuationIndent);
 }
+
+export interface PrefixedBlockOptions {
+  continuationPrefix?: string;
+  continuationIndent?: number;
+  width?: number;
+}
+
+/**
+ * Renders a block with `firstPrefix` on the initial row and `continuationPrefix` (or indent) on wrapped continuation rows.
+ */
+export function prefixedBlock(
+  firstPrefix: string,
+  body: string,
+  opts?: PrefixedBlockOptions,
+): string[] {
+  const maxCols = opts?.width ?? process.stdout.columns ?? 80;
+  const cont =
+    opts?.continuationPrefix ??
+    (opts?.continuationIndent !== undefined
+      ? ' '.repeat(opts.continuationIndent)
+      : ' '.repeat(stringWidth(stripAnsi(firstPrefix))));
+  const fullText = `${firstPrefix}${body}`;
+  return wrapVisualLine(fullText, maxCols, cont);
+}

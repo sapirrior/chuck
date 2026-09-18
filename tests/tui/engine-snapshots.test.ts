@@ -10,6 +10,7 @@ import SessionMenu from '../../src/tui/components/docks/SessionMenu.js';
 import EffortPicker from '../../src/tui/components/docks/EffortPicker.js';
 import RewindMenu from '../../src/tui/components/docks/RewindMenu.js';
 import BashPermissionDock from '../../src/tui/components/docks/BashPermissionDock.js';
+import FilePermissionDock from '../../src/tui/components/docks/FilePermissionDock.js';
 import TrustGate from '../../src/tui/components/TrustGate.js';
 import { formatAssistantMessage, formatToolStatus } from '../../src/tui/utils/message-formatter.js';
 import { captureHeadlessRender, assertGoldenMatch } from './harness.js';
@@ -792,5 +793,156 @@ describe('TUI Engine Headless Golden Snapshots', () => {
 
     engine80.cleanupSync();
     assertGoldenMatch('status-warning-80', result80.rawAnsi);
+  });
+
+  it('golden: file-permission-create (FilePermissionDock create open at 80 and 120 cols)', () => {
+    const request = {
+      kind: 'create' as const,
+      filePath: 'src/utils/new-helper.ts',
+      after: 'export function helper() {\n  return "created";\n}\n',
+    };
+
+    const engine80 = new TerminalEngine();
+    const dock80 = new FilePermissionDock({
+      request,
+      onDecision: () => {},
+    });
+    engine80.mount(dock80, { kind: 'dock' });
+
+    const result80 = captureHeadlessRender((renderer) => renderer.render(engine80.tree, 0, true), {
+      cols: 80,
+      rows: 24,
+    });
+    engine80.cleanupSync();
+    assertGoldenMatch('file-permission-create-80', result80.rawAnsi);
+
+    const engine120 = new TerminalEngine();
+    const dock120 = new FilePermissionDock({
+      request,
+      onDecision: () => {},
+    });
+    engine120.mount(dock120, { kind: 'dock' });
+
+    const result120 = captureHeadlessRender(
+      (renderer) => renderer.render(engine120.tree, 0, true),
+      { cols: 120, rows: 24 },
+    );
+    engine120.cleanupSync();
+    assertGoldenMatch('file-permission-create-120', result120.rawAnsi);
+  });
+
+  it('golden: file-permission-overwrite (FilePermissionDock overwrite open at 80 and 120 cols)', () => {
+    const request = {
+      kind: 'overwrite' as const,
+      filePath: 'src/config.json',
+      before: '{\n  "version": 1\n}\n',
+      after: '{\n  "version": 2,\n  "enabled": true\n}\n',
+    };
+
+    const engine80 = new TerminalEngine();
+    const dock80 = new FilePermissionDock({
+      request,
+      onDecision: () => {},
+    });
+    engine80.mount(dock80, { kind: 'dock' });
+
+    const result80 = captureHeadlessRender((renderer) => renderer.render(engine80.tree, 0, true), {
+      cols: 80,
+      rows: 24,
+    });
+    engine80.cleanupSync();
+    assertGoldenMatch('file-permission-overwrite-80', result80.rawAnsi);
+
+    const engine120 = new TerminalEngine();
+    const dock120 = new FilePermissionDock({
+      request,
+      onDecision: () => {},
+    });
+    engine120.mount(dock120, { kind: 'dock' });
+
+    const result120 = captureHeadlessRender(
+      (renderer) => renderer.render(engine120.tree, 0, true),
+      { cols: 120, rows: 24 },
+    );
+    engine120.cleanupSync();
+    assertGoldenMatch('file-permission-overwrite-120', result120.rawAnsi);
+  });
+
+  it('golden: file-permission-edit (FilePermissionDock edit normal mode at 80 and 120 cols)', () => {
+    const request = {
+      kind: 'edit' as const,
+      filePath: 'src/server.ts',
+      before: 'const port = 3000;\napp.listen(port, () => {\n  console.log("listening");\n});\n',
+      after:
+        'const port = 8080;\nconst host = "0.0.0.0";\napp.listen(port, host, () => {\n  console.log(`listening on ${host}:${port}`);\n});\n',
+    };
+
+    const engine80 = new TerminalEngine();
+    const dock80 = new FilePermissionDock({
+      request,
+      onDecision: () => {},
+    });
+    engine80.mount(dock80, { kind: 'dock' });
+
+    const result80 = captureHeadlessRender((renderer) => renderer.render(engine80.tree, 0, true), {
+      cols: 80,
+      rows: 24,
+    });
+    engine80.cleanupSync();
+    assertGoldenMatch('file-permission-edit-80', result80.rawAnsi);
+
+    const engine120 = new TerminalEngine();
+    const dock120 = new FilePermissionDock({
+      request,
+      onDecision: () => {},
+    });
+    engine120.mount(dock120, { kind: 'dock' });
+
+    const result120 = captureHeadlessRender(
+      (renderer) => renderer.render(engine120.tree, 0, true),
+      { cols: 120, rows: 24 },
+    );
+    engine120.cleanupSync();
+    assertGoldenMatch('file-permission-edit-120', result120.rawAnsi);
+  });
+
+  it('golden: file-permission-edit-review (FilePermissionDock edit review mode at 80 and 120 cols)', () => {
+    const request = {
+      kind: 'edit' as const,
+      filePath: 'src/server.ts',
+      before: 'const port = 3000;\napp.listen(port, () => {\n  console.log("listening");\n});\n',
+      after:
+        'const port = 8080;\nconst host = "0.0.0.0";\napp.listen(port, host, () => {\n  console.log(`listening on ${host}:${port}`);\n});\n',
+    };
+
+    const engine80 = new TerminalEngine();
+    const dock80 = new FilePermissionDock({
+      request,
+      onDecision: () => {},
+    });
+    dock80.setState({ mode: 'REVIEW', scrollOffset: 0 });
+    engine80.mount(dock80, { kind: 'dock' });
+
+    const result80 = captureHeadlessRender((renderer) => renderer.render(engine80.tree, 0, true), {
+      cols: 80,
+      rows: 24,
+    });
+    engine80.cleanupSync();
+    assertGoldenMatch('file-permission-edit-review-80', result80.rawAnsi);
+
+    const engine120 = new TerminalEngine();
+    const dock120 = new FilePermissionDock({
+      request,
+      onDecision: () => {},
+    });
+    dock120.setState({ mode: 'REVIEW', scrollOffset: 0 });
+    engine120.mount(dock120, { kind: 'dock' });
+
+    const result120 = captureHeadlessRender(
+      (renderer) => renderer.render(engine120.tree, 0, true),
+      { cols: 120, rows: 24 },
+    );
+    engine120.cleanupSync();
+    assertGoldenMatch('file-permission-edit-review-120', result120.rawAnsi);
   });
 });
