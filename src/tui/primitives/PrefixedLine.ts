@@ -22,6 +22,8 @@ export interface PrefixedBlockOptions {
   continuationPrefix?: string;
   continuationIndent?: number;
   width?: number;
+  bg?: (str: string) => string;
+  padToWidth?: boolean;
 }
 
 /**
@@ -39,5 +41,20 @@ export function prefixedBlock(
       ? ' '.repeat(opts.continuationIndent)
       : ' '.repeat(stringWidth(stripAnsi(firstPrefix))));
   const fullText = `${firstPrefix}${body}`;
-  return wrapVisualLine(fullText, maxCols, cont);
+  const lines = wrapVisualLine(fullText, maxCols, cont);
+
+  if (!opts?.bg) {
+    return lines;
+  }
+
+  const bgFn = opts.bg;
+  if (opts.padToWidth) {
+    return lines.map((line) => {
+      const visLen = stringWidth(stripAnsi(line));
+      const padLen = Math.max(0, maxCols - visLen);
+      return bgFn(`${line}${' '.repeat(padLen)}`);
+    });
+  }
+
+  return lines.map((line) => bgFn(line));
 }

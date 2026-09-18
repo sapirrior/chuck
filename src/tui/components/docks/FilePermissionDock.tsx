@@ -1,6 +1,6 @@
 import Component from '../../engine/Component.js';
 import { getTheme, figures } from '../../../theme/index.js';
-import { themeColor, chalk } from '../../utils/format.js';
+import { themeColor, themeBgColor, chalk } from '../../utils/format.js';
 import { Box, Text, parseKeyInput, prefixedBlock } from '../../primitives/index.js';
 import type { FilePermissionRequest } from '../../../tools/types.js';
 import { buildUnifiedDiff, type UnifiedDiff } from '../../../utils/diff.js';
@@ -118,7 +118,9 @@ export default class FilePermissionDock extends Component<
     const { kind, before, after } = request;
 
     const diffAdd = themeColor(theme.diffAddFG);
+    const diffAddBg = themeBgColor(theme.diffAddBG);
     const diffDelete = themeColor(theme.diffDeleteFG);
+    const diffDeleteBg = themeBgColor(theme.diffDeleteBG);
 
     if (kind === 'create' || kind === 'overwrite') {
       const rawLines = after.split(/\r?\n/);
@@ -165,6 +167,8 @@ export default class FilePermissionDock extends Component<
           const wrapped = prefixedBlock(firstPrefix, diffDelete(line.text), {
             continuationPrefix: contPrefix,
             width: maxCols,
+            bg: diffDeleteBg,
+            padToWidth: true,
           });
           renderedRows.push(...wrapped);
         } else if (line.kind === 'addition') {
@@ -174,6 +178,8 @@ export default class FilePermissionDock extends Component<
           const wrapped = prefixedBlock(firstPrefix, diffAdd(line.text), {
             continuationPrefix: contPrefix,
             width: maxCols,
+            bg: diffAddBg,
+            padToWidth: true,
           });
           renderedRows.push(...wrapped);
         } else {
