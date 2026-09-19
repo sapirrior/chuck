@@ -2,9 +2,13 @@ import { randomUUID } from 'node:crypto';
 import type { LanguageModel, ModelMessage } from 'ai';
 import {
   createSession,
+  formatToolOutputSummary,
+  getCurrentDateString,
   recordSessionTurn,
   renameSession,
   saveSession,
+  SessionLogWriter,
+  chooseTurnStatusVerb,
   type SessionData,
 } from '../session/index.js';
 import {
@@ -51,6 +55,7 @@ export class AgentSession {
   private model: LanguageModel;
   private messages: ModelMessage[] = [];
   private sessionData: SessionData;
+  private sessionLogWriter?: SessionLogWriter;
   private accumulatedUsage: TokenUsage = {
     inputTokens: 0,
     outputTokens: 0,
@@ -84,6 +89,10 @@ export class AgentSession {
           }
         }
       }
+      this.sessionLogWriter = new SessionLogWriter(
+        this.sessionData.date || getCurrentDateString(),
+        this.sessionData.id,
+      );
     } else {
       const selection = resolveActiveModelSelection(initialConfig);
       this.config = {
@@ -95,6 +104,10 @@ export class AgentSession {
       };
       this.model = createModelInstance(selection);
       this.sessionData = createSession(selection);
+      this.sessionLogWriter = new SessionLogWriter(
+        this.sessionData.date || getCurrentDateString(),
+        this.sessionData.id,
+      );
     }
   }
 
@@ -215,6 +228,24 @@ export class AgentSession {
     this.activeAbortController = new AbortController();
 
     const turnId = randomUUID();
+    const turnStartedAt = new Date().toISOString();
+    const turnStartMonotonic = performance.now();
+    const turnModel = this.getModel();
+
+    this.sessionLogWriter?.append({
+      schemaVersion: 1,
+      sessionId: this.sessionData.id,
+      turnId,
+      type: 'turn-start',
+      timestamp: turnStartedAt,
+      startedAt: turnStartedAt,
+      model: {
+        provider: turnModel.provider,
+        modelId: turnModel.modelId,
+        effort: turnModel.effort,
+      },
+    });
+
     const cwd = options.cwd ?? process.cwd();
     const tracker = new MutationCheckpointTracker({
       workspaceRoot: cwd,
@@ -246,6 +277,51 @@ export class AgentSession {
       extraInstructions: options.extraInstructions,
     });
 
+    const wrappedOnEvent: AgentEventListener = (event) => {
+      if (event.type === 'tool-call') {
+        this.sessionLogWriter?.append({
+          schemaVersion: 1,
+          sessionId: this.sessionData.id,
+          turnId,
+          type: 'tool-start',
+          timestamp: new Date().toISOString(),
+          toolCallId: event.toolCall.id,
+          toolName: event.toolCall.name,
+          startedAt: new Date().toISOString(),
+        });
+      } else if (event.type === 'tool-result') {
+        const toolDef = defaultToolCatalog.get(event.toolResult.name);
+        const outputSummary =
+          !event.toolResult.isError && toolDef?.summarize
+            ? toolDef.summarize(event.toolResult.args, event.toolResult.result)
+            : formatToolOutputSummary(event.toolResult.result, event.toolResult.isError);
+        const errorMessage = event.toolResult.isError
+          ? typeof event.toolResult.result === 'object' && event.toolResult.result !== null
+            ? ((event.toolResult.result as any).message ?? JSON.stringify(event.toolResult.result))
+            : String(event.toolResult.result)
+          : undefined;
+        const status = event.toolResult.isError ? 'failed' : 'completed';
+
+        this.sessionLogWriter?.append({
+          schemaVersion: 1,
+          sessionId: this.sessionData.id,
+          turnId,
+          type: 'tool-end',
+          timestamp: event.toolResult.finishedAt ?? new Date().toISOString(),
+          toolCallId: event.toolResult.id,
+          toolName: event.toolResult.name,
+          finishedAt: event.toolResult.finishedAt ?? new Date().toISOString(),
+          durationMs: event.toolResult.durationMs,
+          status,
+          displayName: toolDef?.displayName,
+          icon: toolDef?.icon,
+          outputSummary,
+          errorMessage,
+        });
+      }
+      options.onEvent?.(event);
+    };
+
     let summary: TurnSummary | undefined;
 
     try {
@@ -259,7 +335,7 @@ export class AgentSession {
         temperature: this.config.temperature,
         reasoningEffort: this.config.reasoningEffort,
         abortSignal: this.activeAbortController.signal,
-        onEvent: options.onEvent,
+        onEvent: wrappedOnEvent,
       });
 
       // 4. Append turn response messages to history
@@ -296,6 +372,9 @@ export class AgentSession {
           (this.accumulatedUsage.cacheReadTokens ?? 0) + summary.usage.cacheReadTokens;
       }
 
+      const statusVerb = chooseTurnStatusVerb();
+      summary.statusVerb = statusVerb;
+
       // 6. Record and persist turn in session document (~/.steward/sessions/<date>/<sessionId>.json)
       const turnMessages: ModelMessage[] = [userMessage, ...responseMessages];
 
@@ -308,6 +387,24 @@ export class AgentSession {
 
       await tracker.commitTurn(turnId, 'complete');
 
+      const turnFinishedAt = summary.finishedAt ?? new Date().toISOString();
+      const turnDurationMs =
+        summary.durationMs ?? Math.max(0, Math.round(performance.now() - turnStartMonotonic));
+
+      this.sessionLogWriter?.append({
+        schemaVersion: 1,
+        sessionId: this.sessionData.id,
+        turnId,
+        type: 'turn-end',
+        timestamp: turnFinishedAt,
+        finishedAt: turnFinishedAt,
+        durationMs: turnDurationMs,
+        status: 'complete',
+        statusVerb,
+        stopReason: summary.stopReason,
+        finishReason: summary.finishReason,
+      });
+
       return summary;
     } catch (err) {
       logError(err, {
@@ -315,6 +412,10 @@ export class AgentSession {
         model: this.getModel(),
         hasPartialSummary: Boolean(summary),
       });
+
+      const turnFinishedAt = new Date().toISOString();
+      const turnDurationMs = Math.max(0, Math.round(performance.now() - turnStartMonotonic));
+      const statusVerb = chooseTurnStatusVerb();
 
       const responseMessages: ModelMessage[] = summary?.rawMessages ?? [];
       const turnMessages: ModelMessage[] = [userMessage, ...responseMessages];
@@ -332,6 +433,8 @@ export class AgentSession {
             (this.accumulatedUsage.cacheReadTokens ?? 0) + summary.usage.cacheReadTokens;
         }
 
+        summary.statusVerb = statusVerb;
+
         recordSessionTurn(this.sessionData, {
           id: turnId,
           status: 'interrupted',
@@ -339,6 +442,21 @@ export class AgentSession {
           messages: turnMessages,
         });
         await tracker.commitTurn(turnId, 'interrupted');
+
+        this.sessionLogWriter?.append({
+          schemaVersion: 1,
+          sessionId: this.sessionData.id,
+          turnId,
+          type: 'turn-end',
+          timestamp: turnFinishedAt,
+          finishedAt: turnFinishedAt,
+          durationMs: turnDurationMs,
+          status: 'interrupted',
+          statusVerb,
+          stopReason: summary.stopReason,
+          finishReason: summary.finishReason,
+          errorMessage: err instanceof Error ? err.message : String(err),
+        });
       } else {
         recordSessionTurn(this.sessionData, {
           id: turnId,
@@ -351,6 +469,19 @@ export class AgentSession {
           messages: [userMessage],
         });
         await tracker.commitTurn(turnId, 'errored');
+
+        this.sessionLogWriter?.append({
+          schemaVersion: 1,
+          sessionId: this.sessionData.id,
+          turnId,
+          type: 'turn-end',
+          timestamp: turnFinishedAt,
+          finishedAt: turnFinishedAt,
+          durationMs: turnDurationMs,
+          status: 'errored',
+          statusVerb,
+          errorMessage: err instanceof Error ? err.message : String(err),
+        });
       }
       throw err;
     } finally {
@@ -394,6 +525,7 @@ export class AgentSession {
    */
   public async shutdown(): Promise<void> {
     await this.shellTasks.shutdown();
+    await this.sessionLogWriter?.close();
   }
 
   /**
@@ -401,6 +533,7 @@ export class AgentSession {
    */
   public async resetSession(): Promise<void> {
     await this.shellTasks.shutdown();
+    await this.sessionLogWriter?.close();
     this.shellTasks = new ShellTaskManager();
     this.messages = [];
     this.accumulatedUsage = {
@@ -415,6 +548,10 @@ export class AgentSession {
       provider: this.config.provider,
       modelId: this.config.modelId,
     });
+    this.sessionLogWriter = new SessionLogWriter(
+      this.sessionData.date || getCurrentDateString(),
+      this.sessionData.id,
+    );
   }
 
   /**

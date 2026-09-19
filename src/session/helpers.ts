@@ -1,5 +1,6 @@
 import type { SessionData } from './types.js';
 import type { UIHistoryItem } from '../tui/types.js';
+import type { SessionPresentationProjection } from './logs/types.js';
 
 /**
  * Extracts full output or summary from tool execution outputs for terminal rendering.
@@ -75,14 +76,18 @@ export function formatToolOutputSummary(res: unknown, isError = false): string |
 
 /**
  * Converts stored SessionData turns into UIHistoryItem list for restored sessions.
- * Derived entirely from canonical ModelMessage[] history.
+ * Derived from canonical ModelMessage[] history, optionally augmented with presentation journal metadata.
  */
-export function rehydrateSessionHistory(sessionData: SessionData): UIHistoryItem[] {
+export function rehydrateSessionHistory(
+  sessionData: SessionData,
+  projection?: SessionPresentationProjection | null,
+): UIHistoryItem[] {
   const restoredItems: UIHistoryItem[] = [];
 
   for (const turn of sessionData.turns) {
     if (!turn.messages || turn.messages.length === 0) continue;
 
+    const turnPresentation = projection?.turns.get(turn.id);
     const toolCallsMap = new Map<
       string,
       {
@@ -108,6 +113,7 @@ export function rehydrateSessionHistory(sessionData: SessionData): UIHistoryItem
         if (userText.trim()) {
           restoredItems.push({
             id: `u-${turn.id}-${restoredItems.length}`,
+            turnId: turn.id,
             type: 'user',
             content: userText.trim(),
           });
@@ -117,6 +123,7 @@ export function rehydrateSessionHistory(sessionData: SessionData): UIHistoryItem
           if (msg.content.trim()) {
             restoredItems.push({
               id: `a-${turn.id}-${restoredItems.length}`,
+              turnId: turn.id,
               type: 'assistant',
               content: msg.content.trim(),
             });
@@ -140,6 +147,7 @@ export function rehydrateSessionHistory(sessionData: SessionData): UIHistoryItem
           if (textAccum.trim()) {
             restoredItems.push({
               id: `a-${turn.id}-${restoredItems.length}`,
+              turnId: turn.id,
               type: 'assistant',
               content: textAccum.trim(),
             });
@@ -153,22 +161,42 @@ export function rehydrateSessionHistory(sessionData: SessionData): UIHistoryItem
               const isError = Boolean(part.isError);
               const toolName = existing?.name ?? part.toolName ?? 'tool';
               const argsSummary = existing?.args ? JSON.stringify(existing.args) : '';
-              const outputSummary = formatToolOutputSummary(part.output, isError);
+              const canonicalOutputSummary = formatToolOutputSummary(part.output, isError);
+
+              const toolLog = turnPresentation?.tools.get(part.toolCallId);
+
+              const status = toolLog
+                ? toolLog.status === 'failed'
+                  ? 'failed'
+                  : 'completed'
+                : isError
+                  ? 'failed'
+                  : 'completed';
+
+              const error = toolLog?.errorMessage
+                ? toolLog.errorMessage
+                : isError
+                  ? typeof part.output === 'object' && part.output !== null
+                    ? ((part.output as any).message ?? JSON.stringify(part.output))
+                    : String(part.output)
+                  : undefined;
+
+              const toolOutput = toolLog?.outputSummary ?? canonicalOutputSummary;
 
               restoredItems.push({
                 id: `tool-${part.toolCallId}`,
+                turnId: turn.id,
                 type: 'tool',
                 content: '',
                 toolData: {
                   toolName,
+                  displayName: toolLog?.displayName,
+                  icon: toolLog?.icon,
                   argsSummary,
-                  status: isError ? 'failed' : 'completed',
-                  error: isError
-                    ? typeof part.output === 'object' && part.output !== null
-                      ? ((part.output as any).message ?? JSON.stringify(part.output))
-                      : String(part.output)
-                    : undefined,
-                  toolOutput: outputSummary,
+                  status,
+                  durationMs: toolLog?.durationMs,
+                  error,
+                  toolOutput,
                 },
               });
             }
@@ -179,4 +207,16 @@ export function rehydrateSessionHistory(sessionData: SessionData): UIHistoryItem
   }
 
   return restoredItems;
+}
+
+/**
+ * Pure helper to merge session presentation projection into canonical history items.
+ */
+export function mergeSessionPresentation(
+  sessionData: SessionData,
+  canonicalItems: UIHistoryItem[],
+  projection: SessionPresentationProjection | null,
+): UIHistoryItem[] {
+  if (!projection) return canonicalItems;
+  return rehydrateSessionHistory(sessionData, projection);
 }

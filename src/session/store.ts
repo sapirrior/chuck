@@ -23,6 +23,7 @@ import {
   type SessionTurn,
 } from './types.js';
 import { parseSessionDocument } from './validate.js';
+import { removeSessionLog } from './logs/store.js';
 
 /**
  * Resolves the base root directory for sessions: ~/.steward/sessions (or overridden by STEWARD_SESSIONS_DIR)
@@ -352,6 +353,7 @@ export function deleteSession(sessionId: string): boolean {
     if (existsSync(filePath)) {
       try {
         rmSync(filePath);
+        removeSessionLog(date, sessionId);
         return true;
       } catch {
         return false;

@@ -38,6 +38,10 @@ function classifyStopReason(hitStepCeiling: boolean, wasAborted: boolean): TurnS
 export async function runAgentTurn(options: RunAgentTurnOptions): Promise<TurnSummary> {
   const maxSteps = options.maxSteps ?? SAFETY_STEP_CEILING;
   const toolResults: ToolResultInfo[] = [];
+  const activeTools = new Map<string, { startedAt: string; monotonicStart: number }>();
+
+  const turnStartedAt = new Date().toISOString();
+  const turnStartMonotonic = performance.now();
 
   let accumulatedText = '';
   let stepIndex = 0;
@@ -73,6 +77,10 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<TurnSu
         }
 
         case 'tool-call': {
+          activeTools.set(chunk.toolCallId, {
+            startedAt: new Date().toISOString(),
+            monotonicStart: performance.now(),
+          });
           const toolCall = {
             id: chunk.toolCallId,
             name: chunk.toolName,
@@ -86,12 +94,22 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<TurnSu
         }
 
         case 'tool-result': {
+          const timing = activeTools.get(chunk.toolCallId);
+          activeTools.delete(chunk.toolCallId);
+          const finishedAt = new Date().toISOString();
+          const durationMs = timing
+            ? Math.max(0, Math.round(performance.now() - timing.monotonicStart))
+            : undefined;
+
           const toolResult: ToolResultInfo = {
             id: chunk.toolCallId,
             name: chunk.toolName,
             args: (chunk.input as Record<string, unknown>) ?? {},
             result: chunk.output,
             isError: false,
+            durationMs,
+            startedAt: timing?.startedAt,
+            finishedAt,
           };
           toolResults.push(toolResult);
           options.onEvent?.({
@@ -102,12 +120,22 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<TurnSu
         }
 
         case 'tool-error': {
+          const timing = activeTools.get(chunk.toolCallId);
+          activeTools.delete(chunk.toolCallId);
+          const finishedAt = new Date().toISOString();
+          const durationMs = timing
+            ? Math.max(0, Math.round(performance.now() - timing.monotonicStart))
+            : undefined;
+
           const toolResult: ToolResultInfo = {
             id: chunk.toolCallId,
             name: chunk.toolName,
             args: (chunk.input as Record<string, unknown>) ?? {},
             result: chunk.error,
             isError: true,
+            durationMs,
+            startedAt: timing?.startedAt,
+            finishedAt,
           };
           toolResults.push(toolResult);
           options.onEvent?.({
@@ -198,6 +226,9 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<TurnSu
       cacheWriteTokens: rawUsage.inputTokenDetails?.cacheWriteTokens,
     };
 
+    const turnFinishedAt = new Date().toISOString();
+    const turnDurationMs = Math.max(0, Math.round(performance.now() - turnStartMonotonic));
+
     const summary: TurnSummary = {
       text: finalTurnText,
       toolCalls: toolResults,
@@ -205,6 +236,9 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<TurnSu
       finishReason,
       stopReason,
       rawMessages: rawTurnMessages,
+      durationMs: turnDurationMs,
+      startedAt: turnStartedAt,
+      finishedAt: turnFinishedAt,
     };
 
     options.onEvent?.({

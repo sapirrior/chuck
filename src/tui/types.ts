@@ -5,6 +5,7 @@ export type ToolExecutionStatus = 'running' | 'completed' | 'failed';
 
 export interface UIHistoryItem {
   id: string;
+  turnId?: string;
   type: 'user' | 'assistant' | 'reasoning' | 'tool' | 'system';
   content: string;
   toolData?: {

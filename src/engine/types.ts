@@ -45,6 +45,9 @@ export interface ToolCallInfo {
 export interface ToolResultInfo extends ToolCallInfo {
   result: unknown;
   isError: boolean;
+  durationMs?: number;
+  startedAt?: string;
+  finishedAt?: string;
 }
 
 /**
@@ -79,4 +82,8 @@ export interface TurnSummary {
   finishReason: string;
   stopReason?: TurnStopReason;
   rawMessages?: ModelMessage[];
+  durationMs?: number;
+  startedAt?: string;
+  finishedAt?: string;
+  statusVerb?: string;
 }

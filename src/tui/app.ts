@@ -5,7 +5,13 @@ import { defaultToolCatalog } from '../tools/index.js';
 import type { ToolContext } from '../tools/types.js';
 import type { ModelDescriptor } from '../models/index.js';
 import type { SessionData } from '../session/types.js';
-import { listSessions, loadSession, rehydrateSessionHistory } from '../session/index.js';
+import {
+  listSessions,
+  loadSession,
+  rehydrateSessionHistory,
+  loadSessionLog,
+  buildSessionPresentationProjection,
+} from '../session/index.js';
 import { saveSettings, isFolderTrusted, trustFolder } from '../config/index.js';
 import Header from './components/Header.js';
 import StatusBar from './components/StatusBar.js';
@@ -388,8 +394,44 @@ export class TUIApp {
     this.engine.clearAll();
     this.engine.commit('header', this.header.render());
 
-    const items = rehydrateSessionHistory(selected);
+    const log = loadSessionLog(selected.date, selected.id);
+    const projection = log ? buildSessionPresentationProjection(log.events) : null;
+    const items = rehydrateSessionHistory(selected, projection);
+
+    let currentTurnId: string | undefined = undefined;
+
     for (const item of items) {
+      if (item.turnId && item.turnId !== currentTurnId) {
+        if (currentTurnId && projection) {
+          const prevTurnPresentation = projection.turns.get(currentTurnId)?.end;
+          if (prevTurnPresentation && prevTurnPresentation.status === 'complete') {
+            this.engine.commit('system', [
+              '',
+              formatTurnStatus(
+                prevTurnPresentation.durationMs,
+                new Date(prevTurnPresentation.finishedAt),
+                prevTurnPresentation.statusVerb,
+              ),
+            ]);
+            if (prevTurnPresentation.stopReason === 'step-limit') {
+              this.engine.commit(
+                'system',
+                formatSystemMessage('Step budget reached. Generation stopped early.'),
+              );
+            }
+          } else if (
+            prevTurnPresentation &&
+            (prevTurnPresentation.status === 'errored' ||
+              prevTurnPresentation.status === 'interrupted') &&
+            prevTurnPresentation.errorMessage
+          ) {
+            const structured = classifyError(new Error(prevTurnPresentation.errorMessage));
+            this.engine.commit('system', formatErrorBadge(structured));
+          }
+        }
+        currentTurnId = item.turnId;
+      }
+
       if (item.type === 'user') {
         this.engine.commitPrompt(item.content);
       } else if (item.type === 'system') {
@@ -416,6 +458,34 @@ export class TUIApp {
         this.engine.commit('assistant-message', formatAssistantMessage(item.content), {
           hangingIndent: 2,
         });
+      }
+    }
+
+    if (currentTurnId && projection) {
+      const lastTurnPresentation = projection.turns.get(currentTurnId)?.end;
+      if (lastTurnPresentation && lastTurnPresentation.status === 'complete') {
+        this.engine.commit('system', [
+          '',
+          formatTurnStatus(
+            lastTurnPresentation.durationMs,
+            new Date(lastTurnPresentation.finishedAt),
+            lastTurnPresentation.statusVerb,
+          ),
+        ]);
+        if (lastTurnPresentation.stopReason === 'step-limit') {
+          this.engine.commit(
+            'system',
+            formatSystemMessage('Step budget reached. Generation stopped early.'),
+          );
+        }
+      } else if (
+        lastTurnPresentation &&
+        (lastTurnPresentation.status === 'errored' ||
+          lastTurnPresentation.status === 'interrupted') &&
+        lastTurnPresentation.errorMessage
+      ) {
+        const structured = classifyError(new Error(lastTurnPresentation.errorMessage));
+        this.engine.commit('system', formatErrorBadge(structured));
       }
     }
 
@@ -635,7 +705,9 @@ export class TUIApp {
             case 'tool-result': {
               this.streamingView.setActiveTool(null);
               const start = activeToolStartTimes.get(event.toolResult.id);
-              const durationMs = start ? Math.round(performance.now() - start) : undefined;
+              const durationMs =
+                event.toolResult.durationMs ??
+                (start ? Math.round(performance.now() - start) : undefined);
               activeToolStartTimes.delete(event.toolResult.id);
 
               const toolDef = defaultToolCatalog.get(event.toolResult.name);
@@ -686,9 +758,16 @@ export class TUIApp {
               accumulatedText = '';
               this.streamingView.reset();
 
-              // Commit turn finished badge with leading empty line
-              const totalDurationMs = Math.round(performance.now() - turnStartTime);
-              this.engine.commit('system', ['', formatTurnStatus(totalDurationMs)]);
+              // Commit turn finished badge with leading empty line using authoritative duration and verb
+              const totalDurationMs =
+                event.summary.durationMs ?? Math.round(performance.now() - turnStartTime);
+              const finishedAt = event.summary.finishedAt
+                ? new Date(event.summary.finishedAt)
+                : new Date();
+              this.engine.commit('system', [
+                '',
+                formatTurnStatus(totalDurationMs, finishedAt, event.summary.statusVerb),
+              ]);
 
               this.statusBar.update({
                 usage: this.session.session.totalUsage,

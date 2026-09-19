@@ -13,6 +13,9 @@ import {
 import { wrapVisualLine } from '../engine/cell-layout.js';
 import type { ToolExecutionStatus } from '../types.js';
 import type { StructuredError } from '../../errors/index.js';
+import { chooseTurnStatusVerb, STATUS_VERBS } from '../../session/logs/store.js';
+
+export { chooseTurnStatusVerb, STATUS_VERBS };
 
 export function formatUserMessage(content: string, targetWidth?: number): string[] {
   const theme = getTheme();
@@ -204,13 +207,15 @@ export function formatErrorBadge(
   return lines;
 }
 
-const STATUS_VERBS = ['Baked', 'Brewed', 'Churned', 'Swooped', 'Crafted', 'Cooked'];
-
-export function formatTurnStatus(durationMs: number, timestamp = new Date()): string {
-  const verb = STATUS_VERBS[Math.floor(Math.random() * STATUS_VERBS.length)] ?? 'Baked';
+export function formatTurnStatus(
+  durationMs: number,
+  timestamp = new Date(),
+  verb?: string,
+): string {
+  const selectedVerb = verb ?? chooseTurnStatusVerb();
   const sec = Math.max(1, Math.round(durationMs / 1000));
   const timeStr = timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const midDot = chalk.dim(` ${figures.bullet} `);
 
-  return `${chalk.dim(`${figures.asterisk} ${verb} for ${sec}s`)}${midDot}${chalk.dim(`done ${timeStr}`)}`;
+  return `${chalk.dim(`${figures.asterisk} ${selectedVerb} for ${sec}s`)}${midDot}${chalk.dim(`done ${timeStr}`)}`;
 }
