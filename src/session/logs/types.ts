@@ -1,10 +1,6 @@
 export const SESSION_LOG_SCHEMA_VERSION = 1;
 
-export type SessionLogEventType =
-  | 'turn-start'
-  | 'tool-start'
-  | 'tool-end'
-  | 'turn-end';
+export type SessionLogEventType = 'turn-start' | 'tool-start' | 'tool-end' | 'turn-end';
 
 export interface SessionLogBase {
   schemaVersion: 1;
@@ -57,10 +53,7 @@ export interface TurnEndLogEvent extends SessionLogBase {
 }
 
 export type SessionLogEvent =
-  | TurnStartLogEvent
-  | ToolStartLogEvent
-  | ToolEndLogEvent
-  | TurnEndLogEvent;
+  TurnStartLogEvent | ToolStartLogEvent | ToolEndLogEvent | TurnEndLogEvent;
 
 export interface LoadedSessionLog {
   events: SessionLogEvent[];

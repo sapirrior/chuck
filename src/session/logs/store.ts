@@ -1,4 +1,12 @@
-import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, rmSync } from 'node:fs';
+import {
+  appendFileSync,
+  closeSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  rmSync,
+} from 'node:fs';
 import { dirname, join } from 'node:path';
 import { getSessionsRootDir } from '../store.js';
 import {
@@ -77,7 +85,9 @@ function isValidSessionLogEvent(obj: any, expectedSessionId: string): obj is Ses
 
   switch (obj.type) {
     case 'turn-start':
-      return typeof obj.startedAt === 'string' && typeof obj.model === 'object' && obj.model !== null;
+      return (
+        typeof obj.startedAt === 'string' && typeof obj.model === 'object' && obj.model !== null
+      );
     case 'tool-start':
       return (
         typeof obj.toolCallId === 'string' &&
