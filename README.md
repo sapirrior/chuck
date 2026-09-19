@@ -1,6 +1,6 @@
 # Steward
 
-[![Version](https://img.shields.io/badge/version-v0.11.0-D77757.svg)](https://github.com/sapirrior/steward/releases)
+[![Version](https://img.shields.io/badge/version-v0.12.0-D77757.svg)](https://github.com/sapirrior/steward/releases)
 [![npm](https://img.shields.io/npm/v/steward-cli.svg?color=373737)](https://www.npmjs.com/package/steward-cli)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Runtime](https://img.shields.io/badge/runtime-Bun-fbf0df.svg?logo=bun)](https://bun.sh)
