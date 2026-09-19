@@ -184,7 +184,6 @@ export default class FilePermissionDock extends Component<
             continuationPrefix: contPrefix,
             width: maxCols,
             bg: diffDeleteBg,
-            padToWidth: true,
           });
           renderedRows.push(...wrapped);
         } else if (line.kind === 'addition') {
@@ -201,7 +200,6 @@ export default class FilePermissionDock extends Component<
             continuationPrefix: contPrefix,
             width: maxCols,
             bg: diffAddBg,
-            padToWidth: true,
           });
           renderedRows.push(...wrapped);
         } else {

@@ -39,6 +39,7 @@ import {
 } from './utils/message-formatter.js';
 import { classifyError } from '../errors/index.js';
 import { VoiceController } from '../voice/index.js';
+import { AutoUpdaterService } from '../services/updater/index.js';
 
 export interface TUIAppOptions {
   version?: string;
@@ -71,6 +72,7 @@ export class TUIApp {
   private ctrlCTimer: NodeJS.Timeout | null = null;
   private isBusy = false;
   private voiceController: VoiceController;
+  private autoUpdater: AutoUpdaterService;
   private permissionQueue: PermissionQueue;
 
   constructor(options: TUIAppOptions = {}) {
@@ -146,6 +148,21 @@ export class TUIApp {
       },
       onWarning: (warning) => {
         this.statusBar.showWarning(warning);
+      },
+    });
+
+    this.autoUpdater = new AutoUpdaterService({
+      currentVersion: options.version,
+      onStatusChange: (state, info) => {
+        if (state === 'idle') {
+          this.statusBar.setUpdateStatus(undefined);
+        } else {
+          this.statusBar.setUpdateStatus({
+            state,
+            version: info?.version,
+            message: info?.message,
+          });
+        }
       },
     });
 
@@ -270,6 +287,9 @@ export class TUIApp {
     this.engine.mount(this.streamingView, { kind: 'custom' });
     this.engine.mount(this.promptInput, { keepCursorVisible: true, kind: 'input' });
     this.engine.mount(this.statusBar, { kind: 'custom' });
+
+    // Start background auto-updater check
+    this.autoUpdater.startBackgroundCheck(3000);
 
     // Handle global keybindings
     this.engine.addInputListener((chunk) => {
@@ -831,6 +851,7 @@ export class TUIApp {
     this.permissionQueue.clear();
     this.session.shutdown().catch(() => {});
     this.voiceController.dispose();
+    this.autoUpdater.dispose();
     this.engine.cleanupSync();
     if (this.onExitCallback) {
       this.onExitCallback();

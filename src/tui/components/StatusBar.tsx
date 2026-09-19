@@ -6,6 +6,12 @@ import { Box, Text } from '../primitives/index.js';
 
 export type StatusBarVoiceState = 'idle' | 'connecting' | 'recording' | 'finishing';
 
+export interface StatusBarUpdateStatus {
+  state: 'idle' | 'checking' | 'no-updates' | 'available' | 'downloading' | 'ready' | 'error';
+  version?: string;
+  message?: string;
+}
+
 export interface StatusBarProps {
   model: {
     provider: string;
@@ -18,6 +24,7 @@ export interface StatusBarProps {
   warning?: string;
   voiceState?: StatusBarVoiceState;
   voiceDurationSec?: number;
+  updateStatus?: StatusBarUpdateStatus;
 }
 
 export interface StatusBarState {
@@ -32,6 +39,7 @@ export interface StatusBarState {
   warning?: string;
   voiceState?: StatusBarVoiceState;
   voiceDurationSec?: number;
+  updateStatus?: StatusBarUpdateStatus;
 }
 
 function formatTokens(n: number): string {
@@ -97,6 +105,13 @@ export default class StatusBar extends Component<StatusBarProps, StatusBarState>
   }
 
   /**
+   * Updates the background updater status shown on the status bar.
+   */
+  setUpdateStatus(updateStatus?: StatusBarUpdateStatus): void {
+    this.setState({ updateStatus });
+  }
+
+  /**
    * Displays a transient warning message in yellow that clears automatically after durationMs.
    */
   showWarning(warningText: string, durationMs = 4000): void {
@@ -130,7 +145,16 @@ export default class StatusBar extends Component<StatusBarProps, StatusBarState>
     const theme = getTheme();
     const termWidth = width ?? process.stdout.columns ?? 80;
     const maxCols = Math.max(1, termWidth);
-    const { model, usage, isBusy, exitPending, warning, voiceState, voiceDurationSec } = this.state;
+    const {
+      model,
+      usage,
+      isBusy,
+      exitPending,
+      warning,
+      voiceState,
+      voiceDurationSec,
+      updateStatus,
+    } = this.state;
 
     let left = '';
     if (warning) {
@@ -147,6 +171,24 @@ export default class StatusBar extends Component<StatusBarProps, StatusBarState>
     } else if (exitPending) {
       const errColor = themeColor(theme.error);
       left = `${errColor('▸ ')}${chalk.dim('Press ')}${errColor('Ctrl+C')}${chalk.dim(' again to exit')}`;
+    } else if (updateStatus && updateStatus.state !== 'idle') {
+      if (updateStatus.state === 'checking') {
+        left = chalk.white(updateStatus.message ?? 'Checking for updates...');
+      } else if (updateStatus.state === 'no-updates') {
+        left = chalk.white(updateStatus.message ?? 'No updates found');
+      } else if (updateStatus.state === 'available') {
+        left = chalk.white(updateStatus.message ?? `Found version v${updateStatus.version ?? ''}`);
+      } else if (updateStatus.state === 'downloading') {
+        left = chalk.white(updateStatus.message ?? `Downloading v${updateStatus.version ?? ''}...`);
+      } else if (updateStatus.state === 'ready') {
+        left = chalk.white.bold(updateStatus.message ?? 'Update complete · Restart to apply');
+      } else if (updateStatus.state === 'error' && updateStatus.message) {
+        left = themeColor(theme.error)(updateStatus.message);
+      } else if (isBusy) {
+        left = chalk.dim('esc to interrupt');
+      } else {
+        left = chalk.dim('? for shortcuts');
+      }
     } else if (isBusy) {
       left = chalk.dim('esc to interrupt');
     } else {

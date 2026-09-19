@@ -17,6 +17,7 @@ import chalk from 'chalk';
 import { getTheme } from '../../theme/index.js';
 import { themeColor, themeBgColor } from '../../tui/utils/format.js';
 import { resolveDirectMutationPath } from '../../services/checkpoint/path.js';
+import { buildUnifiedDiff } from '../../utils/diff.js';
 import type { ToolDefinition } from '../types.js';
 
 export const editFileInputSchema = z.object({
@@ -69,39 +70,68 @@ export const editFileTool: ToolDefinition<typeof editFileInputSchema, EditFileOu
     const removed = result?.removedLines ?? 0;
     const summary = `Added ${added} line${added === 1 ? '' : 's'}, removed ${removed} line${removed === 1 ? '' : 's'}`;
 
-    const oldLines = args.old_string.split(/\r?\n/);
-    const newLines = args.new_string.split(/\r?\n/);
-
     // No-op: nothing changed
     if (added === 0 && removed === 0) return summary;
 
-    const cap = 30;
-    const padWidth = String(Math.max(oldLines.length, newLines.length)).length;
-
+    const diff = buildUnifiedDiff(args.old_string, args.new_string, 2);
     const theme = getTheme();
     const deleteStyle = (str: string) =>
       themeBgColor(theme.diffDeleteBG)(themeColor(theme.diffDeleteFG)(str));
     const addStyle = (str: string) =>
       themeBgColor(theme.diffAddBG)(themeColor(theme.diffAddFG)(str));
+    const contextStyle = (str: string) => chalk.dim(str);
 
-    const removedDetail = oldLines
-      .slice(0, cap)
-      .map((l, i) => deleteStyle(`${String(i + 1).padStart(padWidth)} -${l}`))
-      .join('\n');
-    const addedDetail = newLines
-      .slice(0, cap)
-      .map((l, i) => addStyle(`${String(i + 1).padStart(padWidth)} +${l}`))
-      .join('\n');
+    let maxLineNum = 1;
+    for (const hunk of diff.hunks) {
+      for (const line of hunk.lines) {
+        if (line.oldLineNumber) maxLineNum = Math.max(maxLineNum, line.oldLineNumber);
+        if (line.newLineNumber) maxLineNum = Math.max(maxLineNum, line.newLineNumber);
+      }
+    }
+    const padWidth = Math.max(1, String(maxLineNum).length);
 
-    const overflowOld =
-      oldLines.length > cap ? `\n   … (${oldLines.length - cap} more removed)` : '';
-    const overflowNew = newLines.length > cap ? `\n   … (${newLines.length - cap} more added)` : '';
+    const diffLines: string[] = [];
+    const cap = 30;
+    let count = 0;
+    let overflow = 0;
 
-    const diffBlock = [removedDetail + overflowOld, addedDetail + overflowNew]
-      .filter(Boolean)
-      .join('\n');
+    for (const hunk of diff.hunks) {
+      for (const line of hunk.lines) {
+        if (count >= cap) {
+          overflow++;
+          continue;
+        }
+        count++;
 
-    return `${summary}\n${diffBlock}`;
+        if (line.kind === 'deletion') {
+          const numStr = String(line.oldLineNumber ?? '').padStart(padWidth, ' ');
+          const body = line.spans
+            ? '-' +
+              line.spans.map((s) => (s.kind === 'deletion' ? chalk.bold(s.text) : s.text)).join('')
+            : `-${line.text}`;
+          diffLines.push(deleteStyle(`${numStr} ${body}`));
+        } else if (line.kind === 'addition') {
+          const numStr = String(line.newLineNumber ?? '').padStart(padWidth, ' ');
+          const body = line.spans
+            ? '+' +
+              line.spans.map((s) => (s.kind === 'addition' ? chalk.bold(s.text) : s.text)).join('')
+            : `+${line.text}`;
+          diffLines.push(addStyle(`${numStr} ${body}`));
+        } else {
+          const numStr = String(line.newLineNumber ?? line.oldLineNumber ?? '').padStart(
+            padWidth,
+            ' ',
+          );
+          diffLines.push(contextStyle(`${numStr}  ${line.text}`));
+        }
+      }
+    }
+
+    if (overflow > 0) {
+      diffLines.push(chalk.dim(`   … (${overflow} more lines)`));
+    }
+
+    return diffLines.length > 0 ? `${summary}\n${diffLines.join('\n')}` : summary;
   },
 
   execute: async (args, context) => {

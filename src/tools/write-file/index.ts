@@ -14,6 +14,7 @@ import {
 } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { z } from 'zod';
+import chalk from 'chalk';
 import { resolveDirectMutationPath } from '../../services/checkpoint/path.js';
 import type { ToolDefinition } from '../types.js';
 
@@ -47,7 +48,10 @@ export const writeFileTool: ToolDefinition<typeof writeFileInputSchema, WriteFil
   summarize: (args, result) => {
     const lines = result?.linesWritten ?? 0;
     const filePath = args.file_path;
-    const summary = `Wrote ${lines} line${lines === 1 ? '' : 's'} to ${filePath}`;
+    const isNew = result?.isNew ?? true;
+    const summary = isNew
+      ? `Created ${filePath} (${lines} line${lines === 1 ? '' : 's'})`
+      : `Wrote ${lines} line${lines === 1 ? '' : 's'} to ${filePath}`;
 
     const contentLines = args.content.split(/\r?\n/);
     if (contentLines.length === 0 || (contentLines.length === 1 && !contentLines[0])) {
@@ -57,7 +61,9 @@ export const writeFileTool: ToolDefinition<typeof writeFileInputSchema, WriteFil
     const cap = 50;
     const shown = contentLines.slice(0, cap);
     const padWidth = String(contentLines.length).length;
-    const detail = shown.map((l, i) => `${String(i + 1).padStart(padWidth)}  ${l}`).join('\n');
+    const detail = shown
+      .map((l, i) => `${chalk.dim(String(i + 1).padStart(padWidth))}  ${chalk.white(l)}`)
+      .join('\n');
     const overflow =
       contentLines.length > cap ? `\n   … (${contentLines.length - cap} more lines)` : '';
 

@@ -283,17 +283,6 @@ export function wrapVisualLineWithCursor(
 
   function emitCurrentLine() {
     const activeStyles = getActiveStyleCodes();
-    // If active background is set, fill remaining columns to maxCols with background spaces
-    if (activeBg && currentWidth < maxCols) {
-      const remainingCols = maxCols - currentWidth;
-      currentTokens.push({
-        type: 'char',
-        value: ' '.repeat(remainingCols),
-        width: remainingCols,
-      });
-      currentWidth = maxCols;
-    }
-
     let lineStr = currentTokens.map((t) => t.value).join('');
     if (activeStyles.length > 0 && !lineStr.endsWith('\x1b[0m')) {
       lineStr += '\x1b[0m';
