@@ -93,8 +93,9 @@ export default class BashPermissionDock extends Component<
           return true;
         }
         if (action.type === 'cursor-down') {
+          const maxScroll = this.getMaxScroll();
           this.setState({
-            scrollOffset: this.state.scrollOffset + 1,
+            scrollOffset: Math.min(maxScroll, this.state.scrollOffset + 1),
           });
           return true;
         }
@@ -109,6 +110,14 @@ export default class BashPermissionDock extends Component<
       this.removeInputListener();
       this.removeInputListener = null;
     }
+  }
+
+  private getMaxScroll(): number {
+    const termWidth = process.stdout.columns || 80;
+    const cmdText = new Text(this.props.command, { wrap: true, clip: false });
+    const renderedCmdLines = cmdText.render(termWidth);
+    const maxVisibleReviewLines = 15;
+    return Math.max(0, renderedCmdLines.length - maxVisibleReviewLines);
   }
 
   override render(width?: number): string[] {

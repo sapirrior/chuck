@@ -94,8 +94,9 @@ export default class FilePermissionDock extends Component<
           return true;
         }
         if (action.type === 'cursor-down') {
+          const maxScroll = this.getMaxScroll();
           this.setState({
-            scrollOffset: this.state.scrollOffset + 1,
+            scrollOffset: Math.min(maxScroll, this.state.scrollOffset + 1),
           });
           return true;
         }
@@ -110,6 +111,13 @@ export default class FilePermissionDock extends Component<
       this.removeInputListener();
       this.removeInputListener = null;
     }
+  }
+
+  private getMaxScroll(): number {
+    const termWidth = process.stdout.columns || 80;
+    const allContentRows = this.renderContentRows(termWidth);
+    const maxVisibleReviewLines = 15;
+    return Math.max(0, allContentRows.length - maxVisibleReviewLines);
   }
 
   private renderContentRows(maxCols: number): string[] {
@@ -162,9 +170,17 @@ export default class FilePermissionDock extends Component<
       for (const line of hunk.lines) {
         if (line.kind === 'deletion') {
           const numStr = String(line.oldLineNumber ?? '').padStart(gutterWidth, ' ');
-          const firstPrefix = ` ${chalk.dim(numStr)} ${diffDelete('-')}`;
-          const contPrefix = ` ${' '.repeat(gutterWidth)} ${diffDelete('-')}`;
-          const wrapped = prefixedBlock(firstPrefix, diffDelete(line.text), {
+          const firstPrefix = ` ${chalk.dim(numStr)} `;
+          const contPrefix = ` ${' '.repeat(gutterWidth)} `;
+          const bodyText = line.spans
+            ? diffDelete('-') +
+              line.spans
+                .map((s) =>
+                  s.kind === 'deletion' ? chalk.bold(diffDelete(s.text)) : diffDelete(s.text),
+                )
+                .join('')
+            : diffDelete(`-${line.text}`);
+          const wrapped = prefixedBlock(firstPrefix, bodyText, {
             continuationPrefix: contPrefix,
             width: maxCols,
             bg: diffDeleteBg,
@@ -173,9 +189,15 @@ export default class FilePermissionDock extends Component<
           renderedRows.push(...wrapped);
         } else if (line.kind === 'addition') {
           const numStr = String(line.newLineNumber ?? '').padStart(gutterWidth, ' ');
-          const firstPrefix = ` ${chalk.dim(numStr)} ${diffAdd('+')}`;
-          const contPrefix = ` ${' '.repeat(gutterWidth)} ${diffAdd('+')}`;
-          const wrapped = prefixedBlock(firstPrefix, diffAdd(line.text), {
+          const firstPrefix = ` ${chalk.dim(numStr)} `;
+          const contPrefix = ` ${' '.repeat(gutterWidth)} `;
+          const bodyText = line.spans
+            ? diffAdd('+') +
+              line.spans
+                .map((s) => (s.kind === 'addition' ? chalk.bold(diffAdd(s.text)) : diffAdd(s.text)))
+                .join('')
+            : diffAdd(`+${line.text}`);
+          const wrapped = prefixedBlock(firstPrefix, bodyText, {
             continuationPrefix: contPrefix,
             width: maxCols,
             bg: diffAddBg,

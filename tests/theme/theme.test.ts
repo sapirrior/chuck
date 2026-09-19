@@ -2,7 +2,7 @@ import { describe, it, expect } from 'bun:test';
 import { darkTheme, lightTheme, getTheme } from '../../src/theme/colors.js';
 
 describe('Theme Alignment & Palette Tests', () => {
-  it('aligns darkTheme colors with Claude dark palette specifications', () => {
+  it('aligns darkTheme colors with default dark palette specifications', () => {
     expect(darkTheme.promptBorder).toBe('rgb(136,136,136)');
     expect(darkTheme.userCardBg).toBe('rgb(55,55,55)');
     expect(darkTheme.brand).toBe('rgb(215,119,87)');

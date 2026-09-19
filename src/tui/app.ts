@@ -27,6 +27,7 @@ import RewindMenu, { type RewindItem } from './components/docks/RewindMenu.js';
 import BashPermissionDock from './components/docks/BashPermissionDock.js';
 import FilePermissionDock from './components/docks/FilePermissionDock.js';
 import { PermissionQueue } from './utils/permission-queue.js';
+import { parseKeyInput } from './primitives/index.js';
 
 import { executeRewind } from '../services/checkpoint/index.js';
 import {
@@ -272,10 +273,23 @@ export class TUIApp {
 
     // Handle global keybindings
     this.engine.addInputListener((chunk) => {
-      const str = chunk.toString();
+      const action = parseKeyInput(chunk);
 
+      // Voice Gate: isolate input while voice dictation is active
+      if (this.voiceController.isActive) {
+        if (action.type === 'ctrl-t') {
+          this.voiceController.stop();
+          return true;
+        }
+        if (action.type === 'page-up' || action.type === 'page-down') {
+          return false; // Allow falling through to engine scrolling
+        }
+        return true; // Swallow all other keys (Escape, Ctrl+C, typing, etc.)
+      }
+
+      // Normal Controls:
       // Ctrl+C double-tap handling
-      if (str === '\x03') {
+      if (action.type === 'ctrl-c') {
         if (this.ctrlCPending) {
           if (this.ctrlCTimer) clearTimeout(this.ctrlCTimer);
           this.ctrlCPending = false;
@@ -292,8 +306,8 @@ export class TUIApp {
         return true;
       }
 
-      // Ctrl+T voice dictation toggle
-      if (str === '\x14') {
+      // Ctrl+T voice dictation start
+      if (action.type === 'ctrl-t') {
         if (this.activeModal) {
           return true;
         }
@@ -301,12 +315,8 @@ export class TUIApp {
           this.statusBar.showWarning('Voice unavailable while Steward is generating');
           return true;
         }
-        if (this.voiceController.isActive) {
-          this.voiceController.stop();
-        } else {
-          this.promptInput.startVoice();
-          this.voiceController.start();
-        }
+        this.promptInput.startVoice();
+        this.voiceController.start();
         return true;
       }
 

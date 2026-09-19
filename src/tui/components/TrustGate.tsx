@@ -95,10 +95,10 @@ export default class TrustGate extends Component<TrustGateProps, TrustGateState>
       : `  ${chalk.white('2. No, exit')}`;
 
     const safetyCheckText =
-      'You should only proceed if you trust this workspace. Accessing untrusted workspaces may allow malicious code in the repository to compromise security or mislead the agent.';
+      'You should only proceed if you trust this workspace. Accessing untrusted workspaces may allow malicious code in the repository to compromise security or mislead the assistant.';
 
     const capabilityText =
-      'Steward will be able to read files in this folder to investigate and plan. Generated code and plans are written to .steward/ for your review — nothing else here is modified.';
+      'Steward can read files and execute commands to investigate, build, and debug with your explicit permission. Pre-mutation checkpoints ensure every edit is reversible via /rewind.';
 
     const element = (
       <Box direction="column" width={maxCols} wrap={true} clip={false}>

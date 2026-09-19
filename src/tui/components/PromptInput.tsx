@@ -188,14 +188,12 @@ export default class PromptInput extends Component<PromptInputProps, PromptInput
         return false;
       }
 
-      // 2. Voice recording in progress: Escape cancels voice; swallow other typing
+      // 2. Voice recording in progress: allow PageUp/PageDown to scroll; swallow everything else
       if (this.state.voiceMode !== 'idle') {
-        if (action.type === 'escape') {
-          this.props.onVoiceCancel?.();
-          this.cancelVoice();
-          return true;
+        if (action.type === 'page-up' || action.type === 'page-down') {
+          return false;
         }
-        return true; // Swallow typing during active voice dictation
+        return true; // Swallow typing, Enter, Escape, etc. during active voice dictation
       }
 
       // 3. Escape: dismiss completions or double-tap to clear

@@ -13,6 +13,7 @@ import BashPermissionDock from '../../src/tui/components/docks/BashPermissionDoc
 import FilePermissionDock from '../../src/tui/components/docks/FilePermissionDock.js';
 import TrustGate from '../../src/tui/components/TrustGate.js';
 import { formatAssistantMessage, formatToolStatus } from '../../src/tui/utils/message-formatter.js';
+import { editFileTool } from '../../src/tools/edit-file/index.js';
 import { captureHeadlessRender, assertGoldenMatch } from './harness.js';
 import StateRenderer from '../../src/tui/engine/StateRenderer.js';
 
@@ -944,5 +945,57 @@ describe('TUI Engine Headless Golden Snapshots', () => {
     );
     engine120.cleanupSync();
     assertGoldenMatch('file-permission-edit-review-120', result120.rawAnsi);
+  });
+
+  it('golden: wrapped-diff-tool-status (Tool result with long wrapped addition and deletion diff lines at 80 cols)', () => {
+    const engine80 = new TerminalEngine();
+    const header = new Header({
+      version: '0.2.0',
+      cwd: '/workspace/steward',
+      model: dummyModel,
+    });
+    engine80.commit('header', header.render(80));
+
+    const oldStr =
+      'export async function processDataStream(stream: ReadableStream<Uint8Array>, bufferSize: number = 4096, options?: StreamOptions): Promise<ProcessedResult>';
+    const newStr =
+      'export async function processDataStream(stream: ReadableStream<Uint8Array>, bufferSize: number = 8192, timeoutMs: number = 5000, options?: StreamOptions): Promise<ProcessedResult>';
+
+    const diffOutput = editFileTool.summarize(
+      {
+        file_path: 'src/stream-processor.ts',
+        old_string: oldStr,
+        new_string: newStr,
+      },
+      {
+        file_path: 'src/stream-processor.ts',
+        replacementsMade: 1,
+        addedLines: 1,
+        removedLines: 1,
+        message: 'Successfully replaced 1 occurrence(s)',
+      },
+    );
+
+    engine80.commit(
+      'tool-result',
+      (w) =>
+        formatToolStatus({
+          toolName: 'edit_file',
+          displayName: 'Edit',
+          argsSummary: 'file_path: src/stream-processor.ts',
+          status: 'completed',
+          durationMs: 45,
+          toolOutput: diffOutput,
+          targetWidth: w,
+        }),
+      { hangingIndent: 2 },
+    );
+
+    const result80 = captureHeadlessRender((renderer) => renderer.render(engine80.tree, 0, true), {
+      cols: 80,
+      rows: 24,
+    });
+    engine80.cleanupSync();
+    assertGoldenMatch('wrapped-diff-tool-status-80', result80.rawAnsi);
   });
 });

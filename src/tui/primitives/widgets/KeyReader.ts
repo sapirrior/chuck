@@ -17,6 +17,10 @@ export interface KeyAction {
     | 'submit'
     | 'escape'
     | 'tab'
+    | 'ctrl-c'
+    | 'ctrl-t'
+    | 'page-up'
+    | 'page-down'
     | 'other';
   char?: string;
   raw: string;
@@ -24,6 +28,14 @@ export interface KeyAction {
 
 export function parseKeyInput(chunk: Buffer | string): KeyAction {
   const str = typeof chunk === 'string' ? chunk : chunk.toString();
+
+  // Control Keys
+  if (str === '\x03') return { type: 'ctrl-c', raw: str };
+  if (str === '\x14') return { type: 'ctrl-t', raw: str };
+
+  // Page Navigation
+  if (str === '\x1b[5~') return { type: 'page-up', raw: str };
+  if (str === '\x1b[6~') return { type: 'page-down', raw: str };
 
   // Escape
   if (str === '\x1b') return { type: 'escape', raw: str };

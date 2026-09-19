@@ -332,32 +332,32 @@ export function wrapVisualLineWithCursor(
   }
 
   for (const chunk of chunks) {
-    for (const t of chunk.tokens) {
-      updateActiveStyles(t);
-    }
-
     if (chunk.isSpace) {
       // Leading whitespace (indentation) is always preserved
       if (currentWidth === 0) {
         for (const token of chunk.tokens) {
-          if (token.type === 'char') {
+          if (token.type === 'ansi') {
+            updateActiveStyles(token);
+          } else {
             checkCursorAtCurrentToken();
             plainCharIndex++;
+            currentWidth += token.width;
           }
           currentTokens.push(token);
-          currentWidth += token.width;
         }
       } else if (currentWidth + chunk.width <= maxCols) {
         for (const token of chunk.tokens) {
-          if (token.type === 'char') {
+          if (token.type === 'ansi') {
+            updateActiveStyles(token);
+          } else {
             checkCursorAtCurrentToken();
             plainCharIndex++;
+            currentWidth += token.width;
           }
           currentTokens.push(token);
-          currentWidth += token.width;
         }
       } else {
-        // Trailing whitespace at end of line: emit line and drop trailing space
+        // Trailing whitespace at end of line: emit line and drop trailing space characters
         for (const token of chunk.tokens) {
           if (token.type === 'char') {
             checkCursorAtCurrentToken();
@@ -365,6 +365,13 @@ export function wrapVisualLineWithCursor(
           }
         }
         emitCurrentLine();
+        // Process any ANSI tokens that occurred in this trailing chunk for the next line
+        for (const token of chunk.tokens) {
+          if (token.type === 'ansi') {
+            updateActiveStyles(token);
+            currentTokens.push(token);
+          }
+        }
       }
       continue;
     }
@@ -372,12 +379,14 @@ export function wrapVisualLineWithCursor(
     // Word chunk (non-space)
     if (currentWidth + chunk.width <= maxCols) {
       for (const token of chunk.tokens) {
-        if (token.type === 'char') {
+        if (token.type === 'ansi') {
+          updateActiveStyles(token);
+        } else {
           checkCursorAtCurrentToken();
           plainCharIndex++;
+          currentWidth += token.width;
         }
         currentTokens.push(token);
-        currentWidth += token.width;
       }
     } else if (currentWidth > 0) {
       // Word doesn't fit on current line: wrap to new line first
@@ -385,17 +394,20 @@ export function wrapVisualLineWithCursor(
 
       if (currentWidth + chunk.width <= maxCols) {
         for (const token of chunk.tokens) {
-          if (token.type === 'char') {
+          if (token.type === 'ansi') {
+            updateActiveStyles(token);
+          } else {
             checkCursorAtCurrentToken();
             plainCharIndex++;
+            currentWidth += token.width;
           }
           currentTokens.push(token);
-          currentWidth += token.width;
         }
       } else {
         // Super-long word that exceeds maxCols on an empty line: break character-by-character
         for (const token of chunk.tokens) {
           if (token.type === 'ansi') {
+            updateActiveStyles(token);
             currentTokens.push(token);
             continue;
           }
@@ -412,6 +424,7 @@ export function wrapVisualLineWithCursor(
       // Word is on an empty line and exceeds maxCols: break character-by-character
       for (const token of chunk.tokens) {
         if (token.type === 'ansi') {
+          updateActiveStyles(token);
           currentTokens.push(token);
           continue;
         }
@@ -440,7 +453,7 @@ export function wrapVisualLineWithCursor(
     }
 
     let lineStr = currentTokens.map((t) => t.value).join('');
-    if (activeStyles.length > 0 && lines.length > 0 && !lineStr.endsWith('\x1b[0m')) {
+    if (activeStyles.length > 0 && !lineStr.endsWith('\x1b[0m')) {
       lineStr += '\x1b[0m';
     }
     lines.push(lineStr);

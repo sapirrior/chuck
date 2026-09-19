@@ -1,4 +1,4 @@
-export type VoiceState = 'idle' | 'preparing' | 'recording' | 'finalizing' | 'error';
+export type VoiceState = 'idle' | 'preparing' | 'recording' | 'finalizing';
 
 export type VoiceErrorCategory =
   | 'not-configured'

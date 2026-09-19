@@ -1,7 +1,7 @@
 {
-  "name": "steward",
-  "version": "0.10.0",
-  "description": "Engineering agent for codebase investigation, direct file mutation, and guaranteed rewind checkpointing.",
+  "name": "steward-cli",
+  "version": "0.11.0",
+  "description": "Interactive AI engineering assistant for the terminal with human-in-the-loop control across local and frontier models.",
   "author": "sapirrior",
   "license": "MIT",
   "files": [
@@ -9,7 +9,8 @@
   ],
   "type": "module",
   "bin": {
-    "steward": "./dist/cli.js"
+    "steward": "./dist/cli.js",
+    "steward-cli": "./dist/cli.js"
   },
   "scripts": {
     "dev": "bun --watch src/cli.ts",

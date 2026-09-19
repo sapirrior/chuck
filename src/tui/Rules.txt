@@ -167,8 +167,8 @@ on what the text IS:
   ✗ WRONG:  if (/^\s{4}/.test(line)) continuationIndent = 4;
   ✗ WRONG:  if (line.includes('│')) treatAsBoxBorder = true;
 
-  ✓ RIGHT:  wrapVisualLine(line, width, { hangingIndent: 4 })
-            // caller passes the indent; layout code uses it blindly
+  ✓ RIGHT:  wrapVisualLine(line, width, 4)
+            // caller passes the hanging indent; layout code uses it blindly
 
 Any component that wants hanging-indent continuation lines passes the indent
 width as an explicit numeric parameter. The wrapping code does not know
@@ -177,8 +177,8 @@ to add new bullet styles, new prefix glyphs, and new component types WITHOUT
 editing cell-layout.ts.
 
 Current explicit parameters available:
-  wrapVisualLine(line, width, opts?: { hangingIndent?: number })
-  wrapVisualLineWithCursor(line, cursorCol, width, opts?: { hangingIndent?: number })
+  wrapVisualLine(text: string, maxCols: number, hangingIndent?: number | string)
+  wrapVisualLineWithCursor(text: string, maxCols: number, targetCharOffset: number | null, hangingIndent?: number | string)
 
 If a new layout shape is needed that the current signature cannot express,
 add a new optional field to the opts object — do NOT add content inspection.

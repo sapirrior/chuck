@@ -4,11 +4,11 @@
 
 You should only proceed if you trust this workspace. Accessing untrusted
 workspaces may allow malicious code in the repository to compromise security or
-mislead the agent.
+mislead the assistant.
 
-Steward will be able to read files in this folder to investigate and plan.
-Generated code and plans are written to .steward/ for your review — nothing else
-here is modified.
+Steward can read files and execute commands to investigate, build, and debug
+with your explicit permission. Pre-mutation checkpoints ensure every edit is
+reversible via /rewind.
 
 Security guide
 

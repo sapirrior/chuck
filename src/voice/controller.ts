@@ -29,6 +29,7 @@ export class VoiceController {
   private liveSession: LiveTranscriptionSession | null = null;
   private sessionToken = 0;
   private maxDurationTimer: NodeJS.Timeout | null = null;
+  private finalizationPromise: Promise<VoiceResult> | null = null;
   private options: VoiceControllerOptions;
 
   constructor(options: VoiceControllerOptions = {}) {
@@ -62,7 +63,9 @@ export class VoiceController {
       return this.stop();
     }
     if (this.state === 'finalizing') {
-      return;
+      return (
+        this.finalizationPromise ?? { ok: true, transcript: this.accumulator.getFinalizedText() }
+      );
     }
 
     const currentToken = ++this.sessionToken;
@@ -175,7 +178,17 @@ export class VoiceController {
   public async stop(): Promise<VoiceResult> {
     this.clearMaxDurationTimer();
 
-    if (this.state === 'idle' || this.state === 'finalizing') {
+    if (this.state === 'idle') {
+      return {
+        ok: true,
+        transcript: this.accumulator.getFinalizedText(),
+      };
+    }
+
+    if (this.state === 'finalizing') {
+      if (this.finalizationPromise) {
+        return this.finalizationPromise;
+      }
       return {
         ok: true,
         transcript: this.accumulator.getFinalizedText(),
@@ -206,42 +219,50 @@ export class VoiceController {
     const recorder = this.recorder;
     const liveSession = this.liveSession;
 
-    // 1. Stop audio recorder first
-    if (recorder) {
+    this.finalizationPromise = (async () => {
       try {
-        await recorder.stop();
-      } catch {
-        recorder.abort();
+        // 1. Stop audio recorder first
+        if (recorder) {
+          try {
+            await recorder.stop();
+          } catch {
+            recorder.abort();
+          }
+        }
+
+        // 2. Signal end of stream to Live session
+        if (liveSession) {
+          liveSession.endActivity();
+
+          // 3. Wait for final transcription events with grace period
+          const graceMs = this.options.gracePeriodMs ?? FINALIZATION_GRACE_PERIOD_MS;
+          try {
+            await liveSession.waitForFinal(graceMs);
+          } catch {
+            // Ignore grace period timeout
+          }
+
+          liveSession.close();
+        }
+
+        this.recorder = null;
+        this.liveSession = null;
+
+        const finalText = this.accumulator.getFinalizedText();
+        this.setState('idle');
+
+        const result: VoiceResult = {
+          ok: true,
+          transcript: finalText,
+        };
+        this.options.onComplete?.(result);
+        return result;
+      } finally {
+        this.finalizationPromise = null;
       }
-    }
+    })();
 
-    // 2. Signal end of stream to Live session
-    if (liveSession) {
-      liveSession.endActivity();
-
-      // 3. Wait for final transcription events with grace period
-      const graceMs = this.options.gracePeriodMs ?? FINALIZATION_GRACE_PERIOD_MS;
-      try {
-        await liveSession.waitForFinal(graceMs);
-      } catch {
-        // Ignore grace period timeout
-      }
-
-      liveSession.close();
-    }
-
-    this.recorder = null;
-    this.liveSession = null;
-
-    const finalText = this.accumulator.getFinalizedText();
-    this.setState('idle');
-
-    const result: VoiceResult = {
-      ok: true,
-      transcript: finalText,
-    };
-    this.options.onComplete?.(result);
-    return result;
+    return this.finalizationPromise;
   }
 
   /**
@@ -250,6 +271,7 @@ export class VoiceController {
   public abort(): VoiceResult {
     this.clearMaxDurationTimer();
     this.sessionToken++;
+    this.finalizationPromise = null;
 
     if (this.recorder) {
       this.recorder.abort();
@@ -275,10 +297,27 @@ export class VoiceController {
 
   /**
    * Handles errors during preparing/recording/finalizing.
-   * Crucial invariant: ALWAYS preserves accumulated transcript.
+   * Crucial invariant: ALWAYS preserves accumulated transcript and ensures single onComplete callback.
    */
   private handleFailure(err: unknown, token: number): VoiceResult {
-    if (token !== this.sessionToken) {
+    if (token !== this.sessionToken || this.state === 'idle') {
+      return {
+        ok: false,
+        transcript: this.accumulator.getFinalizedText(),
+      };
+    }
+
+    // If already finalizing, log error and allow the in-flight finalization promise to deliver terminal completion
+    if (this.state === 'finalizing') {
+      logError(err, { component: 'VoiceController', state: this.state });
+      if (this.recorder) {
+        this.recorder.abort();
+        this.recorder = null;
+      }
+      if (this.liveSession) {
+        this.liveSession.close();
+        this.liveSession = null;
+      }
       return {
         ok: false,
         transcript: this.accumulator.getFinalizedText(),
@@ -331,6 +370,7 @@ export class VoiceController {
   public dispose(): void {
     this.clearMaxDurationTimer();
     this.sessionToken++;
+    this.finalizationPromise = null;
 
     if (this.recorder) {
       this.recorder.abort();
@@ -342,6 +382,6 @@ export class VoiceController {
     }
 
     this.accumulator.clear();
-    this.state = 'idle';
+    this.setState('idle');
   }
 }

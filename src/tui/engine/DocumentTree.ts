@@ -1,4 +1,4 @@
-import { wrapVisualLine, measureNode, type PhysicalRow } from './cell-layout.js';
+import { measureNode, type PhysicalRow } from './cell-layout.js';
 import { formatUserMessage } from '../utils/message-formatter.js';
 import { historyLayoutCache } from './HistoryLayoutCache.js';
 
@@ -52,19 +52,11 @@ export class TextNode implements ComponentNode {
   }
 
   invalidateCache(): void {
-    this._cachedWidth = -1;
-    this._cachedWrapped = [];
+    // No-op: wrapping is owned by measureNode
   }
 
-  getLines(width: number, forceAll = false): string[] {
-    if (!this.wrap) return this.lines;
-    const effectiveWidth = this.maxReadableWidth ? Math.min(width, this.maxReadableWidth) : width;
-    if (!forceAll && effectiveWidth === this._cachedWidth) return this._cachedWrapped;
-    this._cachedWidth = effectiveWidth;
-    this._cachedWrapped = this.lines.flatMap((line) =>
-      wrapVisualLine(line, effectiveWidth, this.hangingIndent ?? 0),
-    );
-    return this._cachedWrapped;
+  getLines(_width?: number, _forceAll = false): string[] {
+    return this.lines;
   }
 }
 
