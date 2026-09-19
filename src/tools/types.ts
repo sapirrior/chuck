@@ -32,6 +32,7 @@ export interface FilePermissionResponse {
  */
 export interface ToolContext {
   cwd: string;
+  sessionId?: string;
   abortSignal?: AbortSignal;
   checkpointTracker?: MutationCheckpointTracker;
   mutationLocks?: MutationLockManager;

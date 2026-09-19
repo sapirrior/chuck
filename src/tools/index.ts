@@ -12,6 +12,11 @@ import { taskSendInputTool } from './task-send-input/index.js';
 import { taskKillTool } from './task-kill/index.js';
 import { webFetchTool } from './web-fetch/index.js';
 import { webSearchTool } from './web-search/index.js';
+import { todoWriteTool } from './todo-write/index.js';
+import { todoUpdateTool } from './todo-update/index.js';
+import { todoReadTool } from './todo-read/index.js';
+import { skillListTool } from './skill-list/index.js';
+import { skillReadTool } from './skill-read/index.js';
 import type { ToolContext, ToolDefinition } from './types.js';
 
 export const builtInTools: ToolDefinition<any, any>[] = [
@@ -28,6 +33,11 @@ export const builtInTools: ToolDefinition<any, any>[] = [
   taskKillTool,
   webFetchTool,
   webSearchTool,
+  todoWriteTool,
+  todoUpdateTool,
+  todoReadTool,
+  skillListTool,
+  skillReadTool,
 ];
 
 // Register all built-in tools into defaultToolCatalog
@@ -59,4 +69,9 @@ export * from './task-send-input/index.js';
 export * from './task-kill/index.js';
 export * from './web-fetch/index.js';
 export * from './web-search/index.js';
+export * from './todo-write/index.js';
+export * from './todo-update/index.js';
+export * from './todo-read/index.js';
+export * from './skill-list/index.js';
+export * from './skill-read/index.js';
 export * from './types.js';

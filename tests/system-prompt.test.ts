@@ -1,93 +1,79 @@
 import { describe, it, expect } from 'bun:test';
 import { buildSystemPrompt } from '../src/engine/system-prompt.js';
-import type { Skill } from '../src/skills/index.js';
 
 describe('System Prompt Structure & Invariants', () => {
-  it('should contain all required core sections and instructions', () => {
+  it('should contain concise agent identity and core operating principles', () => {
     const prompt = buildSystemPrompt({
       cwd: '/workspace/steward',
-      skills: [],
     });
 
-    const expectedSections = [
-      '# Tone and style',
-      '# Proactiveness',
-      '# Following conventions',
-      '# Code style',
-      '# Tool usage policy',
-      '# Task Management (Planning)',
-      '# Doing tasks',
-      '# Code References',
-      '<env>',
-      '</env>',
-    ];
-
-    for (const section of expectedSections) {
-      expect(prompt).toContain(section);
-    }
-
-    // Defensive security & feedback invariants
+    expect(prompt).toContain('You are Steward, an interactive software-engineering agent');
     expect(prompt).toContain('Assist with defensive security tasks only');
-    expect(prompt).toContain('https://github.com/sapirrior/steward');
+    expect(prompt).toContain('# Operating Principles');
+    expect(prompt).toContain('Inspect before editing');
+    expect(prompt).toContain('Minimal and idiomatic');
+    expect(prompt).toContain('Verify your changes');
+    expect(prompt).toContain(
+      'Never commit git changes unless the user explicitly requests you to commit',
+    );
+    expect(prompt).toContain('file_path:line_number');
   });
 
-  it('should contain mutation, planning, and task management instructions', () => {
+  it('should contain TodoWrite, TodoUpdate, and TodoRead policies and omit legacy plans', () => {
     const prompt = buildSystemPrompt({
       cwd: '/workspace/steward',
-      skills: [],
     });
 
-    expect(prompt).toContain('write file');
-    expect(prompt).toContain('edit file');
-    expect(prompt).toContain('.steward/plans/');
-    expect(prompt).toContain('WebFetch');
-    expect(prompt).toContain('◉');
+    expect(prompt).toContain('# Task and Plan Management (Todos)');
+    expect(prompt).toContain('TodoWrite');
+    expect(prompt).toContain('TodoUpdate');
+    expect(prompt).toContain('TodoRead');
+    expect(prompt).toContain('2 to 10 items');
+    expect(prompt).toContain("at most one item in 'in_progress' status");
+
+    // Must NOT contain old plan references
+    expect(prompt).not.toContain('.steward/plans/');
+    expect(prompt).not.toContain('◉');
+    expect(prompt).not.toContain('WebFetch');
+  });
+
+  it('should contain on-demand skill policy and not dynamically inject skill catalogs', () => {
+    const prompt = buildSystemPrompt({
+      cwd: '/workspace/steward',
+    });
+
+    expect(prompt).toContain('# Specialized Skills Policy');
+    expect(prompt).toContain('SkillList');
+    expect(prompt).toContain('SkillRead');
+    expect(prompt).not.toContain('<skills>');
+    expect(prompt).not.toContain('using read_file before proceeding');
   });
 
   it('should correctly format runtime environment block with provided cwd and platform', () => {
     const testCwd = '/custom/test/project';
     const prompt = buildSystemPrompt({
       cwd: testCwd,
-      skills: [],
     });
 
     expect(prompt).toContain(`Working directory: ${testCwd}`);
     expect(prompt).toContain(`Platform: ${process.platform}`);
-    expect(prompt).toContain('Is directory a git repo:');
     expect(prompt).toContain("Today's date:");
   });
 
-  it('should detect git repository status accurately and safely', () => {
-    const repoPrompt = buildSystemPrompt({
-      cwd: process.cwd(),
-      skills: [],
-    });
-    expect(repoPrompt).toContain('Is directory a git repo: yes');
-
-    const nonRepoPrompt = buildSystemPrompt({
-      cwd: '/non/existent/path/never/exists',
-      skills: [],
-    });
-    expect(nonRepoPrompt).toContain('Is directory a git repo: no');
-  });
-
-  it('should append user_defined_rules with updated exception references', () => {
+  it('should append user_defined_rules when configured', () => {
     const prompt = buildSystemPrompt({
       cwd: '/workspace/steward',
-      skills: [],
       userRules: ['Always format with prettier', 'Never use console.log in prod'],
     });
 
     expect(prompt).toContain('<user_defined_rules>');
     expect(prompt).toContain('- Always format with prettier');
     expect(prompt).toContain('- Never use console.log in prod');
-    expect(prompt).toContain('except for the operating_principles and security sections');
   });
 
   it('should append additional_instructions when provided', () => {
     const prompt = buildSystemPrompt({
       cwd: '/workspace/steward',
-      skills: [],
       extraInstructions: 'Session specific context goes here.',
     });
 
@@ -95,22 +81,12 @@ describe('System Prompt Structure & Invariants', () => {
     expect(prompt).toContain('Session specific context goes here.');
   });
 
-  it('should format and append discovered skills when present', () => {
-    const mockSkills: Skill[] = [
-      {
-        name: 'test-skill',
-        description: 'A mock skill for testing',
-        filePath: '/mock/path/SKILL.md',
-        content: '# Test Skill Content',
-      },
-    ];
-
+  it('should keep prompt size well under the 10KB ceiling', () => {
     const prompt = buildSystemPrompt({
       cwd: '/workspace/steward',
-      skills: mockSkills,
     });
 
-    expect(prompt).toContain('test-skill');
-    expect(prompt).toContain('A mock skill for testing');
+    const byteLength = Buffer.byteLength(prompt, 'utf-8');
+    expect(byteLength).toBeLessThan(10 * 1024);
   });
 });

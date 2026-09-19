@@ -7,7 +7,7 @@ import { Box, Text } from '../primitives/index.js';
 export type StatusBarVoiceState = 'idle' | 'connecting' | 'recording' | 'finishing';
 
 export interface StatusBarUpdateStatus {
-  state: 'idle' | 'checking' | 'no-updates' | 'available' | 'downloading' | 'ready' | 'error';
+  state: 'idle' | 'checking' | 'available' | 'no-updates' | 'error';
   version?: string;
   message?: string;
 }
@@ -64,6 +64,7 @@ export default class StatusBar extends Component<StatusBarProps, StatusBarState>
 
   private warningTimer: NodeJS.Timeout | null = null;
   private voiceTimer: NodeJS.Timeout | null = null;
+  private updateTimer: NodeJS.Timeout | null = null;
 
   constructor(props: StatusBarProps) {
     super(props);
@@ -75,6 +76,7 @@ export default class StatusBar extends Component<StatusBarProps, StatusBarState>
       warning: props.warning,
       voiceState: props.voiceState ?? 'idle',
       voiceDurationSec: props.voiceDurationSec ?? 0,
+      updateStatus: props.updateStatus,
     };
   }
 
@@ -105,10 +107,24 @@ export default class StatusBar extends Component<StatusBarProps, StatusBarState>
   }
 
   /**
-   * Updates the background updater status shown on the status bar.
+   * Updates the background updater status shown on the status bar, optionally clearing after durationMs.
    */
-  setUpdateStatus(updateStatus?: StatusBarUpdateStatus): void {
+  setUpdateStatus(updateStatus?: StatusBarUpdateStatus, durationMs?: number): void {
+    if (this.updateTimer) {
+      clearTimeout(this.updateTimer);
+      this.updateTimer = null;
+    }
+
     this.setState({ updateStatus });
+
+    if (updateStatus && durationMs && durationMs > 0) {
+      this.updateTimer = setTimeout(() => {
+        this.updateTimer = null;
+        if (this.state.updateStatus === updateStatus) {
+          this.setState({ updateStatus: undefined });
+        }
+      }, durationMs);
+    }
   }
 
   /**
@@ -138,6 +154,10 @@ export default class StatusBar extends Component<StatusBarProps, StatusBarState>
     if (this.voiceTimer) {
       clearInterval(this.voiceTimer);
       this.voiceTimer = null;
+    }
+    if (this.updateTimer) {
+      clearTimeout(this.updateTimer);
+      this.updateTimer = null;
     }
   }
 
@@ -174,14 +194,12 @@ export default class StatusBar extends Component<StatusBarProps, StatusBarState>
     } else if (updateStatus && updateStatus.state !== 'idle') {
       if (updateStatus.state === 'checking') {
         left = chalk.white(updateStatus.message ?? 'Checking for updates...');
-      } else if (updateStatus.state === 'no-updates') {
-        left = chalk.white(updateStatus.message ?? 'No updates found');
       } else if (updateStatus.state === 'available') {
-        left = chalk.white(updateStatus.message ?? `Found version v${updateStatus.version ?? ''}`);
-      } else if (updateStatus.state === 'downloading') {
-        left = chalk.white(updateStatus.message ?? `Downloading v${updateStatus.version ?? ''}...`);
-      } else if (updateStatus.state === 'ready') {
-        left = chalk.white.bold(updateStatus.message ?? 'Update complete · Restart to apply');
+        left = chalk.white(
+          updateStatus.message ?? `Update v${updateStatus.version ?? ''} is available`,
+        );
+      } else if (updateStatus.state === 'no-updates') {
+        left = chalk.white(updateStatus.message ?? 'Steward is up to date');
       } else if (updateStatus.state === 'error' && updateStatus.message) {
         left = themeColor(theme.error)(updateStatus.message);
       } else if (isBusy) {

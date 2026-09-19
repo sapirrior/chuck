@@ -42,13 +42,12 @@ export class ToolCatalog {
   /**
    * Converts all registered tools into AI SDK v7 `tool(...)` instances.
    */
-  public toAISDKTools(context: ToolContext): Record<string, any> {
-    const aiTools: Record<string, any> = {};
+  public toAISDKTools(context: ToolContext): Record<string, ReturnType<typeof createAISDKTool>> {
+    const aiTools: Record<string, ReturnType<typeof createAISDKTool>> = {};
 
     for (const [name, def] of this.tools.entries()) {
-      aiTools[name] = (createAISDKTool as any)({
+      aiTools[name] = createAISDKTool({
         description: def.description,
-        inputSchema: def.parameters,
         parameters: def.parameters,
         execute: async (args: any) => {
           return def.execute(args, context);

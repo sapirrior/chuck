@@ -1,7 +1,9 @@
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { isAbsolute, join, normalize, resolve, sep } from 'node:path';
 import type { Skill } from './types.js';
+
+const MAX_SKILL_FILE_SIZE = 64 * 1024; // 64 KiB limit
 
 /**
  * Parses simple YAML frontmatter from a markdown string to extract name and description.
@@ -142,21 +144,87 @@ export function discoverSkills(cwd: string = process.cwd()): Skill[] {
 }
 
 /**
- * Formats discovered skills for injection into the agent system prompt.
+ * Retrieves a single discovered skill by exact name.
  */
-export function formatSkillsForSystemPrompt(skills: Skill[]): string {
-  if (skills.length === 0) return '';
+export function getSkill(name: string, cwd: string = process.cwd()): Skill | null {
+  const cleanName = name.trim();
+  const all = discoverSkills(cwd);
+  return all.find((s) => s.name.toLowerCase() === cleanName.toLowerCase()) ?? null;
+}
 
-  const list = skills.map((s) => `- ${s.name} (${s.filePath}): ${s.description}`).join('\n');
+export interface SkillReadOutput {
+  name: string;
+  description: string;
+  source: Skill['source'];
+  resourcePath: string;
+  content: string;
+}
 
-  return `<skills>
-You can use specialized 'skills' to help you with complex tasks.
+/**
+ * Reads a skill's primary instruction (SKILL.md) or a relative resource file within the skill directory.
+ * Strictly prevents path traversal outside the skill's root directory.
+ */
+export function readSkillResource(
+  name: string,
+  relativePath?: string,
+  cwd: string = process.cwd(),
+  maxBytes: number = MAX_SKILL_FILE_SIZE,
+): SkillReadOutput {
+  const skill = getSkill(name, cwd);
+  if (!skill) {
+    throw new Error(`Skill "${name}" not found`);
+  }
 
-Skills are folders of instructions, scripts, and resources that extend your capabilities for specialized tasks. Each skill folder contains a SKILL.md file with YAML frontmatter and detailed markdown instructions.
+  let targetFilePath: string;
 
-Available skills:
-${list}
+  if (!relativePath || !relativePath.trim()) {
+    targetFilePath = skill.filePath;
+  } else {
+    const trimmedPath = relativePath.trim();
+    if (isAbsolute(trimmedPath)) {
+      throw new Error(
+        `Invalid skill resource path: absolute paths are not permitted (${trimmedPath})`,
+      );
+    }
 
-If a skill seems relevant to your current task, you MUST read its SKILL.md instructions using read_file before proceeding.
-</skills>`;
+    const normalizedRelative = normalize(trimmedPath);
+    if (normalizedRelative.startsWith('..') || normalizedRelative.includes(`${sep}..`)) {
+      throw new Error(
+        `Invalid skill resource path: directory traversal ("..") is forbidden (${trimmedPath})`,
+      );
+    }
+
+    targetFilePath = resolve(skill.dirPath, normalizedRelative);
+
+    // Verify resolved path is strictly within the skill directory
+    const resolvedDir = resolve(skill.dirPath);
+    if (!targetFilePath.startsWith(resolvedDir + sep) && targetFilePath !== resolvedDir) {
+      throw new Error(`Resource "${trimmedPath}" resolves outside skill directory`);
+    }
+  }
+
+  if (!existsSync(targetFilePath)) {
+    throw new Error(`Skill resource file "${targetFilePath}" does not exist`);
+  }
+
+  const stat = statSync(targetFilePath);
+  if (!stat.isFile()) {
+    throw new Error(`Skill resource path "${targetFilePath}" is not a regular file`);
+  }
+
+  if (stat.size > maxBytes) {
+    throw new Error(
+      `Skill resource file exceeds size limit of ${maxBytes} bytes (file is ${stat.size} bytes)`,
+    );
+  }
+
+  const content = readFileSync(targetFilePath, 'utf-8');
+
+  return {
+    name: skill.name,
+    description: skill.description,
+    source: skill.source,
+    resourcePath: targetFilePath,
+    content,
+  };
 }

@@ -5,13 +5,21 @@ import { ShellExecution } from '../../services/tasks/process.js';
 import { evaluateBashPermission } from './permissions.js';
 
 export const bashInputSchema = z.object({
-  command: z.string().min(1).describe('The command to execute in the system shell.'),
+  command: z
+    .string({
+      required_error: 'command is required',
+    })
+    .min(1, 'command cannot be empty')
+    .describe('The command to execute in the system shell.'),
   explanation: z
-    .string()
-    .min(1)
+    .string({
+      required_error: 'An explanation is mandatory for running a bash command.',
+      invalid_type_error: 'explanation must be a string.',
+    })
+    .min(1, 'An explanation is mandatory for running a bash command.')
     .max(240)
     .describe(
-      'Brief sentence explaining why this command is needed (displayed in permission prompt).',
+      'Mandatory brief sentence explaining why this command is needed and what it does (displayed in permission prompt).',
     ),
 });
 
@@ -44,9 +52,13 @@ export const bashTool: ToolDefinition<typeof bashInputSchema, BashOutput> = {
   name: 'bash',
   displayName: 'Bash',
   description:
-    'Executes a command in the platform shell. Commands that exceed the foreground limit (~12s) automatically continue as background shell tasks. Use task_read, task_send_input, and task_kill to manage background tasks. Note: Bash commands are NOT tracked by the file checkpoint system (/rewind).',
+    'Executes a command in the platform shell. An explanation of what the command does and why it is needed is MANDATORY. Commands that exceed the foreground limit (~12s) automatically continue as background shell tasks. Use task_read, task_send_input, and task_kill to manage background tasks. Note: Bash commands are NOT tracked by the file checkpoint system (/rewind).',
   parameters: bashInputSchema,
   confirmationPolicy: 'never',
+
+  summarizeArgs: (args) => {
+    return args.command ?? '';
+  },
 
   summarize: (_args, result) => {
     if (result && 'status' in result && result.status === 'backgrounded') {
@@ -57,11 +69,14 @@ export const bashTool: ToolDefinition<typeof bashInputSchema, BashOutput> = {
   },
 
   execute: async (args, context) => {
-    const command = args.command.trim();
-    const explanation = args.explanation.trim();
+    const command = typeof args?.command === 'string' ? args.command.trim() : '';
+    if (!command) {
+      throw new Error('Command is required and cannot be empty.');
+    }
 
+    const explanation = typeof args?.explanation === 'string' ? args.explanation.trim() : '';
     if (!explanation) {
-      throw new Error('An explanation is required for running a bash command.');
+      throw new Error('An explanation is mandatory for running a bash command.');
     }
 
     // Permission evaluation

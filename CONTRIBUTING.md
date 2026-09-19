@@ -31,8 +31,8 @@ bun run dev
 ```
 src/
 ├── engine/       # Agent loop, model orchestration, system prompt
-├── tools/        # Tool definitions exposed to the model (confined to .steward/)
-├── tui/          # Alternate-screen TUI engine, renderer, layout
+├── tools/        # Tool definitions exposed to the model
+├── services/     # Infrastructure subsystems (Tasks, Checkpoints, Todos, Updater)
 ├── commands/     # Slash command system (/model, /effort, /clear, /resume, etc.)
 ├── config/       # Environment and settings
 ├── models/       # Model discovery and provider mapping

@@ -122,6 +122,8 @@ export function formatToolStatus(options: {
   let mainLine = `${bullet} ${dispName}`;
   if (truncatedArg) {
     mainLine += `${chalk.dim('(')}${chalk.dim(truncatedArg)}${chalk.dim(')')}`;
+  } else {
+    mainLine += `${chalk.dim('()')}`;
   }
 
   const lines: string[] = [mainLine];

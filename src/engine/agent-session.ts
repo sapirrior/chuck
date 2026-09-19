@@ -256,6 +256,7 @@ export class AgentSession {
 
     const toolContext: ToolContext = {
       cwd,
+      sessionId: this.sessionData.id,
       abortSignal: this.activeAbortController.signal,
       checkpointTracker: tracker,
       mutationLocks: globalMutationLockManager,
@@ -274,6 +275,7 @@ export class AgentSession {
     }
 
     const instructions = buildSystemPrompt({
+      cwd,
       extraInstructions: options.extraInstructions,
     });
 

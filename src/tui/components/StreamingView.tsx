@@ -145,6 +145,8 @@ export default class StreamingView extends Component<{}, StreamingViewState> {
         const truncatedArg =
           targetArg.length > maxArgLen ? truncateMiddle(targetArg, maxArgLen) : targetArg;
         line += `${chalk.dim('(')}${chalk.dim(truncatedArg)}${chalk.dim(')')}`;
+      } else {
+        line += `${chalk.dim('()')}`;
       }
       lines.push(line);
 
