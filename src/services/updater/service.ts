@@ -1,14 +1,12 @@
 import { spawn } from 'node:child_process';
+import pkg from '../../../package.json' with { type: 'json' };
 import { logError } from '../../errors/index.js';
 import type { AutoUpdaterOptions, UpdateInfo, UpdateState } from './types.js';
 
-const GITHUB_REPO = 'sapirrior/steward';
-const LATEST_RELEASE_API = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
-const INSTALL_SH_URL = `https://raw.githubusercontent.com/${GITHUB_REPO}/main/installer/install.sh`;
-const INSTALL_PS1_URL = `https://raw.githubusercontent.com/${GITHUB_REPO}/main/installer/install.ps1`;
+const DEFAULT_REPO = 'sapirrior/steward';
 
 function parseSemver(v: string): [number, number, number] {
-  const clean = v.replace(/^v/i, '').trim();
+  const clean = v.replace(/^v/i, '').trim().split('-')[0] ?? '';
   const parts = clean.split('.').map((p) => parseInt(p, 10) || 0);
   return [parts[0] ?? 0, parts[1] ?? 0, parts[2] ?? 0];
 }
@@ -28,18 +26,41 @@ export function isNewerVersion(current: string, latest: string): boolean {
 
 export class AutoUpdaterService {
   private currentVersion: string;
+  private repo: string;
   private state: UpdateState = 'idle';
   private options: AutoUpdaterOptions;
   private checkTimer: NodeJS.Timeout | null = null;
+  private intervalTimer: NodeJS.Timeout | null = null;
   private isUpdating = false;
 
   constructor(options: AutoUpdaterOptions = {}) {
     this.options = options;
-    this.currentVersion = options.currentVersion ?? '0.0.0';
+    this.currentVersion = options.currentVersion || (pkg.version as string) || '0.0.0';
+    this.repo = options.repo || DEFAULT_REPO;
   }
 
   public getState(): UpdateState {
     return this.state;
+  }
+
+  public getRepo(): string {
+    return this.repo;
+  }
+
+  public getCurrentVersion(): string {
+    return this.currentVersion;
+  }
+
+  private get latestReleaseApi(): string {
+    return `https://api.github.com/repos/${this.repo}/releases/latest`;
+  }
+
+  private get installShUrl(): string {
+    return `https://raw.githubusercontent.com/${this.repo}/main/installer/install.sh`;
+  }
+
+  private get installPs1Url(): string {
+    return `https://raw.githubusercontent.com/${this.repo}/main/installer/install.ps1`;
   }
 
   private setState(state: UpdateState, info?: { version?: string; message?: string }): void {
@@ -51,12 +72,19 @@ export class AutoUpdaterService {
    * Checks GitHub releases API for the latest version tag.
    */
   public async checkForUpdates(): Promise<UpdateInfo | null> {
+    if (
+      process.env.STEWARD_NO_UPDATE_CHECK === '1' ||
+      process.env.STEWARD_NO_UPDATE_CHECK === 'true'
+    ) {
+      return null;
+    }
+
     try {
       this.setState('checking', { message: 'Checking for updates...' });
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), this.options.timeoutMs ?? 10000);
 
-      const response = await fetch(LATEST_RELEASE_API, {
+      const response = await fetch(this.latestReleaseApi, {
         headers: {
           'User-Agent': `steward-cli/${this.currentVersion}`,
           Accept: 'application/vnd.github.v3+json',
@@ -130,14 +158,20 @@ export class AutoUpdaterService {
       if (isWindows) {
         childProcess = spawn(
           'powershell',
-          ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', `irm ${INSTALL_PS1_URL} | iex`],
+          [
+            '-NoProfile',
+            '-ExecutionPolicy',
+            'Bypass',
+            '-Command',
+            `irm ${this.installPs1Url} | iex`,
+          ],
           {
             stdio: 'ignore',
             windowsHide: true,
           },
         );
       } else {
-        childProcess = spawn('bash', ['-c', `curl -fsSL ${INSTALL_SH_URL} | bash`], {
+        childProcess = spawn('bash', ['-c', `curl -fsSL ${this.installShUrl} | bash`], {
           stdio: 'ignore',
           env: {
             ...process.env,
@@ -202,17 +236,27 @@ export class AutoUpdaterService {
    * Starts a non-blocking background check after initialDelayMs, automatically
    * downloading and installing if an update is found.
    */
-  public startBackgroundCheck(initialDelayMs = 2000): void {
+  public startBackgroundCheck(initialDelayMs = 2000, intervalMs?: number): void {
     if (this.checkTimer) clearTimeout(this.checkTimer);
+    if (this.intervalTimer) clearInterval(this.intervalTimer);
 
-    this.checkTimer = setTimeout(async () => {
-      this.checkTimer = null;
+    const performCheck = async () => {
       const update = await this.checkForUpdates();
       if (update && update.hasUpdate) {
         // Small delay to let user see "Found version vN..." before downloading
         setTimeout(async () => {
           await this.installUpdate(update.latestVersion);
         }, 1200);
+      }
+    };
+
+    this.checkTimer = setTimeout(async () => {
+      this.checkTimer = null;
+      await performCheck();
+
+      const recurringInterval = intervalMs ?? this.options.checkIntervalMs;
+      if (recurringInterval && recurringInterval > 0) {
+        this.intervalTimer = setInterval(performCheck, recurringInterval);
       }
     }, initialDelayMs);
   }
@@ -221,6 +265,10 @@ export class AutoUpdaterService {
     if (this.checkTimer) {
       clearTimeout(this.checkTimer);
       this.checkTimer = null;
+    }
+    if (this.intervalTimer) {
+      clearInterval(this.intervalTimer);
+      this.intervalTimer = null;
     }
   }
 }

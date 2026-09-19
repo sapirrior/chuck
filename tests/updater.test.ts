@@ -22,10 +22,23 @@ describe('AutoUpdaterService', () => {
     });
   });
 
-  describe('Service lifecycle', () => {
+  describe('Service lifecycle and dynamic configuration', () => {
     it('starts in idle state', () => {
       const updater = new AutoUpdaterService({ currentVersion: '0.11.0' });
       expect(updater.getState()).toBe('idle');
+      updater.dispose();
+    });
+
+    it('dynamically falls back to package version and default repo', () => {
+      const updater = new AutoUpdaterService();
+      expect(updater.getCurrentVersion()).toBeTruthy();
+      expect(updater.getRepo()).toBe('sapirrior/steward');
+      updater.dispose();
+    });
+
+    it('accepts custom repo dynamically', () => {
+      const updater = new AutoUpdaterService({ repo: 'custom-org/custom-repo' });
+      expect(updater.getRepo()).toBe('custom-org/custom-repo');
       updater.dispose();
     });
   });

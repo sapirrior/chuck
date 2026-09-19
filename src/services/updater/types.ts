@@ -11,7 +11,9 @@ export interface UpdateInfo {
 
 export interface AutoUpdaterOptions {
   currentVersion?: string;
+  repo?: string;
   onStatusChange?: (state: UpdateState, info?: { version?: string; message?: string }) => void;
   checkOnStart?: boolean;
   timeoutMs?: number;
+  checkIntervalMs?: number;
 }
